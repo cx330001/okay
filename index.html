@@ -4180,6 +4180,67 @@ input:checked + .slider:before {
     /* 其他样式将复用 .at-mention-popup 的现有样式 */
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】群公告板弹窗样式 ▼▼▼ */
+#announcement-board-modal .modal-content {
+    height: 70%;
+    background-color: #f0f2f5;
+}
+#announcement-board-content {
+    padding: 15px;
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* 公告之间的间距 */
+}
+#announcement-board-content .message-wrapper {
+    max-width: 100%; /* 让公告消息可以撑满宽度 */
+    align-self: center;
+}
+#announcement-board-content .timestamp {
+    display: none; /* 公告板内不显示时间戳 */
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】公告板卡片管理样式 ▼▼▼ */
+.announcement-item-wrapper {
+    position: relative; /* 为了定位操作按钮 */
+    padding: 10px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.announcement-item-actions {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1;
+    border-radius: 50%;
+}
+.announcement-item-actions:hover {
+    background-color: #f0f0f0;
+}
+.pinned-indicator {
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    width: 28px;
+    height: 28px;
+    background-color: #ffc107;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border: 2px solid white;
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -4513,14 +4574,7 @@ input:checked + .slider:before {
             </div>
 <div class="header-actions">
                 <span class="action-btn" id="listen-together-btn" title="一起听"><img src="https://i.postimg.cc/dV8sdNcx/210-20250618115221.png" alt="一起听"></span>
-                <span class="action-btn" id="group-announcement-btn" title="群公告" style="display: none;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                        <polyline points="13 2 13 9 20 9"></polyline>
-                        <line x1="12" y1="18" x2="12" y2="12"></line>
-                        <line x1="9" y1="15" x2="15" y2="15"></line>
-                    </svg>
-                </span>
+
                 <span class="action-btn" id="chat-settings-btn" title="聊天设置"><img src="https://i.postimg.cc/bvPq64cv/CCA834-BA-5-A90-408-D-94-FA-7-EE156-B6-A765.png" alt="设置"></span>
             </div>
         </div>
@@ -4557,6 +4611,9 @@ input:checked + .slider:before {
             <button id="group-video-call-btn" class="chat-action-icon-btn action-button" title="群视频通话"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
             <button id="send-poll-btn" class="chat-action-icon-btn action-button" title="发起投票"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h10"></path><path d="M6 6h.01"></path><path d="M8 12h10"></path><path d="M6 12h.01"></path><path d="M8 18h10"></path><path d="M6 18h.01"></path></svg></button>
             <button id="share-link-btn" class="chat-action-icon-btn action-button" title="分享链接"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
+<button id="show-announcement-board-btn" class="chat-action-icon-btn action-button" title="群公告板" style="display: none;">
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21.782 6.132a1 1 0 0 0-1.053-.08l-4.729 2.489a1 1 0 0 0-.5.88v4.158a1 1 0 0 0 .5.88l4.729 2.489a1 1 0 0 0 1.053-.08a1 1 0 0 0 .499-.921V7.052a1 1 0 0 0-.499-.92zm-6 3.207L11 7.05v9.9l4.782-2.281V9.339zM10 6H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6V6z"/></svg>
+</button>
         </div>
         <div id="chat-input-main-row">
             <textarea id="chat-input" rows="1" placeholder="输入消息..."></textarea>
@@ -4836,14 +4893,7 @@ input:checked + .slider:before {
     <!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 
 <div class="form-group" id="my-group-nickname-group"><label for="my-group-nickname-input">我的群昵称</label><input type="text" id="my-group-nickname-input"></div>
-<div class="form-group" id="group-announcement-group">
-    <label for="group-announcement-input">群公告</label>
-    <textarea id="group-announcement-input" rows="3" placeholder="输入公告内容..."></textarea>
-    <div style="display: flex; align-items: center; margin-top: 10px;">
-        <label for="pin-announcement-toggle" style="margin: 0; font-weight: normal; color: var(--text-secondary); font-size: 14px;">置顶公告 (置顶后AI才能看到并遵守)</label>
-        <input type="checkbox" id="pin-announcement-toggle" style="width: auto; height: 18px; margin-left: auto;">
-    </div>
-</div>
+
 <div class="form-group" id="group-avatar-group"><label>群头像</label><div class="avatar-upload"><img id="group-avatar-preview"><button onclick="document.getElementById('group-avatar-input').click()">上传群头像</button><input type="file" id="group-avatar-input" accept="image/*"></div></div>
             <div class="form-group" id="world-book-link-group">
                 <label>关联世界书 (可多选)</label>
@@ -5087,6 +5137,7 @@ input:checked + .slider:before {
             <button id="edit-message-btn">编辑消息</button>
             <button id="copy-message-btn">复制文本</button>
             <button id="recall-message-btn">撤回</button>
+<button id="publish-to-announcement-btn" style="display: none;">发布到公告板</button>
 <button id="quote-message-btn">引用</button>
             <button id="select-message-btn">进入多选</button>
             <!-- 取消按钮 -->
@@ -5427,18 +5478,28 @@ input:checked + .slider:before {
     </div>
 </div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
-<div id="group-announcement-modal" class="modal">
-    <div class="modal-content" style="height: 60%;">
+<div id="announcement-board-modal" class="modal">
+    <div class="modal-content">
         <div class="modal-header">
-            <span>群公告</span>
+            <span>群公告板</span>
         </div>
-        <div class="modal-body" id="group-announcement-body" style="white-space: pre-wrap; line-height: 1.6;">
+        <div id="announcement-board-content">
             </div>
         <div class="modal-footer">
-            <button class="save" id="close-announcement-modal-btn" style="width: 100%;">关闭</button>
+            <button class="save" id="close-announcement-board-btn" style="width: 100%;">关闭</button>
         </div>
     </div>
 </div>
+<div id="announcement-actions-modal" class="modal">
+    <div id="custom-modal" style="width: 250px;">
+        <div class="custom-modal-footer">
+            <button id="announcement-action-pin">置顶公告</button>
+            <button id="announcement-action-delete" class="btn-danger">删除公告</button>
+            <button id="announcement-action-cancel" style="margin-top: 8px; border-radius: 8px; background-color: #f0f0f0;">取消</button>
+        </div>
+    </div>
+</div>
+
 <script>
 
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
@@ -7335,7 +7396,7 @@ async function openChat(chatId) {
     window.updateListenTogetherIconProxy(state.activeChatId);
     toggleCallButtons(chat.isGroup || false);    
 // ▼▼▼ 在这里新增 ▼▼▼
-document.getElementById('group-announcement-btn').style.display = chat.isGroup ? 'flex' : 'none';
+document.getElementById('show-announcement-board-btn').style.display = chat.isGroup ? 'flex' : 'none';
 // ▲▲▲ 新增结束 ▲▲▲
     if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
         console.log(`检测到好友申请待处理状态，为角色 "${chat.name}" 自动触发AI响应...`);
@@ -7497,6 +7558,7 @@ ${contextSummary || "（无有效对话记录）"}
         // ▲▲▲ 挂载记忆逻辑结束 ▲▲▲
 
         const now = new Date();
+      
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
         let worldBookContent = '';
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
@@ -7579,20 +7641,30 @@ ${formattedHistory}
 ---
 `;
         }
+if (chat.isGroup) {
+        const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
+        const myNickname = chat.settings.myNickname || '我';
 
-        if (chat.isGroup) {
-            const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
-            const myNickname = chat.settings.myNickname || '我';
-                // ▼▼▼ 在这里新增 ▼▼▼
-    let announcementContext = '';
-    if (chat.settings.announcement && chat.settings.announcement.isPinned && chat.settings.announcement.text) {
-        announcementContext = `【【【群公告 (最高优先级)】】】
-你【必须】阅读、理解并严格遵守以下群公告的所有内容，它凌驾于你的人设之上。
-${chat.settings.announcement.text}
-`;
-}
-// ▲▲▲ 新增结束 ▲▲▲
-            systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+        // ▼▼▼ 在这里新增公告注入逻辑 ▼▼▼
+        let announcementContext = '';
+        const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
+        if (pinnedAnnouncements.length > 0) {
+            announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
+            pinnedAnnouncements.forEach(anno => {
+                const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+                if (originalMessage) {
+                    let contentText = String(originalMessage.content || '');
+                    if (originalMessage.type === 'ai_image') {
+                        contentText = `[图片内容: ${contentText}]`;
+                    }
+                    announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+                }
+            });
+            announcementContext += '---\n';
+        }
+        // ▲▲▲ 新增逻辑结束 ▲▲▲
+
+        systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方“群成员列表”中明确列出的角色。任何不属于该列表的名字都不允许出现。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
@@ -8955,55 +9027,53 @@ function stopBackgroundSimulation() {
 /**
  * 这是模拟器的“心跳”，每次定时器触发时运行
  */
+// ▼▼▼ 从这里开始替换 ▼▼▼
+/**
+ * 这是模拟器的“心跳”，每次定时器触发时运行
+ */
 function runBackgroundSimulationTick() {
     console.log("模拟器心跳 Tick...");
     if (!state.globalSettings.enableBackgroundActivity) {
         stopBackgroundSimulation();
         return;
     }
+
+    // --- 1. 处理所有单聊 ---
     const allSingleChats = Object.values(state.chats).filter(chat => !chat.isGroup);
-
-    if (allSingleChats.length === 0) return;
-
     allSingleChats.forEach(chat => {
-        // 【核心修正】将两种状态检查分离开，逻辑更清晰
-
-        // 检查1：处理【被用户拉黑】的角色
+        // 处理【被用户拉黑】的角色
         if (chat.relationship?.status === 'blocked_by_user') {
             const blockedTimestamp = chat.relationship.blockedTimestamp;
-            // 安全检查：确保有拉黑时间戳
-            if (!blockedTimestamp) {
-                console.warn(`角色 "${chat.name}" 状态为拉黑，但缺少拉黑时间戳，跳过处理。`);
-                return; // 跳过这个角色，继续下一个
-            }
-
+            if (!blockedTimestamp) return;
             const blockedDuration = Date.now() - blockedTimestamp;
             const cooldownMilliseconds = (state.globalSettings.blockCooldownHours || 1) * 60 * 60 * 1000;
-
-            console.log(`检查角色 "${chat.name}"：已拉黑 ${Math.round(blockedDuration/1000/60)}分钟，冷静期需 ${cooldownMilliseconds/1000/60}分钟。`); // 添加日志
-
-            // 【核心修改】移除了随机概率，只要冷静期一过，就触发！
             if (blockedDuration > cooldownMilliseconds) {
-                console.log(`角色 "${chat.name}" 的冷静期已过，触发“反思”并申请好友事件...`);
-                
-                // 【重要】为了防止在AI响应前重复触发，我们在触发后立刻更新状态
-                chat.relationship.status = 'pending_system_reflection'; // 设置一个临时的、防止重复触发的状态
-                
+                chat.relationship.status = 'pending_system_reflection';
                 triggerAiFriendApplication(chat.id);
             }
         }
-        // 检查2：处理【好友关系】的正常后台活动
+        // 处理【好友关系】的正常后台活动
         else if (chat.relationship?.status === 'friend' && chat.id !== state.activeChatId) {
-            // 这里的随机触发逻辑保持不变，因为我们不希望所有好友同时行动
-            if (Math.random() < 0.20) {
+            if (Math.random() < 0.20) { // 单聊保持20%的几率
                 console.log(`角色 "${chat.name}" 被唤醒，准备独立行动...`);
                 triggerInactiveAiAction(chat.id);
             }
         }
     });
-}
 
-// ▼▼▼ 用下面这个【完整的、已修正】的新函数，替换掉您代码里旧的 triggerInactiveAiAction 函数 ▼▼▼
+    // --- 2. 【全新】处理所有群聊 ---
+    const allGroupChats = Object.values(state.chats).filter(chat => chat.isGroup);
+    allGroupChats.forEach(chat => {
+        // 确保不在当前打开的聊天窗口，且通过随机概率检查
+        if (chat.id !== state.activeChatId && Math.random() < 0.10) { // 群聊几率可以设低一些，比如10%，避免太吵
+            console.log(`群聊 "${chat.name}" 被唤醒，准备独立行动...`);
+            triggerGroupAiAction(chat.id); // 调用我们为群聊新建的函数！
+        }
+    });
+}
+// ▲▲▲ 到这里替换结束 ▲▲▲
+
+// ▼▼▼ 【全新的、干净的】AI独立行动函数 ▼▼▼
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -9011,9 +9081,9 @@ async function triggerInactiveAiAction(chatId) {
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
 
-    const now = new Date();
-    const currentTime = now.toLocaleTimeString('zh-CN', { hour: 'numeric', minute: 'numeric', hour12: true });
+    // 【核心修正】在这里补上缺失的 userNickname 变量定义
     const userNickname = state.qzoneSettings.nickname;
+    const now = new Date();
 
     const lastUserMessage = chat.history.filter(m => m.role === 'user' && !m.isHidden).slice(-1)[0];
     const lastAiMessage = chat.history.filter(m => m.role === 'assistant' && !m.isHidden).slice(-1)[0];
@@ -9036,16 +9106,14 @@ async function triggerInactiveAiAction(chatId) {
         }
     }
 
-    // ▼▼▼ 核心修正2：在这里重构了System Prompt，给AI更明确的 fallback 指令 ▼▼▼
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 # 核心规则
-1.  **优先互动**：如果下方的“最近的动态列表”中有你【尚未互动过】的动态，你应该优先选择对它进行评论或点赞。
-2.  **【【【重要备选方案】】】**：如果动态列表是空的，或者你已经与所有动态都互动过了，你【必须】考虑执行其他行动来展示你的生活，例如：
-    -   **发布一条你自己的动态** (使用 \`qzone_post\` 指令)。
-    -   **给用户发送一条消息**，并更新你自己的状态 (使用 \`update_status\` 和 \`text\` 指令)。
-3.  你的回复【必须】是包含一个对象的JSON数组。
+1.  **【【【决策依据】】】**: 你的所有行动（无论是发动态、评论还是发消息）都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。不要凭空捏造与上下文无关的内容。
+2.  **优先互动**：如果下方的“最近的动态列表”中有你【尚未互动过】的动态，你应该优先选择对它进行评论或点赞。
+3.  **【备选方案】**：如果动态列表是空的，或者你已经与所有动态都互动过了，你【必须】考虑执行其他行动来展示你的生活，例如发布一条你自己的动态或给用户发送一条消息。
+4.  你的回复【必须】是包含一个对象的JSON数组。
 
 # 你的可选行动指令:
 -   **发消息+更新状态**: \`[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]\`
@@ -9058,34 +9126,24 @@ async function triggerInactiveAiAction(chatId) {
 # 供你决策的参考信息：
 -   **你的角色设定**: ${chat.settings.aiPersona}
 ${worldBookContent}
--   **当前时间**: ${currentTime}
+-   **当前时间**: ${now.toLocaleString('zh-CN', { timeStyle: 'short' })}
 -   **你们最后的对话摘要**: ${recentContextSummary}`;
-    // ▲▲▲ 修正结束 ▲▲▲
-
-const maxMemory = parseInt(chat.settings.maxMemory) || 10;
-const historySlice = chat.history.slice(-maxMemory);
-const messagesPayload = [
-    { role: 'system', content: systemPrompt },
-    ...historySlice // <-- 核心修正：在这里把聊天记录加进去
-];
 
     try {
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(3).toArray();
         const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
         const aiName = chat.name;
-        
-        // ▼▼▼ 核心修正1：在这里过滤掉已经互动过的动态 ▼▼▼
+
         const unInteractedPosts = visiblePosts.filter(post => {
             const alreadyLiked = post.likes && post.likes.includes(aiName);
             const alreadyCommented = post.comments && post.comments.some(c => c.commenterName === aiName);
             return !alreadyLiked && !alreadyCommented;
         });
-        // ▲▲▲ 修正结束 ▲▲▲
 
         let dynamicContext = ""; 
         if (unInteractedPosts.length > 0) {
             let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            for (const post of unInteractedPosts) { // 只使用未互动过的帖子
+            for (const post of unInteractedPosts) {
                 let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
                 const contentSummary = (post.publicText || post.content || "图片动态").substring(0, 30) + '...';
                 postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
@@ -9093,21 +9151,20 @@ const messagesPayload = [
             dynamicContext = postsContext;
         }
 
-        messagesPayload.push({
-            role: 'user',
-            content: `[系统指令：请根据你在 system prompt 中读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}`
-        });
-        
-        console.log(`正在为后台活动发送API请求 ("${chat.name}")，Payload:`, JSON.stringify(messagesPayload, null, 2));
+        const messagesPayload = [
+            { role: 'user', content: `${systemPrompt}\n\n[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
+        ];
+
+        console.log(`正在为后台活动发送API请求 ("${chat.name}")`);
 
         let  isGemini = proxyUrl === GEMINI_API_URL;
-        let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
+        let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload);
         const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
             body: JSON.stringify({
                 model: model,
-                messages: messagesPayload,
+                messages: [{role: 'system', content: systemPrompt}, ...messagesPayload.slice(1)],
                 temperature: 0.9,
             })
         });
@@ -9117,7 +9174,7 @@ const messagesPayload = [
             throw new Error(`API请求失败: ${response.status} - ${JSON.stringify(errorData)}`);
         }
         const data = await response.json();
-        
+
         const aiResponseContent = isGemini ? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
 
         if (!aiResponseContent || aiResponseContent.trim() === '') {
@@ -9126,12 +9183,12 @@ const messagesPayload = [
         }
 
         const responseArray = parseAiResponse(aiResponseContent);
-        
+
         if (!responseArray || responseArray.length === 0) {
              console.warn(`API格式不正确，角色 "${chat.name}" 的本次后台活动跳过。原始回复:`, aiResponseContent);
              return;
         }
-        
+
         for (const action of responseArray) {
             if (!action) continue;
 
@@ -9198,6 +9255,13 @@ const messagesPayload = [
         console.error(`角色 "${chat.name}" 的独立行动失败:`, error);
     }
 }
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
+
+
+
+
+
+
 // ▼▼▼ 请用这个【终极修正版】函数，完整替换掉你旧的 applyScopedCss 函数 ▼▼▼
 
 /**
@@ -9344,6 +9408,10 @@ async function deleteGroup(groupId) {
  * @param {number} timestamp - 被长按消息的时间戳
  */
 function showMessageActions(timestamp) {
+// ▼▼▼ 在这里新增 ▼▼▼
+const chat = state.chats[state.activeChatId];
+document.getElementById('publish-to-announcement-btn').style.display = chat.isGroup ? 'block' : 'none';
+// ▲▲▲ 新增结束 ▲▲▲
     // 如果已经在多选模式，则不弹出菜单
     if (isSelectionMode) return;
     
@@ -12436,8 +12504,202 @@ async function deleteCategory(categoryId) {
     }
 }
 
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新版本】发布公告函数 (无评论) ▼▼▼
+async function publishToAnnouncementBoard() {
+    if (!activeMessageTimestamp) return;
 
+    const timestampToPublish = activeMessageTimestamp;
+    hideMessageActions(); 
+
+    const chat = state.chats[state.activeChatId];
+    const message = chat.history.find(m => m.timestamp === timestampToPublish);
+    if (!message) return;
+
+    // 提取消息内容用于预览
+    let contentPreview = String(message.content || '').substring(0, 50) + '...';
+    if (message.type === 'ai_image') contentPreview = '[图片] ' + contentPreview;
+
+    const confirmed = await showCustomConfirm(
+        "发布公告",
+        `确定要将以下消息发布到公告板吗？\n\n“${contentPreview}”`,
+        { confirmText: "确定发布" }
+    );
+
+    if (confirmed) {
+        const myNickname = chat.settings.myNickname || '我';
+
+        if (!Array.isArray(chat.announcements)) {
+            chat.announcements = [];
+        }
+
+        // 新增的公告对象
+        const newAnnouncement = {
+            id: 'anno_' + Date.now(), // 为每个公告添加唯一ID
+            messageTimestamp: timestampToPublish,
+            publisher: myNickname,
+            publishedAt: Date.now(),
+            isPinned: false // 默认为不置顶
+        };
+
+        chat.announcements.push(newAnnouncement);
+
+        const systemMessage = {
+            role: 'system',
+            type: 'pat_message',
+            content: `${myNickname} 发布了一条新公告`,
+            timestamp: Date.now()
+        };
+        chat.history.push(systemMessage);
+
+        await db.chats.put(chat);
+        appendMessage(systemMessage, chat);
+        renderChatList();
+
+        await showCustomAlert("成功", "公告已发布！");
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲
+/**
+ * 显示群公告板弹窗
+ */
+// ▼▼▼ 【全新版本】显示公告板函数 (支持多条与管理) ▼▼▼
+function showAnnouncementBoard() {
+// ▼▼▼ 【全新】公告管理核心功能 ▼▼▼
+let activeAnnouncementId = null; // 用于暂存正在操作的公告ID
+
+function showAnnouncementActions(annoId) {
+    activeAnnouncementId = annoId;
+    const chat = state.chats[state.activeChatId];
+    const announcement = chat.announcements.find(a => a.id === annoId);
+    if (!announcement) return;
+
+    const pinButton = document.getElementById('announcement-action-pin');
+    pinButton.textContent = announcement.isPinned ? '取消置顶' : '置顶公告';
+
+    document.getElementById('announcement-actions-modal').classList.add('visible');
+}
+
+async function handlePinAnnouncement() {
+    if (!activeAnnouncementId) return;
+    const chat = state.chats[state.activeChatId];
+    const announcement = chat.announcements.find(a => a.id === activeAnnouncementId);
+    if (announcement) {
+        announcement.isPinned = !announcement.isPinned; // 切换置顶状态
+        await db.chats.put(chat);
+        showAnnouncementBoard(); // 重新渲染公告板以更新UI
+    }
+    document.getElementById('announcement-actions-modal').classList.remove('visible');
+}
+
+async function handleDeleteAnnouncement() {
+    if (!activeAnnouncementId) return;
+
+    const confirmed = await showCustomConfirm("确认删除", "确定要删除这条公告吗？此操作不可恢复。", { confirmButtonClass: 'btn-danger' });
+
+    if (confirmed) {
+        const chat = state.chats[state.activeChatId];
+        chat.announcements = chat.announcements.filter(a => a.id !== activeAnnouncementId);
+        await db.chats.put(chat);
+        showAnnouncementBoard(); // 重新渲染
+    }
+    document.getElementById('announcement-actions-modal').classList.remove('visible');
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+    const chat = state.chats[state.activeChatId];
+    const announcements = chat.announcements || [];
+
+    if (!chat || announcements.length === 0) {
+        showCustomAlert("提示", "当前群聊还没有公告哦。");
+        return;
+    }
+
+    const contentEl = document.getElementById('announcement-board-content');
+    contentEl.innerHTML = '';
+
+    // 将置顶的公告排在最前面
+    announcements.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+
+    announcements.forEach(anno => {
+        const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'announcement-item-wrapper';
+
+        if (originalMessage) {
+            const messageBubbleEl = createMessageElement(originalMessage, chat);
+            wrapper.appendChild(messageBubbleEl);
+        } else {
+            wrapper.innerHTML = '<p style="text-align:center; color: var(--text-secondary);">公告的原消息已被删除。</p>';
+        }
+
+        // 添加置顶标志
+        if (anno.isPinned) {
+            wrapper.innerHTML += `<div class="pinned-indicator">📌</div>`;
+        }
+
+        // 添加“...”操作按钮
+        wrapper.innerHTML += `<div class="announcement-item-actions" data-anno-id="${anno.id}">...</div>`;
+
+        contentEl.appendChild(wrapper);
+    });
+
+    document.getElementById('announcement-board-modal').classList.add('visible');
+}
+// ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【这是您缺失的核心功能代码，请粘贴在这里】 ▼▼▼
+let activeAnnouncementId = null; // 用于暂存正在操作的公告ID
+
+/**
+ * 点击“...”时，显示操作菜单（置顶/删除）
+ * @param {string} annoId - 公告的唯一ID
+ */
+function showAnnouncementActions(annoId) {
+    activeAnnouncementId = annoId;
+    const chat = state.chats[state.activeChatId];
+    const announcement = chat.announcements.find(a => a.id === annoId);
+    if (!announcement) return;
+
+    const pinButton = document.getElementById('announcement-action-pin');
+    // 根据当前是否已置顶，动态改变按钮文字
+    pinButton.textContent = announcement.isPinned ? '取消置顶' : '置顶公告';
+
+    document.getElementById('announcement-actions-modal').classList.add('visible');
+}
+
+/**
+ * 处理“置顶/取消置顶”操作
+ */
+async function handlePinAnnouncement() {
+    if (!activeAnnouncementId) return;
+    const chat = state.chats[state.activeChatId];
+    const announcement = chat.announcements.find(a => a.id === activeAnnouncementId);
+    if (announcement) {
+        announcement.isPinned = !announcement.isPinned; // 切换置顶状态
+        await db.chats.put(chat);
+        showAnnouncementBoard(); // 重新渲染公告板以更新UI
+    }
+    document.getElementById('announcement-actions-modal').classList.remove('visible');
+}
+
+/**
+ * 处理“删除公告”操作
+ */
+async function handleDeleteAnnouncement() {
+    if (!activeAnnouncementId) return;
+    
+    const confirmed = await showCustomConfirm("确认删除", "确定要删除这条公告吗？此操作不可恢复。", { confirmButtonClass: 'btn-danger' });
+    
+    if (confirmed) {
+        const chat = state.chats[state.activeChatId];
+        // 从公告数组中过滤掉要删除的公告
+        chat.announcements = chat.announcements.filter(a => a.id !== activeAnnouncementId);
+        await db.chats.put(chat);
+        showAnnouncementBoard(); // 重新渲染
+    }
+    document.getElementById('announcement-actions-modal').classList.remove('visible');
+}
+// ▲▲▲ 粘贴结束 ▲▲▲
         // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -12736,9 +12998,7 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
     document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
     document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
-// ▼▼▼ 在这里新增 ▼▼▼
-document.getElementById('group-announcement-group').style.display = isGroup ? 'block' : 'none';
-// ▲▲▲ 新增结束 ▲▲▲
+
     document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
     
@@ -12765,11 +13025,7 @@ document.getElementById('group-announcement-group').style.display = isGroup ? 'b
         document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
         document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
         renderGroupMemberSettings(chat.members);
-    // ▼▼▼ 在这里新增 ▼▼▼
-    const announcementData = chat.settings.announcement || { text: '', isPinned: false };
-    document.getElementById('group-announcement-input').value = announcementData.text;
-    document.getElementById('pin-announcement-toggle').checked = announcementData.isPinned;
-    // ▲▲▲ 新增结束 ▲▲▲
+
     } else {
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
@@ -12934,12 +13190,7 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     if (chat.isGroup) {
         chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
         chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
-    // ▼▼▼ 在这里新增 ▼▼▼
-    chat.settings.announcement = {
-        text: document.getElementById('group-announcement-input').value.trim(),
-        isPinned: document.getElementById('pin-announcement-toggle').checked
-    };
-    // ▲▲▲ 新增结束 ▲▲▲
+
     } else {
         chat.settings.aiPersona = document.getElementById('ai-persona').value;
         chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
@@ -13404,12 +13655,14 @@ document.getElementById('confirm-create-post-btn').addEventListener('click', asy
 
         // 只有满足条件的角色才会被通知
         if (shouldNotify) {
-            const historyMessage = {
-                role: 'system',
-                content: `[系统提示：用户刚刚发布了一条动态(ID: ${newPostId})，内容摘要是：“${postSummary}”。你现在可以对这条动态进行评论了。]`,
-                timestamp: Date.now(),
-                isHidden: true
-            };
+// ▼▼▼ 从这里开始替换 ▼▼▼
+const historyMessage = {
+    role: 'system',
+    content: `[系统提示：用户刚刚发布了一条动态(ID: ${newPostId})，内容摘要是：“${postSummary}”。请你【结合自己的角色设定、世界观和你们的最近聊天内容】，对这条动态发表一条自然的评论。]`,
+    timestamp: Date.now(),
+    isHidden: true
+};
+// ▲▲▲ 到这里替换结束 ▲▲▲
             chat.history.push(historyMessage);
             await db.chats.put(chat);
         }
@@ -14932,22 +15185,7 @@ document.getElementById('cancel-reply-btn').addEventListener('click', cancelRepl
 
     // ▲▲▲ 【新代码粘贴结束】 ▲▲▲  
 // ▼▼▼ 把下面这段新代码完整粘贴到 showScreen('home-screen'); 的前面 ▼▼▼
-// ▼▼▼ 【全新】群公告功能事件绑定 ▼▼▼
-const announcementModal = document.getElementById('group-announcement-modal');
 
-document.getElementById('group-announcement-btn').addEventListener('click', () => {
-    const chat = state.chats[state.activeChatId];
-    if (chat && chat.isGroup) {
-        const announcementText = (chat.settings.announcement && chat.settings.announcement.text) || '暂无公告';
-        document.getElementById('group-announcement-body').textContent = announcementText;
-        announcementModal.classList.add('visible');
-    }
-});
-
-document.getElementById('close-announcement-modal-btn').addEventListener('click', () => {
-    announcementModal.classList.remove('visible');
-});
-// ▲▲▲ 新增结束 ▲▲▲
 // 【全新】为【主聊天输入框】添加@功能
 const chatInputForMention = document.getElementById('chat-input');
 const chatMentionPopup = document.getElementById('chat-at-mention-popup');
@@ -15004,7 +15242,30 @@ chatInputForMention.addEventListener('input', () => {
 chatInputForMention.addEventListener('blur', () => {
     setTimeout(() => { chatMentionPopup.style.display = 'none'; }, 200);
 });
-// ▲▲▲ 新代码粘贴到这里结束 ▲▲▲          
+// ▲▲▲ 新代码粘贴到这里结束 ▲▲▲     
+// ▼▼▼ 【全新】新版群公告事件绑定 ▼▼▼
+document.getElementById('publish-to-announcement-btn').addEventListener('click', publishToAnnouncementBoard);
+document.getElementById('show-announcement-board-btn').addEventListener('click', showAnnouncementBoard);
+document.getElementById('close-announcement-board-btn').addEventListener('click', () => {
+    document.getElementById('announcement-board-modal').classList.remove('visible');
+});
+// ▲▲▲ 新增结束 ▲▲▲  
+// ▼▼▼ 【全新】公告板内部事件委托与操作菜单事件绑定 ▼▼▼
+document.getElementById('announcement-board-content').addEventListener('click', (e) => {
+    if (e.target.classList.contains('announcement-item-actions')) {
+        const annoId = e.target.dataset.annoId;
+        if (annoId) {
+            showAnnouncementActions(annoId);
+        }
+    }
+});
+
+document.getElementById('announcement-action-pin').addEventListener('click', handlePinAnnouncement);
+document.getElementById('announcement-action-delete').addEventListener('click', handleDeleteAnnouncement);
+document.getElementById('announcement-action-cancel').addEventListener('click', () => {
+    document.getElementById('announcement-actions-modal').classList.remove('visible');
+});
+// ▲▲▲ 新增结束 ▲▲▲   
             showScreen('home-screen');
         }
 
