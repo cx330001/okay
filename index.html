@@ -4241,6 +4241,42 @@ input:checked + .slider:before {
     border: 2px solid white;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】转发功能样式 ▼▼▼ */
+
+/* 1. 转发后的动态，内嵌的原始内容容器 */
+.reposted-content-wrapper {
+    background-color: #f7f7f8;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+/* 在夜间模式下，为内嵌容器提供一个深色背景 */
+#phone-screen.dark-mode .reposted-content-wrapper {
+    background-color: #2c2c2e;
+    border-color: #38383a;
+}
+
+/* 2. 移除内嵌原始内容的底部互动区，避免混淆 */
+.reposted-content-wrapper .post-footer,
+.reposted-content-wrapper .post-feedback-icons,
+.reposted-content-wrapper .post-likes-section {
+    display: none;
+}
+
+/* 3. 让内嵌内容的头部信息稍微紧凑一些 */
+.reposted-content-wrapper .post-header {
+    margin-bottom: 8px;
+}
+.reposted-content-wrapper .post-avatar {
+    width: 32px;
+    height: 32px;
+}
+.reposted-content-wrapper .post-nickname {
+    font-size: 14px;
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5179,6 +5215,18 @@ input:checked + .slider:before {
         </div>
     </div>
 </div>
+<div id="repost-modal" class="modal">
+    <div id="custom-modal" style="width: 280px;">
+        <div class="custom-modal-header">转发动态</div>
+        <div class="custom-modal-body">
+            <textarea id="repost-comment-input" placeholder="请输入转发评论 (可选)" style="width: 100%; min-height: 60px; resize: vertical; border: 1px solid #ccc; border-radius: 6px; padding: 8px; font-size: 14px; box-sizing: border-box;"></textarea>
+        </div>
+        <div class="custom-modal-footer">
+            <button id="repost-cancel-btn">取消</button>
+            <button id="repost-confirm-btn" class="confirm-btn">确定</button>
+        </div>
+    </div>
+</div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 
 <!-- ▼▼▼ 【全新】外卖请求模态框 ▼▼▼ -->
@@ -5633,7 +5681,7 @@ const DEFAULT_APP_ICONS = {
     'font': 'https://i.postimg.cc/pXxk1JXk/IMG-6442.jpg'
 };
 // ▲▲▲ 添加结束 ▲▲▲
-
+let repostTargetId = null; // 用于存储当前要转发的动态ID
         const STICKER_REGEX = /^(https:\/\/i\.postimg\.cc\/.+|https:\/\/files\.catbox\.moe\/.+|data:image)/;
         const MESSAGE_RENDER_WINDOW = 50;
         let currentRenderedCount = 0;
@@ -5885,7 +5933,7 @@ db.version(23).stores({
             }
         }
 
-// ▼▼▼ 请用这个【已集成@功能】的版本，完整替换掉旧的 renderQzonePosts 函数 ▼▼▼
+// ▼▼▼ 请用这个【已集成转发功能】的版本，完整替换旧的 renderQzonePosts 函数 ▼▼▼
 async function renderQzonePosts() {
     const postsListEl = document.getElementById('qzone-posts-list');
     if (!postsListEl) return;
@@ -5896,7 +5944,7 @@ async function renderQzonePosts() {
     ]);
 
     const favoritedPostIds = new Set(favorites.map(fav => fav.content.id));
-    
+
     postsListEl.innerHTML = '';
 
     if (posts.length === 0) {
@@ -5927,35 +5975,67 @@ async function renderQzonePosts() {
             authorAvatar = defaultAvatar;
             authorNickname = '{{char}}';
         }
-        
-        let contentHtml = '';
-        const publicTextHtml = post.publicText ? `<div class="post-content">${post.publicText.replace(/\n/g, '<br>')}</div>` : '';
 
-        if (post.type === 'shuoshuo') {
-            contentHtml = `<div class="post-content" style="margin-bottom: 10px;">${post.content.replace(/\n/g, '<br>')}</div>`;
-        } 
-        else if (post.type === 'image_post' && post.imageUrl) {
-            contentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${post.imageUrl}" class="chat-image"></div>` : `<img src="${post.imageUrl}" class="chat-image">`;
-        } 
-        else if (post.type === 'text_image') {
-            contentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${post.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${post.hiddenContent}">`;
+        // 【核心修改1】创建用于渲染动态内容的辅助函数
+        function renderOriginalPostContent(targetPost) {
+            let innerContentHtml = '';
+            const publicTextHtml = targetPost.publicText ? `<div class="post-content">${targetPost.publicText.replace(/\n/g, '<br>')}</div>` : '';
+
+            if (targetPost.type === 'shuoshuo') {
+                innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${targetPost.content.replace(/\n/g, '<br>')}</div>`;
+            } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
+            } else if (targetPost.type === 'text_image') {
+                innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
+            }
+            return innerContentHtml;
+        }
+
+        let mainContentHtml;
+
+        if (post.type === 'repost') {
+            // 如果是转发动态
+            const repostCommentHtml = post.repostComment ? `<div class="post-content">${post.repostComment.replace(/\n/g, '<br>')}</div>` : '';
+
+            let originalAuthorAvatar = defaultAvatar;
+            let originalAuthorNickname = '原作者';
+
+            if (post.originalPost.authorId === 'user') {
+                originalAuthorAvatar = state.qzoneSettings.avatar;
+                originalAuthorNickname = state.qzoneSettings.nickname;
+            } else if (state.chats[post.originalPost.authorId]) {
+                originalAuthorAvatar = state.chats[post.originalPost.authorId].settings.aiAvatar;
+                originalAuthorNickname = state.chats[post.originalPost.authorId].name;
+            }
+
+            mainContentHtml = `
+                ${repostCommentHtml}
+                <div class="reposted-content-wrapper">
+                    <div class="post-header">
+                        <img src="${originalAuthorAvatar}" class="post-avatar">
+                        <div class="post-info">
+                            <span class="post-nickname">@${originalAuthorNickname}</span>
+                            <span class="post-timestamp">${formatPostTimestamp(post.originalPost.timestamp)}</span>
+                        </div>
+                    </div>
+                    <div class="post-main-content">${renderOriginalPostContent(post.originalPost)}</div>
+                </div>
+            `;
+        } else {
+            // 如果是原创动态
+            mainContentHtml = `<div class="post-main-content">${renderOriginalPostContent(post)}</div>`;
         }
 
         let likesHtml = '';
         if (post.likes && post.likes.length > 0) {
             likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${post.likes.join('、')} 觉得很赞</span></div>`;
         }
-        
+
         let commentsHtml = '';
         if (post.comments && post.comments.length > 0) {
             commentsHtml = '<div class="post-comments-container">';
             post.comments.forEach((comment, index) => {
-                commentsHtml += `
-                    <div class="comment-item">
-                        <span class="commenter-name">${comment.commenterName}:</span>
-                        <span class="comment-text">${comment.text}</span>
-                        <span class="comment-delete-btn" data-comment-index="${index}">×</span>
-                    </div>`;
+                commentsHtml += `<div class="comment-item"><span class="commenter-name">${comment.commenterName}:</span><span class="comment-text">${comment.text}</span><span class="comment-delete-btn" data-comment-index="${index}">×</span></div>`;
             });
             commentsHtml += '</div>';
         }
@@ -5964,12 +6044,20 @@ async function renderQzonePosts() {
         const isLikedByUser = post.likes && post.likes.includes(userNickname);
         const isFavoritedByUser = favoritedPostIds.has(post.id);
 
+        // 【核心修改2】为非转发动态添加转发图标
+        let repostIconHtml = '';
+        if (post.type !== 'repost') {
+            repostIconHtml = `
+                <span class="action-icon repost">
+                    <svg viewBox="0 0 24 24"><path d="M17 2.1l4 4-4 4 M3 11.5v-3a4 4 0 0 1 4-4h13 M7 21.9l-4-4 4-4 M21 12.5v3a4 4 0 0 1-4 4H4"></path></svg>
+                </span>`;
+        }
+
         postEl.innerHTML = `
-            <div class="post-header"><img src="${authorAvatar}" class="post-avatar"><div class="post-info"><span class="post-nickname">${authorNickname}</span><span class="post-timestamp">${formatPostTimestamp(post.timestamp)}</span></div>
-                <div class="post-actions-btn">…</div>
-            </div>
-            <div class="post-main-content">${contentHtml}</div>
+            <div class="post-header"><img src="${authorAvatar}" class="post-avatar"><div class="post-info"><span class="post-nickname">${authorNickname}</span><span class="post-timestamp">${formatPostTimestamp(post.timestamp)}</span></div><div class="post-actions-btn">…</div></div>
+            ${mainContentHtml}
             <div class="post-feedback-icons">
+                ${repostIconHtml}
                 <span class="action-icon like ${isLikedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></span>
                 <span class="action-icon favorite ${isFavoritedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></span>
             </div>
@@ -5977,7 +6065,7 @@ async function renderQzonePosts() {
             ${commentsHtml}
             <div class="post-footer"><div class="comment-section"><img src="${commentAvatar}" class="comment-avatar"><input type="text" class="comment-input" placeholder="友善的评论是交流的起点"><div class="at-mention-popup"></div></div><button class="comment-send-btn">发送</button></div>
         `;
-        
+
         const deleteAction = document.createElement('div');
         deleteAction.className = 'qzone-post-delete-action';
         deleteAction.innerHTML = '<span>删除</span>';
@@ -5989,12 +6077,60 @@ async function renderQzonePosts() {
             commentSection.addEventListener('mousedown', (e) => e.stopPropagation());
         }
         postsListEl.appendChild(postContainer);
-        
-
     });
 }
 // ▲▲▲ 替换结束 ▲▲▲
-             
+// ▼▼▼ 【全新】这三个函数是转发功能的核心，请将它们粘贴到JS功能函数定义区 ▼▼▼
+
+/**
+ * 打开转发评论的模态框
+ * @param {number} postId - 要转发的动态的ID
+ */
+function openRepostModal(postId) {
+    repostTargetId = postId;
+    document.getElementById('repost-comment-input').value = ''; // 清空输入框
+    document.getElementById('repost-modal').classList.add('visible');
+}
+
+/**
+ * 隐藏转发模态框
+ */
+function hideRepostModal() {
+    document.getElementById('repost-modal').classList.remove('visible');
+    repostTargetId = null;
+}
+
+/**
+ * 处理确认转发的逻辑
+ */
+async function handleConfirmRepost() {
+    if (!repostTargetId) return;
+
+    const comment = document.getElementById('repost-comment-input').value.trim();
+    const originalPost = await db.qzonePosts.get(repostTargetId);
+
+    if (!originalPost) {
+        alert("错误：找不到要转发的原始动态。");
+        hideRepostModal();
+        return;
+    }
+
+    const newPost = {
+        type: 'repost', // 标记为转发类型
+        timestamp: Date.now(),
+        authorId: 'user', // 转发者永远是当前用户
+        repostComment: comment,
+        originalPost: originalPost, // 将原始动态完整地嵌入新动态中
+        visibleGroupIds: null // 转发的动态默认对所有人可见
+    };
+
+    await db.qzonePosts.add(newPost);
+    hideRepostModal();
+    await renderQzonePosts();
+    alert('转发成功！');
+}
+
+// ▲▲▲ 新函数粘贴结束 ▲▲▲             
 // ▼▼▼ 请用下面这个【更新后的】函数，完整替换掉你代码中旧的 displayFilteredFavorites 函数 ▼▼▼
 
 function displayFilteredFavorites(items) {
@@ -13867,6 +14003,12 @@ postsList.addEventListener('click', async (e) => {
         if (!postContainer) return;
         const postId = parseInt(postContainer.dataset.postId);
         if (isNaN(postId)) return;
+    // ▼▼▼ 在这里添加新的 'if' 判断 ▼▼▼
+    if (icon.classList.contains('repost')) {
+        openRepostModal(postId);
+        return; // 处理完后直接返回
+    }
+    // ▲▲▲ 添加结束 ▲▲▲
         if (icon.classList.contains('like')) {
             const post = await db.qzonePosts.get(postId);
             if (!post) return;
@@ -15107,6 +15249,10 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
         deleteCategory(categoryId);
     }
 });
+// ▼▼▼ 在 init() 的事件监听器区域末尾，添加这部分代码 ▼▼▼
+document.getElementById('repost-cancel-btn').addEventListener('click', hideRepostModal);
+document.getElementById('repost-confirm-btn').addEventListener('click', handleConfirmRepost);
+// ▲▲▲ 添加结束 ▲▲▲
 // 在 init() 的事件监听器区域末尾
 // ...
 // 绑定消息操作菜单中的“引用”按钮
