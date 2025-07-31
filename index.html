@@ -4277,6 +4277,35 @@ input:checked + .slider:before {
     font-size: 14px;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【再次替换】 AI心率显示样式 (标题下方居中) ▼▼▼ */
+#ai-heart-rate-display {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 10px; /* 调整这个数值，控制心率显示框与标题的垂直距离 */
+
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #ff8fab;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 3px 8px;
+    border-radius: 10px;
+    z-index: 20;
+    transition: all 0.3s ease;
+}
+
+#phone-screen.dark-mode #ai-heart-rate-display {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: #ff99b5;
+}
+
+#ai-heart-rate-display .heart-icon {
+    font-size: 14px;
+}
+/* ▲▲▲ 替换结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -4600,7 +4629,13 @@ input:checked + .slider:before {
 
     <div class="header">
         <div class="default-controls">
-            <span class="back-btn" id="back-to-list-btn">‹</span>
+    <span class="back-btn" id="back-to-list-btn">‹</span>
+    
+    <div id="ai-heart-rate-display" style="display: none;">
+        <span class="heart-icon">❤️</span>
+        <span class="heart-rate-value">85</span>
+        <span class="bpm-unit">bpm</span>
+    </div>
             <div id="chat-header-title-wrapper">
                 <span id="chat-header-title">聊天对象</span>
                 <div id="chat-header-status">
@@ -4942,6 +4977,29 @@ input:checked + .slider:before {
                     </div>
                 </div>
             </div>
+
+<div class="form-group" id="ai-heart-rate-group">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <label for="ai-heart-rate-toggle" style="margin-bottom: 0;">显示AI心率</label>
+        <label class="toggle-switch">
+            <input type="checkbox" id="ai-heart-rate-toggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div id="ai-heart-rate-options" style="display: none;">
+        <label for="ai-heart-rate-personality">性格基础心率</label>
+        <select id="ai-heart-rate-personality">
+            <option value="custom">自定义</option>
+            <option value="shy">害羞型 (85bpm)</option>
+            <option value="calm">冷静型 (65bpm)</option>
+            <option value="passionate">热血型 (88bpm)</option>
+        </select>
+        <input type="number" id="ai-heart-rate-baseline" placeholder="自定义基础心率 (bpm)" style="margin-top: 8px;">
+    </div>
+</div>
+<div class="form-group" id="ai-persona-group">
+    <label for="ai-persona">对方人设 (AI Persona)</label>
+    </div>
 <div class="form-group" id="linked-memory-group">
     <label for="link-memory-toggle">挂载其他聊天记忆</label>
     <input type="checkbox" id="link-memory-toggle" style="width: auto; height: 20px; vertical-align: middle; margin-left: 10px;">
@@ -5549,7 +5607,9 @@ input:checked + .slider:before {
 </div>
 
 <script>
-
+// ... 位于 <script> 标签顶部 ...
+let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器”和“波动计时器”
+// ...
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
     // gemini如果是多个密钥, 那么随机获取一个
     function getRandomValue(str) {
@@ -6836,6 +6896,18 @@ function renderChatInterface(chatId) {
     cleanupWaimaiTimers();
     const chat = state.chats[chatId];
     if (!chat) return;
+    // ▼▼▼ 【核心修改】在这里启动/停止心率功能 ▼▼▼
+    clearHeartRateTimers(chatId); // 无论如何，先清理旧的计时器
+    const heartRateDisplay = document.getElementById('ai-heart-rate-display');
+    if (chat.settings.aiHeartRate?.enabled && !chat.isGroup) {
+        heartRateDisplay.style.display = 'flex';
+        // 设置初始值为基准值，然后启动波动
+        heartRateDisplay.querySelector('.heart-rate-value').textContent = chat.settings.aiHeartRate.baseline || 65;
+        startHeartRateFluctuation(chatId); // 启动自然波动
+    } else {
+        heartRateDisplay.style.display = 'none';
+    }
+    // ▲▲▲ 修改结束 ▲▲▲
     exitSelectionMode();
     
     const messagesContainer = document.getElementById('chat-messages');
@@ -12838,6 +12910,154 @@ async function handleDeleteAnnouncement() {
     document.getElementById('announcement-actions-modal').classList.remove('visible');
 }
 // ▲▲▲ 粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】请用这一整块代码，替换掉所有旧的心率相关JS函数 ▼▼▼
+
+/**
+ * 清理指定聊天的所有心率计时器（恢复计时器和波动计时器）
+ * @param {string} chatId - 聊天ID
+ */
+function clearHeartRateTimers(chatId) {
+    if (heartRateTimers[chatId]) {
+        if (heartRateTimers[chatId].recovery) {
+            clearInterval(heartRateTimers[chatId].recovery);
+        }
+        if (heartRateTimers[chatId].fluctuation) {
+            clearInterval(heartRateTimers[chatId].fluctuation);
+        }
+        delete heartRateTimers[chatId];
+    }
+}
+
+/**
+ * 启动心率在基准值附近的自然波动
+ * @param {string} chatId - 聊天ID
+ */
+function startHeartRateFluctuation(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.settings.aiHeartRate?.enabled) return;
+
+    // 先确保没有正在运行的波动计时器
+    if (heartRateTimers[chatId]?.fluctuation) {
+        clearInterval(heartRateTimers[chatId].fluctuation);
+    }
+    if (!heartRateTimers[chatId]) {
+        heartRateTimers[chatId] = {};
+    }
+
+    const display = document.getElementById('ai-heart-rate-display');
+    const valueEl = display.querySelector('.heart-rate-value');
+    const baseline = chat.settings.aiHeartRate.baseline || 65;
+    const fluctuationRange = 5; // 基准心率上下波动的范围
+
+    const fluctuate = () => {
+        // 只有当没有恢复计时器在运行时（即心率不处于激动状态），才进行自然波动
+        if (!heartRateTimers[chatId]?.recovery) {
+            const randomOffset = Math.floor(Math.random() * (fluctuationRange * 2 + 1)) - fluctuationRange;
+            valueEl.textContent = baseline + randomOffset;
+        }
+    };
+
+    // 使用一个随机的时间间隔来模拟更真实的波动
+    const scheduleNextFluctuation = () => {
+        fluctuate();
+        const randomInterval = Math.random() * 1500 + 1000; // 1-2.5秒随机波动一次
+        heartRateTimers[chatId].fluctuation = setTimeout(scheduleNextFluctuation, randomInterval);
+    };
+    
+    scheduleNextFluctuation();
+}
+
+// ▼▼▼ 【最终版】请用这整块代码，完整替换旧的 spikeHeartRate 函数 ▼▼▼
+
+/**
+ * 【V3.0 拟真版】心率反应函数：快速飙升 -> 高位波动 -> 缓慢平复
+ * @param {string} chatId - 聊天ID
+ * @param {number} increaseAmount - 心率增加的数值
+ * @param {number} sustainDuration - 激动状态要持续的毫秒数
+ */
+function spikeHeartRate(chatId, increaseAmount, sustainDuration = 3000) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.settings.aiHeartRate?.enabled) return;
+
+    // 停止所有正在运行的计时器，防止效果叠加混乱
+    if (heartRateTimers[chatId]) {
+        if (heartRateTimers[chatId].fluctuation) clearTimeout(heartRateTimers[chatId].fluctuation);
+        if (heartRateTimers[chatId].spike) clearInterval(heartRateTimers[chatId].spike);
+        if (heartRateTimers[chatId].sustain) clearTimeout(heartRateTimers[chatId].sustain);
+        if (heartRateTimers[chatId].peakFluctuation) clearInterval(heartRateTimers[chatId].peakFluctuation); // 【新增】清理峰值波动计时器
+        if (heartRateTimers[chatId].recovery) clearInterval(heartRateTimers[chatId].recovery);
+    }
+    if (!heartRateTimers[chatId]) heartRateTimers[chatId] = {};
+
+    const display = document.getElementById('ai-heart-rate-display');
+    const valueEl = display.querySelector('.heart-rate-value');
+    const baseline = chat.settings.aiHeartRate.baseline || 65;
+    const currentRate = parseInt(valueEl.textContent);
+    const targetRate = Math.max(currentRate, baseline) + increaseAmount;
+
+    // --- 阶段1：心率飙升动画 ---
+    heartRateTimers[chatId].spike = setInterval(() => {
+        const rateOnTick = parseInt(valueEl.textContent);
+        if (rateOnTick < targetRate) {
+            valueEl.textContent = rateOnTick + 2;// 每次+1，快速跳动
+        } else {
+            clearInterval(heartRateTimers[chatId].spike);
+            heartRateTimers[chatId].spike = null;
+
+            // --- 阶段2：峰值波动 ---
+            const fluctuationRange = 5; // 在峰值上下 ±2 的范围内波动
+            heartRateTimers[chatId].peakFluctuation = setInterval(() => {
+                const randomOffset = Math.floor(Math.random() * (fluctuationRange * 2 + 1)) - fluctuationRange;
+                valueEl.textContent = targetRate + randomOffset;
+            }, 1200); // 每 1.2 秒在峰值附近波动一次，模拟不平稳的心跳
+
+            // --- 阶段3：启动“持续时间”计时器 ---
+            // 这个计时器的唯一作用，就是在持续时间结束后，停止“峰值波动”并启动“缓慢恢复”
+            heartRateTimers[chatId].sustain = setTimeout(() => {
+                clearInterval(heartRateTimers[chatId].peakFluctuation); // 停止峰值波动
+                heartRateTimers[chatId].peakFluctuation = null;
+
+                // --- 阶段4：缓慢恢复 ---
+                heartRateTimers[chatId].recovery = setInterval(() => {
+                    const recoveryRateTick = parseInt(valueEl.textContent);
+                    if (recoveryRateTick > baseline) {
+                        valueEl.textContent = recoveryRateTick - 2;
+                    } else {
+                        valueEl.textContent = baseline;
+                        clearInterval(heartRateTimers[chatId].recovery);
+                        heartRateTimers[chatId].recovery = null;
+                        startHeartRateFluctuation(chatId); // 恢复到平静的基准波动
+                    }
+                }, 1200);
+
+            }, sustainDuration);
+        }
+    }, 1200);
+}
+
+// ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 【请用这个全新版本】替换旧的 checkMessageForHeartRateTrigger 函数 ▼▼▼
+
+/**
+ * 检查用户消息中的关键词以触发心率变化
+ * @param {string} chatId - 聊天ID
+ * @param {string} messageText - 用户发送的消息内容
+ */
+function checkMessageForHeartRateTrigger(chatId, messageText) {
+    const text = messageText.toLowerCase();
+    
+    // 高强度关键词: 心率飙升25，并【持续5秒】后才开始平复
+    if (/爱你|想你|抱抱|喜欢你|结婚/.test(text)) {
+        spikeHeartRate(chatId, 25, 30000); 
+    } 
+    // 中等强度关键词: 心率飙升15，并【持续3秒】后才开始平复
+    else if (/宝贝|亲爱的|撒娇|表白|亲亲/.test(text)) {
+        spikeHeartRate(chatId, 15, 30000);
+    }
+}
+
+// ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 全新代码块结束 ▲▲▲
         // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -12901,7 +13121,11 @@ applyAppIcons();
             document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-data-input').click());
             document.getElementById('import-data-input').addEventListener('change', e => importBackup(e.target.files[0]));
             document.getElementById('back-to-list-btn').addEventListener('click', () => { 
-
+    // ▼▼▼ 【核心修改】在这里添加清理计时器的逻辑 ▼▼▼
+    if (state.activeChatId) {
+        clearHeartRateTimers(state.activeChatId);
+    }
+    // ▲▲▲ 修改结束 ▲▲▲
     // ▼▼▼ 修改这两行 ▼▼▼
     applyScopedCss('', '#chat-messages', 'custom-bubble-style'); // 清除真实聊天界面的自定义样式
     applyScopedCss('', '#settings-preview-area', 'preview-bubble-style'); // 清除预览区的自定义样式
@@ -12969,7 +13193,9 @@ document.getElementById('add-group-chat-btn').addEventListener('click', openCont
 document.getElementById('send-btn').addEventListener('click', async () => { 
     const content = chatInput.value.trim(); 
     if (!content || !state.activeChatId) return; 
-
+    // ▼▼▼ 【请确认您的代码中有这一行】 ▼▼▼
+    checkMessageForHeartRateTrigger(state.activeChatId, content);
+    // ▲▲▲ 确认结束 ▲▲
     const chat = state.chats[state.activeChatId]; 
 
     const msg = { 
@@ -13197,6 +13423,23 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         });
     }
     updateWorldBookSelectionDisplay();
+    // ▼▼▼ 把【缺失的代码】完整地粘贴到这里 ▼▼▼
+    const heartRateGroup = document.getElementById('ai-heart-rate-group');
+    heartRateGroup.style.display = isGroup ? 'none' : 'block';
+    if (!isGroup) {
+        const heartRateToggle = document.getElementById('ai-heart-rate-toggle');
+        const heartRateOptions = document.getElementById('ai-heart-rate-options');
+        const heartRatePersonality = document.getElementById('ai-heart-rate-personality');
+        const heartRateBaseline = document.getElementById('ai-heart-rate-baseline');
+        
+        const settings = chat.settings.aiHeartRate || {};
+        heartRateToggle.checked = settings.enabled || false;
+        heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none';
+        heartRatePersonality.value = settings.personality || 'custom';
+        heartRateBaseline.value = settings.baseline || 65;
+    }
+    // ▲▲▲ 粘贴结束 ▲▲▲
+
 // ▼▼▼ 【新增】加载“挂载记忆”的设置和选项 ▼▼▼
 const linkMemoryToggle = document.getElementById('link-memory-toggle');
 const linkedMemorySelection = document.getElementById('linked-memory-selection');
@@ -13332,10 +13575,16 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     } else {
         chat.settings.aiPersona = document.getElementById('ai-persona').value;
         chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+        // ▼▼▼ 把【缺失的代码】完整地粘贴到这里 ▼▼▼
+        chat.settings.aiHeartRate = {
+            enabled: document.getElementById('ai-heart-rate-toggle').checked,
+            personality: document.getElementById('ai-heart-rate-personality').value,
+            baseline: parseInt(document.getElementById('ai-heart-rate-baseline').value) || 65
+        };
+        // ▲▲▲ 粘贴结束 ▲▲▲
         const selectedGroupId = document.getElementById('assign-group-select').value;
         chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
     }
-
     chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
 // ▼▼▼ 【新增】保存“挂载记忆”的设置 ▼▼▼
 const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
@@ -15255,6 +15504,23 @@ document.getElementById('existing-categories-list').addEventListener('click', (e
 document.getElementById('repost-cancel-btn').addEventListener('click', hideRepostModal);
 document.getElementById('repost-confirm-btn').addEventListener('click', handleConfirmRepost);
 // ▲▲▲ 添加结束 ▲▲▲
+    // ▼▼▼ 把【缺失的代码】完整地粘贴到这里 ▼▼▼
+    const heartRateToggle = document.getElementById('ai-heart-rate-toggle');
+    const heartRateOptions = document.getElementById('ai-heart-rate-options');
+    const heartRatePersonality = document.getElementById('ai-heart-rate-personality');
+    const heartRateBaseline = document.getElementById('ai-heart-rate-baseline');
+
+    heartRateToggle.addEventListener('change', () => {
+        heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none';
+    });
+
+    heartRatePersonality.addEventListener('change', () => {
+        const personality = heartRatePersonality.value;
+        if (personality === 'shy') heartRateBaseline.value = 85;
+        else if (personality === 'calm') heartRateBaseline.value = 65;
+        else if (personality === 'passionate') heartRateBaseline.value = 88;
+    });
+    // ▲▲▲ 粘贴结束 ▲▲▲
 // 在 init() 的事件监听器区域末尾
 // ...
 // 绑定消息操作菜单中的“引用”按钮
