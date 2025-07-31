@@ -5031,7 +5031,15 @@ input:checked + .slider:before {
 
 <div class="form-group" id="my-group-nickname-group"><label for="my-group-nickname-input">我的群昵称</label><input type="text" id="my-group-nickname-input"></div>
 
-<div class="form-group" id="group-avatar-group"><label>群头像</label><div class="avatar-upload"><img id="group-avatar-preview"><button onclick="document.getElementById('group-avatar-input').click()">上传群头像</button><input type="file" id="group-avatar-input" accept="image/*"></div></div>
+<div class="form-group" id="group-avatar-group">
+    <label>群头像</label>
+    <div class="avatar-upload">
+        <img id="group-avatar-preview">
+        <button onclick="document.getElementById('group-avatar-input').click()">上传群头像</button>
+        <button id="manage-group-avatar-library-btn">管理头像库</button>
+        <input type="file" id="group-avatar-input" accept="image/*">
+    </div>
+</div>
             <div class="form-group" id="world-book-link-group">
                 <label>关联世界书 (可多选)</label>
                 <div class="custom-multiselect">
@@ -5063,9 +5071,7 @@ input:checked + .slider:before {
         <input type="number" id="ai-heart-rate-baseline" placeholder="自定义基础心率 (bpm)" style="margin-top: 8px;">
     </div>
 </div>
-<div class="form-group" id="ai-persona-group">
-    <label for="ai-persona">对方人设 (AI Persona)</label>
-    </div>
+
 <div class="form-group" id="linked-memory-group">
     <label for="link-memory-toggle">挂载其他聊天记忆</label>
     <input type="checkbox" id="link-memory-toggle" style="width: auto; height: 20px; vertical-align: middle; margin-left: 10px;">
@@ -5528,7 +5534,29 @@ input:checked + .slider:before {
 </div>
 
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
-
+<div id="group-avatar-library-modal" class="modal">
+    <div class="modal-content" style="height: 70%;">
+        <div class="modal-header">
+            <span id="group-avatar-library-title">群头像库</span>
+            <button id="add-group-avatar-btn" class="action-button">添加</button>
+        </div>
+        <div class="modal-body" style="padding: 15px;">
+            <div id="group-avatar-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 15px;">
+                </div>
+        </div>
+        <div class="modal-footer">
+            <button class="save" id="close-group-avatar-library-btn" style="width: 100%;">关闭</button>
+        </div>
+    </div>
+</div>
+<div id="chat-list-actions-modal" class="modal">
+    <div id="custom-modal" style="width: 250px;">
+        <div class="custom-modal-footer">
+            <button id="chat-list-action-pin"></button> <button id="chat-list-action-delete" class="btn-danger">删除聊天</button>
+            <button id="chat-list-action-cancel" style="margin-top: 8px; border-radius: 8px; background-color: #f0f0f0;">取消</button>
+        </div>
+    </div>
+</div>
 <!-- ▼▼▼ 【全新】用户分享链接模态框 ▼▼▼ -->
 <div id="share-link-modal" class="modal">
     <div class="modal-content" style="width: 300px; height: auto;">
@@ -6648,7 +6676,13 @@ async function loadAllDataFromDB() {
         console.log(`为旧角色 "${chat.name}" 补全了aiAvatarLibrary属性。`);
     }
     // ▲▲▲ 添加结束 ▲▲▲
-
+// ▼▼▼ 在这里添加 ▼▼▼
+if (chat.isGroup && (!chat.settings || !chat.settings.groupAvatarLibrary)) {
+    if (!chat.settings) chat.settings = {}; // 以防万一连settings都没有
+    chat.settings.groupAvatarLibrary = [];
+    console.log(`为旧群聊 "${chat.name}" 补全了groupAvatarLibrary属性。`);
+}
+// ▲▲▲ 添加结束 ▲▲▲
         if (!chat.musicData) chat.musicData = { totalTime: 0 };
         if (chat.settings && chat.settings.linkedWorldBookId && !chat.settings.linkedWorldBookIds) {
             chat.settings.linkedWorldBookIds = [chat.settings.linkedWorldBookId];
@@ -6929,31 +6963,48 @@ else if (!chat.isGroup && chat.relationship?.status === 'blocked_by_ai') {
         infoEl.addEventListener('click', () => openChat(chat.id));
     }
 
-// 在 createChatListItem 函数内部
+// ▼▼▼ 用这块【新代码】完整替换 createChatListItem 函数末尾的 addLongPressListener ▼▼▼
 addLongPressListener(item, async (e) => {
-    // ▼▼▼ 用这整块代码替换旧的长按逻辑 ▼▼▼
-    const action = await showCustomConfirm(
-        `操作 "${chat.name}"`, 
-        `你想对这个聊天做什么？`,
-        { confirmText: chat.isPinned ? '取消置顶' : '置顶聊天', cancelText: '删除' }
-    );
+    // 1. 调用我们新的、清晰的操作菜单
+    const action = await showChatListActions(chat);
 
-    if (action === true) { // 点击了主按钮（置顶/取消置顶）
-        chat.isPinned = !chat.isPinned;
-        await db.chats.put(chat);
-        renderChatList(); // 重新渲染列表以应用排序
-    } else if (action === false) { // 点击了次要按钮（删除）
-        const deleteConfirmed = await showCustomConfirm('删除对话', `确定要删除与 "${chat.name}" 的整个对话吗？此操作不可撤销。`, { confirmButtonClass: 'btn-danger' });
-        if (deleteConfirmed) {
-            if (musicState.isActive && musicState.activeChatId === chat.id) await endListenTogetherSession(false);
-            delete state.chats[chat.id];
-            if (state.activeChatId === chat.id) state.activeChatId = null;
-            await db.chats.delete(chat.id);
-            renderChatList();
-        }
+    // 2. 使用 switch 语句清晰地处理用户的选择
+    switch (action) {
+        case 'pin':
+            // 用户点击了“置顶”或“取消置顶”
+            chat.isPinned = !chat.isPinned;
+            await db.chats.put(chat);
+            renderChatList(); // 重新渲染列表以应用新排序
+            break;
+            
+        case 'delete':
+            // 用户点击了“删除”，现在我们再弹出最终确认框
+            const deleteConfirmed = await showCustomConfirm(
+                '删除对话', 
+                `确定要删除与 "${chat.name}" 的整个对话吗？此操作不可撤销。`, 
+                { confirmButtonClass: 'btn-danger' }
+            );
+            
+            // 如果最终确认了，才执行删除操作
+            if (deleteConfirmed) {
+                if (musicState.isActive && musicState.activeChatId === chat.id) {
+                    await endListenTogetherSession(false);
+                }
+                delete state.chats[chat.id];
+                if (state.activeChatId === chat.id) {
+                    state.activeChatId = null;
+                }
+                await db.chats.delete(chat.id);
+                renderChatList();
+            }
+            break;
+
+        default:
+            // 用户点击了“取消”或关闭了菜单，什么也不做
+            break;
     }
-    // ▲▲▲ 替换结束 ▲▲▲
 });
+// ▲▲▲ 替换结束 ▲▲▲
     return item;
 }
 
@@ -7955,6 +8006,14 @@ if (chat.isGroup) {
             announcementContext += '---\n';
         }
         // ▲▲▲ 新增逻辑结束 ▲▲▲
+// ▼▼▼ 请用这块【新代码】完整替换旧的 group systemPrompt 变量 ▼▼▼
+// 1. 【新增】在 systemPrompt 外部先准备好头像库的文本
+let groupAvatarLibraryContext = '# 可用群头像列表\n';
+if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
+    groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
+} else {
+    groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+}
 
         systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
@@ -7970,6 +8029,8 @@ if (chat.isGroup) {
     - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
     - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
     - 你也可以随时主动发起投票。
+8. **【新增】群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
+## 你可以使用的操作指令 (JSON数组中的元素):
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: \`{"type": "text", "name": "角色名", "message": "文本内容"}\`
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: \`{"type": "send_and_recall", "name": "角色名", "content": "你想让角色说出后立刻消失的话"}\`
@@ -7988,6 +8049,8 @@ if (chat.isGroup) {
 -   **【【【全新】】】发起投票**: \`{"type": "poll", "name": "你的角色名", "question": "投票的问题", "options": "选项A\\n选项B\\n选项C"}\` (重要提示：options字段是一个用换行符 \\n 分隔的字符串，不是数组！)
 -   **【【【全新】】】参与投票**: \`{"type": "vote", "name": "你的角色名", "poll_timestamp": (投票消息的时间戳), "choice": "你选择的选项文本"}\`
 - **【全新】引用回复**: \`{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}\` (提示：每条历史消息的开头都提供了 \`(Timestamp: ...)\`，请使用它！)
+-   **【新增】修改群名**: \`{"type": "change_group_name", "name": "你的角色名", "new_name": "新的群聊名称"}\`
+-   **【新增】修改群头像**: \`{"type": "change_group_avatar", "name": "你的角色名", "avatar_name": "头像名"}\` (头像名必须从下面的“可用群头像列表”中选择)
 # 如何区分图片与表情:
 -   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: \`{"type": "ai_image", "description": "图片的详细文字描述..."}\`
 -   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
@@ -8000,6 +8063,7 @@ ${worldBookContent}
 ${musicContext}
 ${sharedContext} 
 ${linkedMemoryContext}
+${groupAvatarLibraryContext} 
 # 群成员列表及人设
 ${membersList}
 # 用户的角色
@@ -8695,7 +8759,36 @@ case 'change_music':
                     }
                     continue;
                 }
+// ▼▼▼ 用这块新代码替换旧的 'change_group_avatar' case ▼▼▼
+case 'change_group_avatar':
+    if (chat.isGroup && msgData.avatar_name) {
+        const avatarName = msgData.avatar_name;
+        const library = chat.settings.groupAvatarLibrary || [];
+        // 从头像库中查找AI指定的头像
+        const foundAvatar = library.find(avatar => avatar.name === avatarName);
 
+        if (foundAvatar) {
+            // 如果找到了，就使用它的URL
+            chat.settings.groupAvatar = foundAvatar.url;
+            
+            const systemMessage = {
+                role: 'system',
+                type: 'pat_message',
+                content: `${msgData.name} 更换了群头像`,
+                timestamp: messageTimestamp++
+            };
+            chat.history.push(systemMessage);
+
+            if (isViewingThisChat) {
+                appendMessage(systemMessage, chat);
+            }
+        } else {
+            // 如果没找到，可以在控制台打印一个警告，方便调试
+            console.warn(`AI 尝试使用一个不存在的群头像: "${avatarName}"`);
+        }
+    }
+    continue;
+// ▲▲▲ 替换结束 ▲▲▲
                 case 'system_message':
                     aiMessage = { role: 'system', type: 'pat_message', content: msgData.content, timestamp: Date.now() };
                     break;
@@ -12025,7 +12118,122 @@ function closeAiAvatarLibraryModal() {
 }
 
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】群头像库管理功能函数 ▼▼▼
 
+/**
+ * 打开群头像库管理模态框
+ */
+function openGroupAvatarLibraryModal() {
+    if (!state.activeChatId) return;
+    const chat = state.chats[state.activeChatId];
+    document.getElementById('group-avatar-library-title').textContent = `“${chat.name}”的头像库`;
+    renderGroupAvatarLibrary();
+    document.getElementById('group-avatar-library-modal').classList.add('visible');
+}
+
+/**
+ * 渲染群头像库的内容
+ */
+function renderGroupAvatarLibrary() {
+    const grid = document.getElementById('group-avatar-library-grid');
+    grid.innerHTML = '';
+    const chat = state.chats[state.activeChatId];
+    const library = chat.settings.groupAvatarLibrary || [];
+
+    if (library.length === 0) {
+        grid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1 / -1; text-align: center;">这个头像库还是空的，点击右上角“添加”吧！</p>';
+        return;
+    }
+
+    library.forEach((avatar, index) => {
+        const item = document.createElement('div');
+        item.className = 'sticker-item'; // 复用表情面板的样式
+        item.style.backgroundImage = `url(${avatar.url})`;
+        item.title = avatar.name;
+
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.style.display = 'block'; // 总是显示删除按钮
+        deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const confirmed = await showCustomConfirm('删除头像', `确定要从头像库中删除“${avatar.name}”吗？`, { confirmButtonClass: 'btn-danger' });
+            if (confirmed) {
+                chat.settings.groupAvatarLibrary.splice(index, 1);
+                await db.chats.put(chat);
+                renderGroupAvatarLibrary();
+            }
+        };
+        item.appendChild(deleteBtn);
+        grid.appendChild(item);
+    });
+}
+
+/**
+ * 向当前群聊的头像库中添加新头像
+ */
+async function addAvatarToGroupLibrary() {
+    const name = await showCustomPrompt("添加头像", "请为这个头像起个名字（例如：春日野餐、学习时间）");
+    if (!name || !name.trim()) return;
+
+    const url = await showCustomPrompt("添加头像", "请输入头像的图片URL", "", "url");
+    if (!url || !url.trim().startsWith('http')) {
+        alert("请输入有效的图片URL！");
+        return;
+    }
+    
+    const chat = state.chats[state.activeChatId];
+    if (!chat.settings.groupAvatarLibrary) {
+        chat.settings.groupAvatarLibrary = [];
+    }
+
+    chat.settings.groupAvatarLibrary.push({ name: name.trim(), url: url.trim() });
+    await db.chats.put(chat);
+    renderGroupAvatarLibrary();
+}
+
+/**
+ * 关闭群头像库管理模态框
+ */
+function closeGroupAvatarLibraryModal() {
+    document.getElementById('group-avatar-library-modal').classList.remove('visible');
+}
+
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】聊天列表长按操作菜单的核心功能 ▼▼▼
+
+/**
+ * 显示一个包含“置顶”和“删除”选项的操作菜单
+ * @param {object} chat - 被长按的聊天对象
+ * @returns {Promise<string|null>} - 返回一个Promise，当用户点击时解析为 'pin', 'delete', 或 null (取消)
+ */
+function showChatListActions(chat) {
+    return new Promise(resolve => {
+        const modal = document.getElementById('chat-list-actions-modal');
+        const pinBtn = document.getElementById('chat-list-action-pin');
+        const deleteBtn = document.getElementById('chat-list-action-delete');
+        const cancelBtn = document.getElementById('chat-list-action-cancel');
+
+        // 根据当前聊天是否已置顶，动态设置按钮文字
+        pinBtn.textContent = chat.isPinned ? '取消置顶' : '置顶聊天';
+
+        // 使用克隆节点技巧，确保每次打开菜单时都绑定全新的、干净的事件监听器
+        const newPinBtn = pinBtn.cloneNode(true);
+        pinBtn.parentNode.replaceChild(newPinBtn, pinBtn);
+        newPinBtn.onclick = () => { modal.classList.remove('visible'); resolve('pin'); };
+
+        const newDeleteBtn = deleteBtn.cloneNode(true);
+        deleteBtn.parentNode.replaceChild(newDeleteBtn, deleteBtn);
+        newDeleteBtn.onclick = () => { modal.classList.remove('visible'); resolve('delete'); };
+
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.onclick = () => { modal.classList.remove('visible'); resolve(null); };
+
+        modal.classList.add('visible');
+    });
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 请将这两个【新函数】粘贴到JS功能函数定义区 ▼▼▼
 
 /**
@@ -13475,11 +13683,13 @@ function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheck
             worldBookSelectBox.addEventListener('click', (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); });
             document.getElementById('world-book-checkboxes-container').addEventListener('change', updateWorldBookSelectionDisplay);
             window.addEventListener('click', (e) => { if (!document.querySelector('.custom-multiselect').contains(e.target)) { worldBookCheckboxesContainer.classList.remove('visible'); worldBookSelectBox.classList.remove('expanded'); } });
-
-// ▼▼▼ 请用这段【完整、全新的代码】替换旧的 chat-settings-btn 点击事件 ▼▼▼
+// ▼▼▼ 用这块【新代码】替换旧的 'chat-settings-btn' 点击事件监听器 ▼▼▼
 document.getElementById('chat-settings-btn').addEventListener('click', async () => {
     if (!state.activeChatId) return;
     const chat = state.chats[state.activeChatId];
+    // ▼▼▼ 请在这里添加下面这行诊断代码 ▼▼▼
+    console.log('打开设置时，当前聊天对象:', chat);
+    // ▲▲▲ 添加结束 ▲▲▲
     const isGroup = chat.isGroup;
 
     // --- 统一显示/隐藏控件 ---
@@ -13490,13 +13700,14 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
     document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
 
+    // 【核心修改就在这里】
+    // 当是群聊(isGroup=true)时，隐藏“对方人设”；否则（单聊）就显示。
     document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
     
-    // 【核心修改1】根据是否为群聊，显示或隐藏“好友分组”区域
+    document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
     
-    // --- 加载表单数据 ---
+    // --- 加载表单数据 (后续代码保持不变) ---
     document.getElementById('chat-name-input').value = chat.name;
     document.getElementById('my-persona').value = chat.settings.myPersona;
     document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
@@ -13521,15 +13732,13 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
         
-        // 【核心修改2】如果是单聊，就加载分组列表到下拉框
         const select = document.getElementById('assign-group-select');
-        select.innerHTML = '<option value="">未分组</option>'; // 清空并设置默认选项
+        select.innerHTML = '<option value="">未分组</option>';
         const groups = await db.qzoneGroups.toArray();
         groups.forEach(group => {
             const option = document.createElement('option');
             option.value = group.id;
             option.textContent = group.name;
-            // 如果当前好友已经有分组，就默认选中它
             if (chat.groupId === group.id) {
                 option.selected = true;
             }
@@ -13537,7 +13746,6 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         }); 
     }
     
-    // 加载世界书
     const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
     worldBookCheckboxesContainer.innerHTML = '';
     const linkedIds = chat.settings.linkedWorldBookIds || [];
@@ -13550,7 +13758,6 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         });
     }
     updateWorldBookSelectionDisplay();
-    // ▼▼▼ 把【缺失的代码】完整地粘贴到这里 ▼▼▼
     const heartRateGroup = document.getElementById('ai-heart-rate-group');
     heartRateGroup.style.display = isGroup ? 'none' : 'block';
     if (!isGroup) {
@@ -13565,60 +13772,53 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         heartRatePersonality.value = settings.personality || 'custom';
         heartRateBaseline.value = settings.baseline || 65;
     }
-    // ▲▲▲ 粘贴结束 ▲▲▲
 
-// ▼▼▼ 【新增】加载“挂载记忆”的设置和选项 ▼▼▼
-const linkMemoryToggle = document.getElementById('link-memory-toggle');
-const linkedMemorySelection = document.getElementById('linked-memory-selection');
-const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container');
-const linkedMemoryIds = chat.settings.linkedMemoryChatIds || [];
+    const linkMemoryToggle = document.getElementById('link-memory-toggle');
+    const linkedMemorySelection = document.getElementById('linked-memory-selection');
+    const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container');
+    const linkedMemoryIds = chat.settings.linkedMemoryChatIds || [];
 
-// 根据是否已保存设置，来决定总开关是否开启
-linkMemoryToggle.checked = linkedMemoryIds.length > 0;
-linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none';
-
-linkedChatsContainer.innerHTML = ''; // 清空旧选项
-Object.values(state.chats).forEach(c => {
-    if (c.id === chat.id) return; // 不能挂载自己
-
-    const isChecked = linkedMemoryIds.includes(c.id);
-    const prefix = c.isGroup ? '[群聊]' : '[私聊]';
-    const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`;
-    linkedChatsContainer.appendChild(label);
-});
-
-// 动态更新多选框标题的辅助函数
-function updateLinkedMemorySelectionDisplay() {
-    const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked');
-    const displayText = linkedMemorySelection.querySelector('.selected-options-text');
-    if (checkedBoxes.length === 0) {
-        displayText.textContent = '-- 点击选择 --';
-    } else if (checkedBoxes.length > 2) {
-        displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
-    } else {
-        displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
-    }
-}
-updateLinkedMemorySelectionDisplay(); // 初始化显示
-
-// 为新增的UI元素绑定事件
-linkMemoryToggle.addEventListener('change', () => {
+    linkMemoryToggle.checked = linkedMemoryIds.length > 0;
     linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none';
-});
 
-const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box');
-const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); // 使用克隆节点清除旧事件
-linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox);
-newLinkedMemorySelectBox.addEventListener('click', (e) => {
-    e.stopPropagation();
-    linkedChatsContainer.classList.toggle('visible');
-    newLinkedMemorySelectBox.classList.toggle('expanded');
-});
+    linkedChatsContainer.innerHTML = '';
+    Object.values(state.chats).forEach(c => {
+        if (c.id === chat.id) return;
 
-linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
-// ▲▲▲ 新增代码结束 ▲▲▲
-    // 加载并更新所有预览相关控件
+        const isChecked = linkedMemoryIds.includes(c.id);
+        const prefix = c.isGroup ? '[群聊]' : '[私聊]';
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`;
+        linkedChatsContainer.appendChild(label);
+    });
+
+    function updateLinkedMemorySelectionDisplay() {
+        const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked');
+        const displayText = linkedMemorySelection.querySelector('.selected-options-text');
+        if (checkedBoxes.length === 0) {
+            displayText.textContent = '-- 点击选择 --';
+        } else if (checkedBoxes.length > 2) {
+            displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
+        } else {
+            displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
+        }
+    }
+    updateLinkedMemorySelectionDisplay();
+
+    linkMemoryToggle.addEventListener('change', () => {
+        linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none';
+    });
+
+    const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box');
+    const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true);
+    linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox);
+    newLinkedMemorySelectBox.addEventListener('click', (e) => {
+        e.stopPropagation();
+        linkedChatsContainer.classList.toggle('visible');
+        newLinkedMemorySelectBox.classList.toggle('expanded');
+    });
+
+    linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
     const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`);
     if (themeRadio) themeRadio.checked = true;
     const fontSizeSlider = document.getElementById('font-size-slider');
@@ -15244,7 +15444,11 @@ document.getElementById('manage-ai-avatar-library-btn').addEventListener('click'
 document.getElementById('add-ai-avatar-btn').addEventListener('click', addAvatarToLibrary);
 document.getElementById('close-ai-avatar-library-btn').addEventListener('click', closeAiAvatarLibraryModal);
 // ▲▲▲ 新增结束 ▲▲▲
-
+// ▼▼▼ 【全新】群头像库功能事件绑定 ▼▼▼
+document.getElementById('manage-group-avatar-library-btn').addEventListener('click', openGroupAvatarLibraryModal);
+document.getElementById('add-group-avatar-btn').addEventListener('click', addAvatarToGroupLibrary);
+document.getElementById('close-group-avatar-library-btn').addEventListener('click', closeGroupAvatarLibraryModal);
+// ▲▲▲ 新增结束 ▲▲▲
 // ▼▼▼ 在 init() 的事件监听区域，粘贴这段【新代码】▼▼▼
 document.getElementById('icon-settings-grid').addEventListener('click', async (e) => {
     if (e.target.classList.contains('change-icon-btn')) {
