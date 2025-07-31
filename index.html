@@ -4306,6 +4306,71 @@ input:checked + .slider:before {
     font-size: 14px;
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▼▼▼ 【全新】共享位置卡片样式 (微信风格) ▼▼▼ */
+.message-bubble.is-location-share .content {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* 卡片总容器，负责圆角和阴影 */
+.location-share-card {
+    width: 230px;
+    border-radius: 10px;
+    overflow: hidden; /* 关键：让子元素的直角被裁剪成圆角 */
+    background-color: #fff;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* 上半部分：白色文字区 */
+.card-text-area {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0; /* 文字区和地图区的分割线 */
+}
+
+.card-text-primary {
+    font-size: 16px;
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-text-secondary {
+    font-size: 12px;
+    color: #a0a0a0;
+}
+
+/* 下半部分：彩色地图区 */
+.card-map-area {
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #FFF0F5; /* AI的卡片用柔和粉色 */
+}
+
+/* 用户发送的卡片，地图区用柔和绿色 */
+.message-bubble.user .location-share-card .card-map-area {
+    background-color: #F0FFF8;
+}
+
+.card-pin-icon {
+    font-size: 40px;
+    color: #FFB6C1; /* 粉色背景配深粉色图标 */
+}
+
+/* 用户卡片的绿色背景，配一个和谐的绿色图标 */
+.message-bubble.user .location-share-card .card-pin-icon {
+    color: #A8D8B9; 
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -4680,6 +4745,7 @@ input:checked + .slider:before {
             <button id="send-waimai-request-btn" class="chat-action-icon-btn action-button" title="发起外卖请求"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg></button>
             <button id="video-call-btn" class="chat-action-icon-btn action-button" title="视频通话"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></button>
             <button id="group-video-call-btn" class="chat-action-icon-btn action-button" title="群视频通话"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button>
+<button id="share-location-btn" class="chat-action-icon-btn action-button" title="共享位置"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
             <button id="send-poll-btn" class="chat-action-icon-btn action-button" title="发起投票"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h10"></path><path d="M6 6h.01"></path><path d="M8 12h10"></path><path d="M6 12h.01"></path><path d="M8 18h10"></path><path d="M6 18h.01"></path></svg></button>
             <button id="share-link-btn" class="chat-action-icon-btn action-button" title="分享链接"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
 <button id="show-announcement-board-btn" class="chat-action-icon-btn action-button" title="群公告板" style="display: none;">
@@ -7275,7 +7341,25 @@ else if (msg.type === 'share_card') {
         </div>
     `;
 }
-
+// ▼▼▼ 在这里粘贴下面的新代码块 ▼▼▼
+else if (msg.type === 'location_share') {
+    bubble.classList.add('is-location-share');
+    
+    contentHtml = `
+        <div class="location-share-card">
+            <div class="card-text-area">
+                <div class="card-text-primary">${msg.content}</div>
+                <div class="card-text-secondary">共享实时位置</div>
+            </div>
+            <div class="card-map-area">
+                <div class="card-pin-icon">
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg>
+                </div>
+            </div>
+        </div>
+    `;
+}
+// ▲▲▲ 新代码块粘贴结束 ▲▲▲
     else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
         bubble.classList.add('is-ai-image');
         const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
@@ -7900,6 +7984,7 @@ if (chat.isGroup) {
 -   **发专属红包**: \`{"type": "red_packet", "packetType": "direct", "name": "你的角色名", "amount": 5.20, "receiver": "接收者角色名", "greeting": "给你的~"}\`
 -   **打开红包**: \`{"type": "open_red_packet", "name": "你的角色名", "packet_timestamp": (你想打开的红包消息的时间戳)}\`
 -   **【新】发送系统消息**: \`{"type": "system_message", "content": "你想在聊天中显示的系统文本"}\` 
+-   **【全新】共享位置**: \`{"type": "location_share", "name": "角色名", "content": "你想分享的位置名"}\`
 -   **【【【全新】】】发起投票**: \`{"type": "poll", "name": "你的角色名", "question": "投票的问题", "options": "选项A\\n选项B\\n选项C"}\` (重要提示：options字段是一个用换行符 \\n 分隔的字符串，不是数组！)
 -   **【【【全新】】】参与投票**: \`{"type": "vote", "name": "你的角色名", "poll_timestamp": (投票消息的时间戳), "choice": "你选择的选项文本"}\`
 - **【全新】引用回复**: \`{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}\` (提示：每条历史消息的开头都提供了 \`(Timestamp: ...)\`，请使用它！)
@@ -7934,6 +8019,12 @@ ${membersList}
                 else if (msg.type === 'ai_image') content = `[${sender} 发送了一张图片]`;
                 else if (msg.type === 'voice_message') content = `[${sender} 发送了一条语音，内容是：'${msg.content}']`;
                 else if (msg.type === 'transfer') content = `[${msg.senderName} 向 ${msg.receiverName} 转账 ${msg.amount}元, 备注: ${msg.note}]`;
+// ▼▼▼ 在这里粘贴下面的新代码块 ▼▼▼
+                else if (msg.type === 'location_share') {
+                    content = `[${sender} 分享了Ta的位置：'${msg.content}']`;
+// ▲▲▲ 新代码块粘贴结束 ▲▲▲
+
+                } 
                 else if (msg.type === 'waimai_request') {
                     if(msg.status === 'paid') {
                         content = `[系统提示：${msg.paidBy} 为 ${sender} 的外卖订单支付了 ${msg.amount} 元。此订单已完成。]`;
@@ -7994,6 +8085,7 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0
 - **【新】发起视频通话**: \`{"type": "video_call_request"}\`
 - **【新】回应视频通话-接受**: \`{"type": "video_call_response", "decision": "accept"}\`
 - **【新】回应视频通话-拒绝**: \`{"type": "video_call_response", "decision": "reject"}\`
+- **【全新】共享位置**: \`{"type": "location_share", "content": "你想分享的位置名"}\`
 - **发布说说**: \`{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}\`
 - **【新增】转发动态**: 创建一条新的 "shuoshuo" 动态来分享你看到的、觉得有趣的帖子。格式建议为: \`[{"type": "qzone_post", "postType": "shuoshuo", "content": "//转发 @[原作者名]: [原文摘要] \\n\\n [你的转发评论]"}]\`
 - **发布文字图**: \`{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}\`
@@ -8333,7 +8425,15 @@ ${contextSummaryForApproval}
                     }
                     renderChatList(); 
                     continue; 
-
+// ▼▼▼ 在这里添加新代码 ▼▼▼
+                case 'location_share':
+                    aiMessage = {
+                        ...baseMessage,
+                        type: 'location_share',
+                        content: msgData.content
+                    };
+                    break;
+                // ▲▲▲ 新代码添加结束 ▲▲▲
 //... inside triggerAiResponse() -> switch (msgData.type)
 
 case 'change_music':
@@ -8780,7 +8880,34 @@ case 'change_music':
         async function sendSticker(sticker) { if (!state.activeChatId) return; const chat = state.chats[state.activeChatId]; const msg = { role: 'user', content: sticker.url, meaning: sticker.name, timestamp: Date.now() }; chat.history.push(msg); await db.chats.put(chat); appendMessage(msg, chat); renderChatList(); document.getElementById('sticker-panel').classList.remove('visible'); }
 
         async function sendUserTransfer() { if (!state.activeChatId) return; const amountInput = document.getElementById('transfer-amount'); const noteInput = document.getElementById('transfer-note'); const amount = parseFloat(amountInput.value); const note = noteInput.value.trim(); if (isNaN(amount) || amount < 0 || amount > 9999) { alert('请输入有效的金额 (0 到 9999 之间)！'); return; } const chat = state.chats[state.activeChatId]; const senderName = chat.isGroup ? (chat.settings.myNickname || '我') : '我'; const receiverName = chat.isGroup ? '群聊' : chat.name; const msg = { role: 'user', type: 'transfer', amount: amount, note: note, senderName, receiverName, timestamp: Date.now() }; chat.history.push(msg); await db.chats.put(chat); appendMessage(msg, chat); renderChatList(); document.getElementById('transfer-modal').classList.remove('visible'); amountInput.value = ''; noteInput.value = ''; }
+// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
+/**
+ * 发送一个位置共享卡片
+ */
+async function sendLocationShare() {
+    if (!state.activeChatId) return;
 
+    // 弹出输入框，让用户直接输入
+    const locationName = await showCustomPrompt("共享位置", "你现在在哪里呀？", "");
+
+    // 如果用户输入了有效内容
+    if (locationName && locationName.trim()) {
+        const chat = state.chats[state.activeChatId];
+        const msg = {
+            role: 'user',
+            type: 'location_share',
+            content: locationName.trim(), // `content` 字段存储位置名
+            timestamp: Date.now()
+        };
+        
+        // 保存并更新UI
+        chat.history.push(msg);
+        await db.chats.put(chat);
+        appendMessage(msg, chat);
+        renderChatList();
+    }
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
         function enterSelectionMode(initialMsgTimestamp) { if (isSelectionMode) return; isSelectionMode = true; document.getElementById('chat-interface-screen').classList.add('selection-mode'); toggleMessageSelection(initialMsgTimestamp); }
 
         function exitSelectionMode() {
@@ -15184,7 +15311,8 @@ document.getElementById('quote-message-btn').addEventListener('click', startRepl
 // 绑定回复预览栏中的“取消”按钮
 document.getElementById('cancel-reply-btn').addEventListener('click', cancelReplyMode);
 // ▲▲▲ 粘贴结束 ▲▲▲
-
+// ▼▼▼ 在 init() 的事件监听器区域添加这行代码 ▼▼▼
+document.getElementById('share-location-btn').addEventListener('click', sendLocationShare);
 // 在你的 init() 函数的事件监听器区域...
 
 // ▼▼▼ 用这段代码替换旧的转账卡片点击事件 ▼▼▼
