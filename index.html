@@ -8006,8 +8006,13 @@ if (chat.isGroup) {
             announcementContext += '---\n';
         }
         // ▲▲▲ 新增逻辑结束 ▲▲▲
-// ▼▼▼ 请用这块【新代码】完整替换旧的 group systemPrompt 变量 ▼▼▼
-// 1. 【新增】在 systemPrompt 外部先准备好头像库的文本
+// ▼▼▼ 请用这【一整块新代码】完整替换旧的 group systemPrompt 相关定义 ▼▼▼
+
+// 1. 【新增】准备一个包含所有成员名的“禁用名”列表
+const memberNames = chat.members.map(m => m.originalName);
+const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+
+// 2. 准备头像库的文本 (这段代码保持不变，只是移动了位置)
 let groupAvatarLibraryContext = '# 可用群头像列表\n';
 if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
     groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
@@ -8015,7 +8020,7 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
     groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
 }
 
-        systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方“群成员列表”中明确列出的角色。任何不属于该列表的名字都不允许出现。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
@@ -8029,8 +8034,7 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
     - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
     - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
     - 你也可以随时主动发起投票。
-8. **【新增】群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
-## 你可以使用的操作指令 (JSON数组中的元素):
+8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: \`{"type": "text", "name": "角色名", "message": "文本内容"}\`
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: \`{"type": "send_and_recall", "name": "角色名", "content": "你想让角色说出后立刻消失的话"}\`
@@ -8049,8 +8053,8 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
 -   **【【【全新】】】发起投票**: \`{"type": "poll", "name": "你的角色名", "question": "投票的问题", "options": "选项A\\n选项B\\n选项C"}\` (重要提示：options字段是一个用换行符 \\n 分隔的字符串，不是数组！)
 -   **【【【全新】】】参与投票**: \`{"type": "vote", "name": "你的角色名", "poll_timestamp": (投票消息的时间戳), "choice": "你选择的选项文本"}\`
 - **【全新】引用回复**: \`{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}\` (提示：每条历史消息的开头都提供了 \`(Timestamp: ...)\`，请使用它！)
--   **【新增】修改群名**: \`{"type": "change_group_name", "name": "你的角色名", "new_name": "新的群聊名称"}\`
--   **【新增】修改群头像**: \`{"type": "change_group_avatar", "name": "你的角色名", "avatar_name": "头像名"}\` (头像名必须从下面的“可用群头像列表”中选择)
+-   **修改群名**: \`{"type": "change_group_name", "name": "你的角色名", "new_name": "新的群聊名称"}\`
+-   **修改群头像**: \`{"type": "change_group_avatar", "name": "你的角色名", "avatar_name": "头像名"}\` (头像名必须从下面的“可用群头像列表”中选择)
 # 如何区分图片与表情:
 -   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: \`{"type": "ai_image", "description": "图片的详细文字描述..."}\`
 -   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
@@ -8059,16 +8063,22 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
 2.  **响应请求**: 当历史记录中出现【其他成员】发起的 "waimai_request" 请求时，你可以根据自己扮演的角色的性格和与发起人的关系，决定是否为Ta买单。
 3.  **响应方式**: 如果你决定买单，你【必须】使用以下指令：\`{"type": "waimai_response", "name": "你的角色名", "status": "paid", "for_timestamp": (被代付请求的原始时间戳)}\`
 4.  **【【【至关重要】】】**: 一旦历史记录中出现了针对某个代付请求的【任何一个】"status": "paid" 的响应（无论是用户支付还是其他角色支付），就意味着该订单【已经完成】。你【绝对不能】再对【同一个】订单发起支付。你可以选择对此事发表评论，但不能再次支付。
+${forbiddenNamesContext} // <-- 在这里注入了新的群名修改规则
+# 当前群聊信息
+- **群名称**: ${chat.name}
 ${worldBookContent}
 ${musicContext}
 ${sharedContext} 
 ${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
+
+
 # 群成员列表及人设
 ${membersList}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+// ▲▲▲ 替换结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -8759,7 +8769,43 @@ case 'change_music':
                     }
                     continue;
                 }
-// ▼▼▼ 用这块新代码替换旧的 'change_group_avatar' case ▼▼▼
+// ▼▼▼ 将这【一整块新代码】粘贴到 switch (msgData.type) 的内部 ▼▼▼
+
+// ▼▼▼ 用这块【新代码】替换旧的 'change_group_name' case ▼▼▼
+case 'change_group_name':
+    if (chat.isGroup && msgData.new_name) {
+        const newName = msgData.new_name.trim();
+        const memberNames = chat.members.map(m => m.originalName);
+
+        // --- 【核心安全校验】---
+        // 检查新群名是否与任何成员的“本名”相同
+        if (memberNames.includes(newName)) {
+            // 如果相同，就在控制台打印一个警告，并阻止这个操作
+            console.warn(`AI (${msgData.name}) 试图将群名更改为成员名 ("${newName}")。操作已被程序阻止。`);
+            // 使用 continue 跳过本次循环，不执行后续的改名逻辑
+            continue; 
+        }
+        // --- 安全校验结束 ---
+
+        // 如果校验通过，才执行正常的改名逻辑
+        chat.name = newName; 
+
+        const systemMessage = {
+            role: 'system',
+            type: 'pat_message',
+            content: `${msgData.name} 将群名修改为 “${chat.name}”`,
+            timestamp: messageTimestamp++
+        };
+        chat.history.push(systemMessage);
+
+        if (isViewingThisChat) {
+            appendMessage(systemMessage, chat);
+            document.getElementById('chat-header-title').textContent = chat.name;
+        }
+    }
+    continue;
+// ▲▲▲ 替换结束 ▲▲▲
+
 case 'change_group_avatar':
     if (chat.isGroup && msgData.avatar_name) {
         const avatarName = msgData.avatar_name;
@@ -8787,8 +8833,9 @@ case 'change_group_avatar':
             console.warn(`AI 尝试使用一个不存在的群头像: "${avatarName}"`);
         }
     }
-    continue;
-// ▲▲▲ 替换结束 ▲▲▲
+    continue; // 同样是管理操作，继续循环
+
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
                 case 'system_message':
                     aiMessage = { role: 'system', type: 'pat_message', content: msgData.content, timestamp: Date.now() };
                     break;
