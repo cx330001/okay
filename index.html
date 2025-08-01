@@ -9837,7 +9837,7 @@ async function triggerInactiveAiAction(chatId) {
     setAvatarActingState(chatId, true);
 
     const { proxyUrl, apiKey, model } = state.apiConfig;
-    if (!proxyUrl || !apiKey, !model) return;
+    if (!proxyUrl || !apiKey || !model) return;
 
     const userNickname = state.qzoneSettings.nickname;
     const now = new Date();
@@ -9874,10 +9874,9 @@ async function triggerInactiveAiAction(chatId) {
 
 # 你的可选行动指令:
 -   **发消息+更新状态**: \`[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]\`
--   **发布说说 (原创内容)**: `[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]`
--   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]`
--   **发布图片动态**: `[{"type": "qzone_post", "postType": "image_post", "publicText": "(可选)动态的公开文字", "imageDescription": "你想让AI画的图片的详细描述"}]`
--   **发布文字图**: `[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]`
+-   **发说说 (原创内容)**: \`[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]\`
+-   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：\`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]\`
+-   **发布文字图**: \`[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]\`
 -   **评论 (可多条)**: \`[{"type": "qzone_comment", "postId": 123, "comments": ["这是第一条评论。", "这是第二条！"]}]\`
 -   **点赞**: \`[{"type": "qzone_like", "postId": 456}]\`
 -   **打视频**: \`[{"type": "video_call_request"}]\`
