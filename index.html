@@ -4391,7 +4391,7 @@ input:checked + .slider:before {
     border: 1.5px solid rgba(0, 123, 255, 0.7);
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
-/* ▼▼▼ 【全新】动态评论区表情功能样式 (最终修正版) ▼▼▼ */
+/* ▼▼▼ 【全新】动态评论区表情功能样式 ▼▼▼ */
 
 /* 1. 表情按钮样式 (美化后) */
 .comment-sticker-btn {
@@ -4416,9 +4416,9 @@ input:checked + .slider:before {
     background-color: #f5f5f5; /* 鼠标悬停时变色 */
 }
 
-/* 2. 评论区表情面板容器 (不变) */
+/* 2. 评论区表情面板容器 */
 #qzone-sticker-panel {
-    position: absolute;
+    position: absolute; /* 使用绝对定位，由JS控制位置 */
     width: 280px;
     height: 200px;
     background-color: rgba(255, 255, 255, 0.95);
@@ -4427,8 +4427,8 @@ input:checked + .slider:before {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-    z-index: 1010;
-    display: none;
+    z-index: 1010; /* 确保在其他元素之上 */
+    display: none; /* 默认隐藏 */
     flex-direction: column;
     overflow: hidden;
 }
@@ -4455,11 +4455,13 @@ input:checked + .slider:before {
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
-/* 4. 【核心修正】评论区里的表情图片样式 */
+
+/* 4. 评论区里的表情图片样式 (尺寸修正后) */
 .comment-text .comment-sticker {
     max-width: 100px;  /* 减小最大宽度 */
     max-height: 100px; /* 减小最大高度 */
     display: block;
+    background-color: transparent;
 }
 
 /* 5. 【新增】优化：当评论内容是表情时，调整间距 */
@@ -5807,9 +5809,7 @@ input:checked + .slider:before {
         </div>
     </div>
 </div>
-<div id="qzone-sticker-panel">
-    <div id="qzone-sticker-grid"></div>
-</div>
+
 <script>
 // ... 位于 <script> 标签顶部 ...
 let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器”和“波动计时器”
@@ -6377,7 +6377,6 @@ async function renderQzonePosts() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-
 // ▼▼▼ 【全新】动态评论区表情面板管理函数 ▼▼▼
 
 function openQzoneStickerPanel(postId, buttonElement) {
@@ -6432,32 +6431,75 @@ function openQzoneStickerPanel(postId, buttonElement) {
     qzoneStickerPanelState.isOpen = true;
     qzoneStickerPanelState.activePostId = postId;
 }
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 请将这段【新函数】粘贴到 openQzoneStickerPanel 函数的后面 ▼▼▼
+
+/**
+ * 【全新】关闭动态评论区的表情面板
+ */
 function closeQzoneStickerPanel() {
-    qzoneStickerPanelState.panelEl.style.display = 'none';
-    qzoneStickerPanelState.isOpen = false;
-    qzoneStickerPanelState.activePostId = null;
-}
-
-async function sendQzoneStickerComment(postId, stickerUrl) {
-    const post = await db.qzonePosts.get(postId);
-    if (!post) return;
-
-    if (!post.comments) post.comments = [];
-    post.comments.push({
-        commenterName: state.qzoneSettings.nickname,
-        text: stickerUrl,
-        timestamp: Date.now()
-    });
-    
-    await db.qzonePosts.update(postId, { comments: post.comments });
-
-    // 关闭面板并重新渲染
-    closeQzoneStickerPanel();
-    await renderQzonePosts();
+    // 检查状态，确保面板是打开的
+    if (qzoneStickerPanelState.isOpen) {
+        // 隐藏面板DOM元素
+        qzoneStickerPanelState.panelEl.style.display = 'none';
+        
+        // 重置状态变量
+        qzoneStickerPanelState.isOpen = false;
+        qzoneStickerPanelState.activePostId = null;
+    }
 }
 
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
+/**
+ * 【全新】发送动态表情评论
+ * @param {number} postId - 帖子ID
+ * @param {string} stickerUrl - 表情图片的URL
+ */
+async function sendQzoneStickerComment(postId, stickerUrl) {
+    if (!stickerUrl) return;
+
+    // 1. 从数据库中获取最新的帖子数据
+    const post = await db.qzonePosts.get(postId);
+    if (!post) {
+        console.error("sendQzoneStickerComment: 找不到帖子:", postId);
+        return;
+    }
+
+    // 2. 准备新的评论对象
+    if (!post.comments) {
+        post.comments = [];
+    }
+    const newComment = {
+        commenterName: state.qzoneSettings.nickname, // 使用当前用户的昵称
+        text: stickerUrl, // 评论内容就是表情的URL
+        timestamp: Date.now()
+    };
+    post.comments.push(newComment);
+
+    // 3. 将更新后的帖子存回数据库
+    await db.qzonePosts.update(postId, { comments: post.comments });
+
+    // 4. 关闭表情面板并重新渲染动态列表
+    closeQzoneStickerPanel();
+    await renderQzonePosts();
+    
+    // 5. (可选) 触发 AI 对这个表情评论的反应，通知所有非群聊的 AI
+    const postSummary = (post.publicText || post.content || `[图片动态]`).substring(0, 30);
+    for (const chatId in state.chats) {
+        const chat = state.chats[chatId];
+        if (!chat.isGroup) { // 只通知单聊AI
+            const historyMessage = { 
+                role: 'system', 
+                content: `[系统提示：'${state.qzoneSettings.nickname}' 在你的动态(ID: ${postId}, 内容摘要: “${postSummary}”)下发送了一个表情评论。请你对此作出回应。]`, 
+                timestamp: Date.now(), 
+                isHidden: true 
+            };
+            chat.history.push(historyMessage);
+            await db.chats.put(chat);
+        }
+    }
+}
 
 
 // ▼▼▼ 【全新】这三个函数是转发功能的核心，请将它们粘贴到JS功能函数定义区 ▼▼▼
@@ -8243,48 +8285,37 @@ ${formattedHistory}
 ---
 `;
         }
-        
-        // --- ▼▼▼ 核心修改 1：为AI提供可用的表情包列表 ▼▼▼ ---
-        let stickerLibraryContext = "# 你的表情包库 (可用于私聊或评论)\n";
-        if (state.userStickers && state.userStickers.length > 0) {
-            stickerLibraryContext += state.userStickers.map(s => `- (${s.name}): ${s.url}`).join('\n');
-        } else {
-            stickerLibraryContext += "(你的表情包库是空的，无法发送表情)";
-        }
-        // --- ▲▲▲ 修改结束 ▲▲▲ ---
-
 if (chat.isGroup) {
-            const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
-            const myNickname = chat.settings.myNickname || '我';
+        const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
+        const myNickname = chat.settings.myNickname || '我';
 
-            let announcementContext = '';
-            const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
-            if (pinnedAnnouncements.length > 0) {
-                announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
-                pinnedAnnouncements.forEach(anno => {
-                    const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
-                    if (originalMessage) {
-                        let contentText = String(originalMessage.content || '');
-                        if (originalMessage.type === 'ai_image') {
-                            contentText = `[图片内容: ${contentText}]`;
-                        }
-                        announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+        let announcementContext = '';
+        const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
+        if (pinnedAnnouncements.length > 0) {
+            announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
+            pinnedAnnouncements.forEach(anno => {
+                const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+                if (originalMessage) {
+                    let contentText = String(originalMessage.content || '');
+                    if (originalMessage.type === 'ai_image') {
+                        contentText = `[图片内容: ${contentText}]`;
                     }
-                });
-                announcementContext += '---\n';
-            }
-    const memberNames = chat.members.map(m => m.originalName);
-    const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+                    announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+                }
+            });
+            announcementContext += '---\n';
+        }
+const memberNames = chat.members.map(m => m.originalName);
+const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
 
-    let groupAvatarLibraryContext = '# 可用群头像列表\n';
-    if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
-        groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
-    } else {
-        groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
-    }
+let groupAvatarLibraryContext = '# 可用群头像列表\n';
+if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
+    groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
+} else {
+    groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+}
 
-    // --- 修改开始 ---
-    systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】。你【绝对、永远、在任何情况下都不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。你的唯一任务是扮演且仅能扮演下方“群成员列表”中明确列出的角色。任何不属于该列表的名字都不允许出现。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
@@ -8298,7 +8329,7 @@ if (chat.isGroup) {
     - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
     - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
     - 你也可以随时主动发起投票。
-8.  **【【【位置分享铁律】】】**: 当你需要分享一个地理位置时，你【必须】使用 "location_share" 指令。你【绝对不能】以纯文本形式发送，例如 "[位置]" 或 "我在xx路xx号"。
+8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: \`{"type": "text", "name": "角色名", "message": "文本内容"}\`
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: \`{"type": "send_and_recall", "name": "角色名", "content": "你想让角色说出后立刻消失的话"}\`
@@ -8342,7 +8373,6 @@ ${membersList}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-            // --- 修改结束 ---
             
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -8426,7 +8456,6 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0
 - **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：\`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]\`
 - **发布文字图**: \`{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}\`
 - **评论动态**: \`{"type": "qzone_comment", "postId": 123, "commentText": "@作者名 这太有趣了！"}\`
-- **【【【核心新增】】】表情评论**: \`{"type": "qzone_comment", "postId": 123, "stickerUrl": "从你的表情包库中选择一个URL"}\`
 - **点赞动态**: \`{"type": "qzone_like", "postId": 456}\`
 -   **拍一拍用户**: \`{"type": "pat_user", "suffix": "(可选)你想加的后缀，如“的脑袋”"}\`
 -   **【新增】拉黑用户**: \`{"type": "block_user"}\`
@@ -8467,7 +8496,6 @@ ${musicContext}
 ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
-${stickerLibraryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
             
             messagesPayload = historySlice.map(msg => {
@@ -8675,30 +8703,18 @@ ${contextSummaryForApproval}
                     }
                     continue;
 
-                // --- ▼▼▼ 核心修改 2：处理AI发送的表情评论指令 ▼▼▼ ---
                 case 'qzone_comment':
                     const postToComment = await db.qzonePosts.get(parseInt(msgData.postId));
                     if (postToComment) {
                         if (!postToComment.comments) postToComment.comments = [];
-                        
-                        let commentText;
-                        if (msgData.commentText) {
-                            commentText = msgData.commentText;
-                        } else if (msgData.stickerUrl) {
-                            commentText = msgData.stickerUrl; // 把表情URL作为评论内容
-                        }
-
-                        if (commentText) {
-                            postToComment.comments.push({ commenterName: chat.name, text: commentText, timestamp: Date.now() });
-                            await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
-                            updateUnreadIndicator(unreadPostsCount + 1);
-                            if (isViewingThisChat && document.getElementById('qzone-screen').classList.contains('active')) {
-                               await renderQzonePosts();
-                            }
+                        postToComment.comments.push({ commenterName: chat.name, text: msgData.commentText, timestamp: Date.now() });
+                        await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
+                        updateUnreadIndicator(unreadPostsCount + 1);
+                        if (isViewingThisChat && document.getElementById('qzone-screen').classList.contains('active')) {
+                           await renderQzonePosts();
                         }
                     }
                     continue;
-                // --- ▲▲▲ 修改结束 ▲▲▲ ---
 
                 case 'qzone_like':
                    const postToLike = await db.qzonePosts.get(parseInt(msgData.postId));
@@ -9847,15 +9863,7 @@ async function triggerInactiveAiAction(chatId) {
         }
     }
 
-    let stickerLibraryContext = "# 你的表情包库 (可用于私聊或评论)\n";
-    if (state.userStickers && state.userStickers.length > 0) {
-        stickerLibraryContext += state.userStickers.map(s => `- (${s.name}): ${s.url}`).join('\n');
-    } else {
-        stickerLibraryContext += "(你的表情包库是空的，无法发送表情)";
-    }
-
-    // --- 修改开始 ---
-const systemPrompt = `
+    const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 # 核心规则
@@ -9864,14 +9872,13 @@ const systemPrompt = `
 3.  **【备选方案】**：如果动态列表是空的，或者你已经与所有动态都互动过了，你【必须】考虑执行其他行动来展示你的生活，例如发布一条你自己的动态或给用户发送一条消息。
 4.  你的回复【必须】是包含一个对象的JSON数组。
 
-
 # 你的可选行动指令:
 -   **发消息+更新状态**: \`[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]\`
--   **发说说 (原创内容)**: \`[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]\`
--   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：\`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]\`
--   **发布文字图**: \`[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]\`
+-   **发布说说 (原创内容)**: `[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]`
+-   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]`
+-   **发布图片动态**: `[{"type": "qzone_post", "postType": "image_post", "publicText": "(可选)动态的公开文字", "imageDescription": "你想让AI画的图片的详细描述"}]`
+-   **发布文字图**: `[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]`
 -   **评论 (可多条)**: \`[{"type": "qzone_comment", "postId": 123, "comments": ["这是第一条评论。", "这是第二条！"]}]\`
--   **【【【核心新增】】】表情评论**: \`[{"type": "qzone_comment", "postId": 123, "stickerUrl": "从你的表情包库中选择一个URL"}]\`
 -   **点赞**: \`[{"type": "qzone_like", "postId": 456}]\`
 -   **打视频**: \`[{"type": "video_call_request"}]\`
 
@@ -9879,9 +9886,7 @@ const systemPrompt = `
 -   **你的角色设定**: ${chat.settings.aiPersona}
 ${worldBookContent}
 -   **当前时间**: ${now.toLocaleString('zh-CN', { timeStyle: 'short' })}
--   **你们最后的对话摘要**: ${recentContextSummary}
-${stickerLibraryContext}`;
-// --- 修改结束 ---
+-   **你们最后的对话摘要**: ${recentContextSummary}`;
 
     try {
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(3).toArray();
@@ -9954,12 +9959,8 @@ ${stickerLibraryContext}`;
         }
 
         for (const action of responseArray) {
-            if (!action || typeof action !== 'object' || !action.type) {
-                console.warn("跳过一个格式不正确的后台指令：", action);
-                continue;
-            }
+            if (!action) continue;
 
-            // --- ▼▼▼ 核心修正：将 else if 全部改为独立的 if ▼▼▼ ---
             if (action.type === 'update_status' && action.status_text) {
                 chat.status.text = action.status_text;
                 chat.status.isBusy = action.is_busy || false;
@@ -9990,37 +9991,27 @@ ${stickerLibraryContext}`;
                 await db.qzonePosts.add(newPost);
                 updateUnreadIndicator(unreadPostsCount + 1);
                 console.log(`后台活动: 角色 "${chat.name}" 发布了动态`);
-            } 
-            if (action.type === 'qzone_comment') {
+            } else if (action.type === 'qzone_comment') {
                 const post = await db.qzonePosts.get(parseInt(action.postId));
                 if (post) {
                     if (!post.comments) post.comments = [];
                     
-                    let commentText;
-                    if (Array.isArray(action.comments)) { 
-                        for (const text of action.comments) {
-                           if (typeof text === 'string' && text.trim()) {
-                               post.comments.push({ commenterName: chat.name, text: text, timestamp: Date.now() });
-                           }
+                    if (Array.isArray(action.comments)) {
+                        for (const commentText of action.comments) {
+                            if (typeof commentText === 'string' && commentText.trim()) {
+                                post.comments.push({ commenterName: chat.name, text: commentText, timestamp: Date.now() });
+                            }
                         }
-                    } else if (action.commentText) {
-                        commentText = action.commentText;
-                    } else if (action.stickerUrl) {
-                        commentText = action.stickerUrl; 
-                    }
-
-                    if (commentText) {
-                        post.comments.push({ commenterName: chat.name, text: commentText, timestamp: Date.now() });
+                    } 
+                    else if (typeof action.commentText === 'string' && action.commentText.trim()) {
+                        post.comments.push({ commenterName: chat.name, text: action.commentText, timestamp: Date.now() });
                     }
                     
-                    if (post.comments.length > 0) {
-                        await db.qzonePosts.update(post.id, { comments: post.comments });
-                        updateUnreadIndicator(unreadPostsCount + 1);
-                        console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${post.id}`);
-                    }
+                    await db.qzonePosts.update(post.id, { comments: post.comments });
+                    updateUnreadIndicator(unreadPostsCount + 1);
+                    console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${post.id}`);
                 }
-            } 
-            if (action.type === 'qzone_like') {
+            } else if (action.type === 'qzone_like') {
                 const post = await db.qzonePosts.get(parseInt(action.postId));
                 if (post) {
                     if (!post.likes) post.likes = [];
@@ -10031,8 +10022,7 @@ ${stickerLibraryContext}`;
                         console.log(`后台活动: 角色 "${chat.name}" 点赞了动态 #${post.id}`);
                     }
                 }
-            }
-            if (action.type === 'repost') {
+            } else if (action.type === 'repost') {
                 const originalPost = await db.qzonePosts.get(parseInt(action.postId));
                 if (originalPost) {
                     const newPost = {
@@ -10048,8 +10038,7 @@ ${stickerLibraryContext}`;
                     updateUnreadIndicator(unreadPostsCount + 1);
                     console.log(`后台活动: 角色 "${chat.name}" 转发了动态 #${action.postId}`);
                 }
-            }
-            if (action.type === 'video_call_request') {
+            } else if (action.type === 'video_call_request') {
                 if (!videoCallState.isActive && !videoCallState.isAwaitingResponse) {
                     videoCallState.isAwaitingResponse = true; 
                     state.activeChatId = chatId;
@@ -10057,7 +10046,6 @@ ${stickerLibraryContext}`;
                     console.log(`后台活动: 角色 "${chat.name}" 发起了视频通话请求`);
                 }
             }
-            // --- ▲▲▲ 修正结束 ▲▲▲ ---
         }
     } catch (error) {
         console.error(`角色 "${chat.name}" 的独立行动失败:`, error);
@@ -10079,7 +10067,9 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
+    // ▼▼▼ 【核心修改】调用新的“总开关”函数来点亮所有相关头像 ▼▼▼
     setAvatarActingState(chatId, true);
+    // ▲▲▲ 修改结束 ▲▲▲
 
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
@@ -10092,33 +10082,24 @@ async function triggerGroupAiAction(chatId) {
 
     const membersList = chat.members.map(m => `- **${m.originalName}**: ${m.persona}`).join('\n');
     
-// ▼▼▼ 请用这【一整块新代码】完整替换 triggerGroupAiAction 函数内的 systemPrompt 变量 ▼▼▼
-const systemPrompt = `
+    const systemPrompt = `
 # 你的任务
 你是一个群聊AI导演。现在是后台时间，用户不在线，但群聊是活跃的。你需要根据每个角色的设定和最近的聊天记录，选择【一个或多个】角色，让他们【主动发起】对话或互动，让群聊看起来充满生活气息。
-
-# 次要任务 (非必要)
-【只有在角色有特别重要的想法、公告或生活片段想要分享时】，你才可以让他去发一条动态。请让群内对话优先于发动态。
-
 # 核心规则
 1.  **【【【身份铁律】】】**: 用户的身份是【${myNickname}】，你【绝对不能】扮演用户。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组，每个对象代表一个角色的发言或行动。
 3.  **自然感**: 你的行动应该符合逻辑和角色性格。可以是延续之前的话题，也可以是开启新话题，或者只是一个简单的互动（如发表情）。
-4.  **行动优先级**: 群内对话 > 发动态。不要为了发动态而发动态。
-
 # 可用指令:
 -   发送文本: \`{"type": "text", "name": "角色名", "message": "文本内容"}\`
 -   发送表情: \`{"type": "sticker", "url": "...", "meaning": "..."}\`
--   发动态: \`{"type": "qzone_post", "postType": "shuoshuo", "content": "..."}\`
+-   发动态: \`{"type": "qzone_post", "postType": "shuoshuo", "content": "..."}\` (注意：后台行动中，角色发动态比发消息更常见)
 -   拍一拍群友: \`{"type": "pat_user", "name": "你的角色名", "target": "被拍的群友名"}\`
-
 # 参考信息
 -   **群成员列表及人设**:
 ${membersList}
 -   **最近的聊天记录**:
 ${recentHistory}
 现在，请开始你的导演工作。`;
-// ▲▲▲ 替换结束 ▲▲▲
 
     const messagesPayload = [{ role: 'user', content: systemPrompt }];
     
@@ -10140,20 +10121,10 @@ ${recentHistory}
         const aiResponseContent = isGemini ? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
 
         const responseArray = parseAiResponse(aiResponseContent);
-
-        if (!Array.isArray(responseArray) || responseArray.length === 0) {
-            console.warn(`AI响应解析失败或为空，后台群聊活动跳过。原始回复:`, aiResponseContent);
-            return;
-        }
+        if (!responseArray || responseArray.length === 0) return;
 
         let notificationShown = false;
         for (const action of responseArray) {
-            if (!action || typeof action !== 'object' || !action.type || !action.name) {
-                console.warn('跳过一个格式不正确的后台群聊指令:', action);
-                continue;
-            }
-
-            // --- ▼▼▼ 核心修正：补全所有指令的处理逻辑 ▼▼▼ ---
             if (action.type === 'text' && action.message) {
                 const aiMessage = { role: 'assistant', senderName: action.name, content: String(action.message), timestamp: Date.now() };
                 chat.history.push(aiMessage);
@@ -10163,51 +10134,19 @@ ${recentHistory}
                 }
                 chat.unreadCount = (chat.unreadCount || 0) + 1;
             }
-            
-            if (action.type === 'qzone_post') {
-                const member = chat.members.find(m => m.originalName === action.name);
-                if (member) {
-                     const newPost = { 
-                        type: 'shuoshuo', 
-                        content: action.content || '', 
-                        timestamp: Date.now(), 
-                        authorId: member.id, // 使用成员的真实ID
-                        authorGroupId: chat.groupId,
-                        visibleGroupIds: null 
-                    };
-                    await db.qzonePosts.add(newPost);
-                    updateUnreadIndicator(unreadPostsCount + 1);
-                    console.log(`后台活动: 群聊角色 "${action.name}" 发布了动态`);
-                }
-            }
-
-            if (action.type === 'pat_user' && action.target) {
-                const patText = `${action.name} 拍了拍 “${action.target}”`;
-                const patMessage = { 
-                    role: 'system', 
-                    type: 'pat_message', 
-                    content: patText, 
-                    timestamp: Date.now() 
-                };
-                chat.history.push(patMessage);
-                 if (!notificationShown) {
-                    showNotification(chatId, patText);
-                    notificationShown = true;
-                }
-                chat.unreadCount = (chat.unreadCount || 0) + 1;
-            }
-            // --- ▲▲▲ 修正结束 ▲▲▲ ---
+            // (此处可以添加对其他后台行动类型的处理, 如发动态等)
         }
-        
         await db.chats.put(chat);
-        renderChatList(); 
+        renderChatList(); // 更新列表以显示未读红点
 
     } catch (error) {
         console.error(`群聊 "${chat.name}" 的后台行动失败:`, error);
     } finally {
+        // ▼▼▼ 【核心修改】调用新的“总开关”函数来熄灭所有相关头像（保留延迟效果） ▼▼▼
         setTimeout(() => {
             setAvatarActingState(chatId, false);
         }, 1500);
+        // ▲▲▲ 修改结束 ▲▲▲
     }
 }
 // ▲▲▲ 全新函数粘贴结束 ▲▲▲
@@ -15507,24 +15446,7 @@ document.getElementById('select-message-btn').addEventListener('click', () => {
     }
 });
 // ▲▲▲ 替换结束 ▲▲▲
-// 【全新】动态表情面板的事件监听
-qzoneStickerPanelState.panelEl.addEventListener('click', async (e) => {
-    const stickerItem = e.target.closest('.sticker-item');
-    if (stickerItem && qzoneStickerPanelState.activePostId !== null) {
-        // 从背景图片样式中提取URL
-        const stickerUrl = stickerItem.style.backgroundImage.slice(5, -2);
-        await sendQzoneStickerComment(qzoneStickerPanelState.activePostId, stickerUrl);
-    }
-});
 
-// 【全新】全局点击监听，用于关闭打开的表情面板
-document.addEventListener('click', (e) => {
-    if (qzoneStickerPanelState.isOpen && 
-        !qzoneStickerPanelState.panelEl.contains(e.target) && 
-        !e.target.closest('.comment-sticker-btn')) {
-        closeQzoneStickerPanel();
-    }
-});
 // ▼▼▼ 在 init() 函数的事件监听器区域末尾添加 ▼▼▼
 
 // 动态操作菜单的按钮事件
@@ -16041,7 +15963,24 @@ document.getElementById('icon-settings-grid').addEventListener('click', async (e
     });
 
 // ▲▲▲ 新代码粘贴结束 ▲▲▲
+// 【全新】动态表情面板的事件监听
+qzoneStickerPanelState.panelEl.addEventListener('click', async (e) => {
+    const stickerItem = e.target.closest('.sticker-item');
+    if (stickerItem && qzoneStickerPanelState.activePostId !== null) {
+        // 从背景图片样式中提取URL
+        const stickerUrl = stickerItem.style.backgroundImage.slice(5, -2);
+        await sendQzoneStickerComment(qzoneStickerPanelState.activePostId, stickerUrl);
+    }
+});
 
+// 【全新】全局点击监听，用于关闭打开的表情面板
+document.addEventListener('click', (e) => {
+    if (qzoneStickerPanelState.isOpen && 
+        !qzoneStickerPanelState.panelEl.contains(e.target) && 
+        !e.target.closest('.comment-sticker-btn')) {
+        closeQzoneStickerPanel();
+    }
+});
 // ▼▼▼ 在 init() 函数的末尾，粘贴这段【全新的事件监听器】 ▼▼▼
 
     // 1. 绑定输入框上方“分享链接”按钮的点击事件
@@ -16569,6 +16508,8 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
         init();
     });
 </script>
-
+<div id="qzone-sticker-panel">
+    <div id="qzone-sticker-grid"></div>
+</div>
 </body>
 </html>
