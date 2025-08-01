@@ -4393,27 +4393,37 @@ input:checked + .slider:before {
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
 /* ▼▼▼ 【全新】动态评论区表情功能样式 ▼▼▼ */
 
-/* 1. 表情按钮样式 (美化后) */
+/* === 【全新】评论区表情按钮样式 (与action-icon风格统一) === */
 .comment-sticker-btn {
-    background: #ffffff; /* 白色背景 */
-    border: 1px solid #e0e0e0; /* 浅灰色边框 */
-    font-size: 20px;   /* 稍微缩小图标，以适应圆形背景 */
+    /* 1. 重置按钮默认样式 */
+    background: none;
+    border: none;
+    padding: 5px; /* 增加一点可点击区域 */
     cursor: pointer;
+    
+    /* 2. 与其他图标颜色和过渡效果对齐 */
     color: var(--text-secondary);
-    align-self: flex-end;
-    margin-bottom: 5px;
-    width: 32px; /* 设置固定宽度 */
-    height: 32px; /* 设置固定高度 */
-    border-radius: 50%; /* 改为圆形 */
-    display: flex; /* 使用flex布局让图标居中 */
+    transition: all 0.2s ease-in-out;
+
+    /* 3. 使用Flex布局让内部的SVG完美居中 */
+    display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* 添加轻微阴影 */
-    transition: background-color 0.2s; /* 添加点击效果 */
 }
 
 .comment-sticker-btn:hover {
-    background-color: #f5f5f5; /* 鼠标悬停时变色 */
+    color: var(--text-primary); /* 鼠标悬停时变色，提供反馈 */
+}
+
+/* 4. 定义SVG图标的样式，与点赞/转发图标完全一致 */
+.comment-sticker-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* 2. 评论区表情面板容器 */
@@ -6356,7 +6366,14 @@ async function renderQzonePosts() {
                 <div class="comment-section">
                     <img src="${commentAvatar}" class="comment-avatar">
                     <input type="text" class="comment-input" placeholder="友善的评论是交流的起点">
-                    <button class="comment-sticker-btn">😀</button>
+                    <button class="comment-sticker-btn">
+    <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M8 14 Q 12 16 16 14"></path>
+        <line x1="9" y1="9" x2="9.01" y2="9"></line>
+        <line x1="15" y1="9" x2="15.01" y2="9"></line>
+    </svg>
+</button>
                     <div class="at-mention-popup"></div>
                 </div>
                 <button class="comment-send-btn">发送</button>
