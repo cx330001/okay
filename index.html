@@ -271,7 +271,18 @@ body {
         .custom-modal-header { padding: 16px; font-size: 17px; font-weight: 600; text-align: center; }
         .custom-modal-body { padding: 0 16px 16px; text-align: center; font-size: 14px; color: #333; line-height: 1.5; }
         .custom-modal-body p { margin: 0; margin-bottom: 12px; }
-        .custom-modal-body input { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; box-sizing: border-box; }
+        /* ▼▼▼ Safari弹窗防放大修正：请用这块新样式替换旧的 .custom-modal-body input 样式 ▼▼▼ */
+
+.custom-modal-body input {
+    width: 100%;
+    padding: 8px 12px; /* 推荐：稍微增加内边距，让输入框更好看 */
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 16px; /* 核心修正：从 14px 提高到 16px 防止自动放大 */
+    box-sizing: border-box;
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
         .custom-modal-footer { border-top: 1px solid #dbdbdb; display: flex; }
         .custom-modal-footer button { flex: 1; background: none; border: none; padding: 12px; font-size: 17px; cursor: pointer; color: var(--accent-color); }
         .custom-modal-footer button:first-child { border-right: 1px solid #dbdbdb; }
@@ -8204,35 +8215,38 @@ ${contextSummary || "（无有效对话记录）"}
             return; 
         }
 
-        let linkedMemoryContext = '';
-        const memoryCount = chat.settings.linkedMemoryCount || 10;
-        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            linkedMemoryContext += `\n\n# 参考记忆 (你必须参考以下其他聊天的近期内容来丰富你的行为和对话)\n`;
-            
-            for (const linkedId of chat.settings.linkedMemoryChatIds) {
-                const linkedChat = state.chats[linkedId];
-                if (linkedChat) {
-                    const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                    linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆 ---\n`;
-                    
-                    const recentHistory = linkedChat.history.slice(-memoryCount);
-                    if (recentHistory.length > 0) {
-                        recentHistory.forEach(msg => {
-                            const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                            let contentText = String(msg.content);
-                            if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                                contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                            } else if (msg.type === 'voice_message') {
-                                contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                            }
-                            linkedMemoryContext += `${sender}: ${contentText}\n`;
-                        });
-                    } else {
-                        linkedMemoryContext += "(暂无聊天记录)\n";
+       // ▼▼▼ 在这里粘贴新的代码块 ▼▼▼
+let linkedMemoryContext = '';
+const memoryCount = chat.settings.linkedMemoryCount || 10; // 获取为该角色设定的挂载记忆条数
+if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+    linkedMemoryContext += `\n\n# 参考记忆 (你必须参考以下其他聊天的近期内容来丰富你的行为和对话)\n`;
+
+    for (const linkedId of chat.settings.linkedMemoryChatIds) {
+        const linkedChat = state.chats[linkedId];
+        if (linkedChat) {
+            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆 ---\n`;
+
+            // 从挂载的聊天中提取最后几条记录
+            const recentHistory = linkedChat.history.slice(-memoryCount);
+            if (recentHistory.length > 0) {
+                recentHistory.forEach(msg => {
+                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                    let contentText = String(msg.content);
+                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                    } else if (msg.type === 'voice_message') {
+                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
                     }
-                }
+                    linkedMemoryContext += `${sender}: ${contentText}\n`;
+                });
+            } else {
+                linkedMemoryContext += "(暂无聊天记录)\n";
             }
         }
+    }
+}
+// ▲▲▲ 代码块粘贴结束 ▲▲▲
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
         const now = new Date();
       
@@ -9928,6 +9942,7 @@ async function triggerInactiveAiAction(chatId) {
 # 供你决策的参考信息：
 -   **你的角色设定**: ${chat.settings.aiPersona}
 ${worldBookContent}
+${linkedMemoryContext} // <--- 在这里添加这一行
 -   **当前时间**: ${now.toLocaleString('zh-CN', { timeStyle: 'short' })}
 -   **你们最后的对话摘要**: ${recentContextSummary}`;
 
