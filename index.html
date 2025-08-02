@@ -470,24 +470,37 @@ body {
 #chat-list-screen {
 }
 
+/* --- 键盘适配修正方案 (视图切换) --- */
+
 .chat-list-view {
-    position: absolute;
-    top: 0;
-    left: 0;
+    /* 隐藏所有非活动视图，并让它们脱离布局计算 */
+    display: none; 
+    
+    /* 保留原有的flex布局和尺寸设置 */
     width: 100%;
     height: 100%;
-    display: flex;
     flex-direction: column;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s, visibility 0.2s;
-    z-index: 1; 
+
+    /* 移除旧的切换属性 */
+    /* position: absolute; (移除) */
+    /* top: 0; (移除) */
+    /* left: 0; (移除) */
+    /* opacity: 0; (移除) */
+    /* visibility: hidden; (移除) */
+    /* transition: opacity 0.2s, visibility 0.2s; (移除) */
+    /* z-index: 1; (移除) */
 }
 .chat-list-view.active {
-    opacity: 1;
-    visibility: visible;
-    z-index: 2; 
+    /* 仅显示活动的视图 */
+    display: flex; 
+
+    /* 移除旧的切换属性 */
+    /* opacity: 1; (移除) */
+    /* visibility: visible; (移除) */
+    /* z-index: 2; (移除) */
 }
+
+/* --- 修正结束 --- */
 
 #messages-view {
     overflow-y: auto; 
