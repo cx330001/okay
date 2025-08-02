@@ -8589,20 +8589,31 @@ ${contextSummaryForApproval}
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
         const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
 
-        if (visiblePosts.length > 0 && !chat.isGroup) {
-            let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            const aiName = chat.name;
-            for (const post of visiblePosts) {
-                let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
-                let interactionStatus = '';
-                if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
-                if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
-                if (post.authorId === chatId) authorName += " (这是你的帖子)";
-                const contentSummary = (post.publicText || post.content || "图片动态").substring(0, 30) + '...';
-                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
-            }
-            messagesPayload.push({ role: 'system', content: postsContext });
+// ▼▼▼ 这是你要粘贴的【新代码块】第1处 ▼▼▼
+if (visiblePosts.length > 0 && !chat.isGroup) {
+    let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+    const aiName = chat.name;
+    for (const post of visiblePosts) {
+        let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
+        let interactionStatus = '';
+        if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
+        if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
+        if (post.authorId === chatId) authorName += " (这是你的帖子)";
+
+        // 【FIX】这个代码块现在可以正确地为AI总结不同类型的动态了
+        let contentSummary;
+        if (post.type === 'text_image') {
+            contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+        } else if (post.type === 'image_post') {
+            contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+        } else {
+            contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
         }
+
+        postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
+    }
+    messagesPayload.push({ role: 'system', content: postsContext });
+}
             let  isGemini = proxyUrl === GEMINI_API_URL;
             let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
             const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
@@ -9916,25 +9927,36 @@ ${worldBookContent}
         });
 
         let dynamicContext = "";
-        if (unInteractedPosts.length > 0) {
-            let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            for (const post of unInteractedPosts) {
-                let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
-                let interactionStatus = '';
-                if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
-                if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
-                if (post.authorId === chatId) authorName += " (这是你的帖子)";
-                const contentSummary = (post.publicText || post.content || "图片动态").substring(0, 30) + '...';
-                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
-                
-                if (post.comments && post.comments.length > 0) {
-                    for (const comment of post.comments) {
-                        postsContext += `  - 评论: ${comment.commenterName}: ${comment.text}\n`;
-                    }
-                }
-            }
-            dynamicContext = postsContext;
+// ▼▼▼ 这是你要粘贴的【新代码块】第2处 ▼▼▼
+if (unInteractedPosts.length > 0) {
+    let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+    for (const post of unInteractedPosts) {
+        let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
+        let interactionStatus = '';
+        if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
+        if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
+        if (post.authorId === chatId) authorName += " (这是你的帖子)";
+
+        // 【FIX】这个代码块也同样修复了动态总结的逻辑
+        let contentSummary;
+        if (post.type === 'text_image') {
+            contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+        } else if (post.type === 'image_post') {
+            contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+        } else {
+            contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
         }
+
+        postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
+
+        if (post.comments && post.comments.length > 0) {
+            for (const comment of post.comments) {
+                postsContext += `  - 评论: ${comment.commenterName}: ${comment.text}\n`;
+            }
+        }
+    }
+    dynamicContext = postsContext;
+}
 
         const messagesPayload = [
             { role: 'user', content: `${systemPrompt}\n\n[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
