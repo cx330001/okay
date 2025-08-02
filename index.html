@@ -16571,5 +16571,33 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
 <div id="qzone-sticker-panel">
     <div id="qzone-sticker-grid"></div>
 </div>
+    <div id="qzone-sticker-panel">
+        <div id="qzone-sticker-grid"></div>
+    </div>
+
+    <script>
+    function setRealViewportHeight() {
+        const phoneScreen = document.getElementById('phone-screen');
+        if (phoneScreen) {
+            // 优先使用 visualViewport API 获取当前可见窗口的高度
+            // 这能精确处理键盘弹出/收起和浏览器工具栏显示/隐藏
+            const visibleHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            
+            // 直接将获取到的精确高度（单位：像素）应用到主容器上
+            phoneScreen.style.height = `${visibleHeight}px`;
+        }
+    }
+
+    // 当可视窗口大小变化时（例如键盘弹出/收起），就执行调整函数
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setRealViewportHeight);
+    } else {
+        // 作为备用方案，监听普通窗口大小变化
+        window.addEventListener('resize', setRealViewportHeight);
+    }
+
+    // 页面加载时立即执行一次，以设置初始的正确高度
+    setRealViewportHeight();
+    </script>
 </body>
 </html>
