@@ -72,7 +72,29 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-        #home-screen { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 20px; padding-top: 80px; padding-bottom: 50px; box-sizing: border-box; background-size: cover; background-position: center; }
+        #home-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 20px;
+    padding-top: 80px;
+    padding-bottom: 50px;
+    box-sizing: border-box;
+    background-size: cover;
+    background-position: center;
+
+    /* ▼▼▼ 新增的核心代码 ▼▼▼ */
+    flex-grow: 1; /* 确保它能填满父容器的可用空间 */
+    overflow-y: auto; /* 让它内部可以滚动以容纳溢出的内容 */
+    scrollbar-width: none; /* 隐藏 Firefox 的滚动条 */
+    -ms-overflow-style: none; /* 隐藏 IE 的滚动条 */
+}
+
+/* ▼▼▼ 同时，请在下面新增这段代码，用于隐藏 Safari 和 Chrome 的滚动条 ▼▼▼ */
+#home-screen::-webkit-scrollbar {
+    display: none; /* 隐藏 Webkit 核心浏览器（如Chrome, Safari）的滚动条 */
+}
         #clock-container { text-align: center; color: white; text-shadow: 0 3px 8px rgba(0,0,0,0.4); margin-bottom: 20px; flex-shrink: 0; }
         #main-time { font-size: 80px; font-weight: 200; }
         #main-date { font-size: 18px; font-weight: 500; }
