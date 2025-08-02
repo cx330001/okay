@@ -9921,7 +9921,7 @@ ${worldBookContent}
 -   **你们最后的对话摘要**: ${recentContextSummary}`;
 
     try {
-        const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(2).toArray();
+        const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(3).toArray();
         const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
         const aiName = chat.name;
 
