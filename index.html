@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EPhone</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
@@ -273,7 +273,11 @@ body {
         #preset-actions-modal .custom-modal-footer { flex-direction: column; }
         #preset-actions-modal .custom-modal-footer button { width: 100%; border: none; border-bottom: 1px solid #dbdbdb; padding: 14px; font-size: 18px; }
         #preset-actions-modal .custom-modal-footer button:last-child { border-bottom: none; }
-        .custom-multiselect { position: relative; user-select: none; }
+        .custom-multiselect {
+    position: relative;
+    -webkit-user-select: none; /* 兼容 Safari */
+    user-select: none;
+}
         .select-box { display: flex; align-items: center; width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px; box-sizing: border-box; background-color: #fff; cursor: pointer; }
         .select-box .selected-options-text { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
         .select-box .arrow-down { margin-left: auto; font-size: 10px; color: var(--text-secondary); transition: transform 0.2s; }
@@ -1036,6 +1040,7 @@ body {
     font-weight: 100;
     cursor: pointer;
     padding: 10px; /* 调整内边距 */
+    -webkit-user-select: none; /* 兼容 Safari */
     user-select: none;
     transition: color 0.2s;
     z-index: 1003; /* 确保箭头在最上层 */
