@@ -4486,6 +4486,17 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【最终修正】针对移动端 Safari 底部空白的兼容性修复 ▼▼▼ */
+
+html, body {
+    height: 100%;
+    /* 关键修复：使用 -webkit-fill-available 
+       让元素高度适应浏览器UI变化后的可用空间 */
+    height: -webkit-fill-available;
+    overflow: hidden; /* 确保不会出现意外的滚动条 */
+}
+
+/* ▲▲▲ 粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
