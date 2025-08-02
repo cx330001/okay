@@ -8848,7 +8848,7 @@ case 'repost': {
                         showNotification(chatId, patText);
                     }
                     continue; 
-
+                
                 case 'update_status':
                     chat.status.text = msgData.status_text;
                     chat.status.isBusy = msgData.is_busy || false;
@@ -8872,31 +8872,40 @@ case 'repost': {
                         content: msgData.content
                     };
                     break;
-case 'change_music':
-    if (musicState.isActive && musicState.activeChatId === chatId) {
-        
-        const songNameToFind = msgData.song_name.replace(/^\[?\d+\]?[\s.-]*/, '').trim();
-
-        const targetSongIndex = musicState.playlist.findIndex(track => track.name.toLowerCase() === songNameToFind.toLowerCase());
-        
-        if (targetSongIndex > -1) {
-            playSong(targetSongIndex);
-            const track = musicState.playlist[targetSongIndex];
-            const musicChangeMessage = {
-                role: 'system',
-                type: 'pat_message',
-                content: `[♪ ${msgData.name} 为你切歌: 《${track.name}》 - ${track.artist}]`,
-                timestamp: Date.now()
-            };
-            chat.history.push(musicChangeMessage);
-            if (isViewingThisChat) {
-                appendMessage(musicChangeMessage, chat);
-            }
-        } else {
-            console.warn(`歌曲查找失败: AI请求的歌曲名"${msgData.song_name}"(处理后为"${songNameToFind}") 在播放列表中未找到。`);
-        }
-    }
-    continue;
+                
+                // ▼▼▼ 【这是修复的核心代码】 ▼▼▼
+                case 'change_music':
+                    if (musicState.isActive && musicState.activeChatId === chatId) {
+                        const songNameToFind = msgData.song_name.replace(/^\[?\d+\]?[\s.-]*/, '').trim();
+                        const targetSongIndex = musicState.playlist.findIndex(track => track.name.toLowerCase() === songNameToFind.toLowerCase());
+                        
+                        if (targetSongIndex > -1) {
+                            playSong(targetSongIndex);
+                            const track = musicState.playlist[targetSongIndex];
+                            
+                            // **【关键修正】**
+                            // 在单聊中，msgData.name不存在，我们用chat.name
+                            // 在群聊中，msgData.name存在，我们就用它
+                            const changerName = chat.isGroup ? msgData.name : chat.name;
+                            
+                            const musicChangeMessage = {
+                                role: 'system',
+                                type: 'pat_message',
+                                // 使用修正后的 changerName
+                                content: `[♪ ${changerName} 为你切歌: 《${track.name}》 - ${track.artist}]`,
+                                timestamp: Date.now()
+                            };
+                            chat.history.push(musicChangeMessage);
+                            if (isViewingThisChat) {
+                                appendMessage(musicChangeMessage, chat);
+                            }
+                        } else {
+                            console.warn(`歌曲查找失败: AI请求的歌曲名"${msgData.song_name}"(处理后为"${songNameToFind}") 在播放列表中未找到。`);
+                        }
+                    }
+                    continue; // 处理完直接进行下一次循环
+                // ▲▲▲ 【修复结束】 ▲▲▲
+                    
                 case 'create_memory':
                     const newMemory = {
                         chatId: chatId,
