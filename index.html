@@ -9859,6 +9859,7 @@ function runBackgroundSimulationTick() {
 // ▲▲▲ 到这里替换结束 ▲▲▲
 
 // ▼▼▼ 从这里开始复制，完整替换旧的 triggerInactiveAiAction 函数 ▼▼▼
+// 这是新的代码，请用它来替换
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -9867,18 +9868,33 @@ async function triggerInactiveAiAction(chatId) {
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
 
+    // --- ▼▼▼ 核心修改部分 开始 ▼▼▼ ---
+
     const userNickname = state.qzoneSettings.nickname;
     const now = new Date();
 
-    const lastUserMessage = chat.history.filter(m => m.role === 'user' && !m.isHidden).slice(-1)[0];
-    const lastAiMessage = chat.history.filter(m => m.role === 'assistant' && !m.isHidden).slice(-1)[0];
-    let recentContextSummary = "你们最近没有聊过天。";
-    if (lastUserMessage) {
-        recentContextSummary = `用户 (${userNickname}) 最后对你说：“${String(lastUserMessage.content).substring(0, 50)}...”。`;
-    }
-    if (lastAiMessage) {
-        recentContextSummary += `\n你最后对用户说：“${String(lastAiMessage.content).substring(0, 50)}...”。`;
-    }
+    // 1. 获取完整的记忆片段，就像正常聊天一样
+    const maxMemory = parseInt(chat.settings.maxMemory) || 10;
+    const historySlice = chat.history.slice(-maxMemory);
+
+    // 2. 格式化完整的历史记录，而不是只取最后两条
+    const formattedHistory = historySlice.map(msg => {
+        if (msg.isHidden) return null;
+        const sender = msg.role === 'user' ? userNickname : (msg.senderName || chat.name);
+        let contentText = String(msg.content || '');
+        // 对特殊消息类型进行处理，让AI更好地理解
+        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+            contentText = `[图片: ${contentText}]`;
+        } else if (msg.type === 'voice_message') {
+            contentText = `[语音: ${contentText}]`;
+        }
+        return `${sender}: ${contentText}`;
+    }).filter(Boolean).join('\n');
+
+    let recentContextSummary = formattedHistory || "你们最近没有聊过天。";
+
+    // --- ▲▲▲ 核心修改部分 结束 ▲▲▲ ---
+
 
     let worldBookContent = '';
     if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
@@ -9927,36 +9943,31 @@ ${worldBookContent}
         });
 
         let dynamicContext = "";
-// ▼▼▼ 这是你要粘贴的【新代码块】第2处 ▼▼▼
-if (unInteractedPosts.length > 0) {
-    let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-    for (const post of unInteractedPosts) {
-        let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
-        let interactionStatus = '';
-        if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
-        if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
-        if (post.authorId === chatId) authorName += " (这是你的帖子)";
-
-        // 【FIX】这个代码块也同样修复了动态总结的逻辑
-        let contentSummary;
-        if (post.type === 'text_image') {
-            contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-        } else if (post.type === 'image_post') {
-            contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-        } else {
-            contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
-        }
-
-        postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
-
-        if (post.comments && post.comments.length > 0) {
-            for (const comment of post.comments) {
-                postsContext += `  - 评论: ${comment.commenterName}: ${comment.text}\n`;
+        if (unInteractedPosts.length > 0) {
+            let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+            for (const post of unInteractedPosts) {
+                let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
+                let interactionStatus = '';
+                if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
+                if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
+                if (post.authorId === chatId) authorName += " (这是你的帖子)";
+                let contentSummary;
+                if (post.type === 'text_image') {
+                    contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else if (post.type === 'image_post') {
+                    contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else {
+                    contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                }
+                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
+                if (post.comments && post.comments.length > 0) {
+                    for (const comment of post.comments) {
+                        postsContext += `  - 评论: ${comment.commenterName}: ${comment.text}\n`;
+                    }
+                }
             }
+            dynamicContext = postsContext;
         }
-    }
-    dynamicContext = postsContext;
-}
 
         const messagesPayload = [
             { role: 'user', content: `${systemPrompt}\n\n[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
