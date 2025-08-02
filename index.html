@@ -1166,17 +1166,19 @@ body {
     position: relative; /* 核心修正：为弹窗建立定位的锚点 */
 }
 /* ▲▲▲ 添加结束 ▲▲▲ */
+/* ▼▼▼ Safari防放大修正：请用下面这两块新样式，替换旧的 .comment-input 和 .comment-send-btn 样式 ▼▼▼ */
+
 .comment-section .comment-input {
     width: 100%;
     padding: 8px 12px;
     border: none;
     background-color: #f0f2f5;
     border-radius: 14px;
-    font-size: 13px;
+    font-size: 16px; /* 核心修正：从 13px 提高到 16px 防止自动放大 */
     outline: none;
 }
 
-/* 新增的发送按钮样式 */
+/* (推荐) 同时调整发送按钮，保持视觉统一 */
 .comment-send-btn {
     flex-shrink: 0; /* 防止被压缩 */
     padding: 8px 15px;
@@ -1184,10 +1186,12 @@ body {
     background-color: var(--accent-color);
     color: white;
     border-radius: 14px;
-    font-size: 13px;
+    font-size: 16px; /* 从 13px 调整为 16px */
     font-weight: 500;
     cursor: pointer;
 }
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
 
