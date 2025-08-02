@@ -8215,9 +8215,9 @@ ${contextSummary || "（无有效对话记录）"}
             return; 
         }
 
-       // ▼▼▼ 在这里粘贴新的代码块 ▼▼▼
+// ▼▼▼ 在这里粘贴新的代码块 ▼▼▼
 let linkedMemoryContext = '';
-const memoryCount = chat.settings.linkedMemoryCount || 10; // 获取为该角色设定的挂载记忆条数
+const memoryCount = chat.settings.linkedMemoryCount || 10;
 if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
     linkedMemoryContext += `\n\n# 参考记忆 (你必须参考以下其他聊天的近期内容来丰富你的行为和对话)\n`;
 
@@ -8227,7 +8227,6 @@ if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.lengt
             const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
             linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆 ---\n`;
 
-            // 从挂载的聊天中提取最后几条记录
             const recentHistory = linkedChat.history.slice(-memoryCount);
             if (recentHistory.length > 0) {
                 recentHistory.forEach(msg => {
@@ -10171,6 +10170,7 @@ async function triggerGroupAiAction(chatId) {
 -   拍一拍群友: \`{"type": "pat_user", "name": "你的角色名", "target": "被拍的群友名"}\`
 # 参考信息
 -   **群成员列表及人设**:
+${linkedMemoryContext} // <--- 在这里添加这一行
 ${membersList}
 -   **最近的聊天记录**:
 ${recentHistory}
