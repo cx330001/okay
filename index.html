@@ -6218,39 +6218,52 @@ let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器
         }
         return []
     }
-    function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
-        // 【核心修正】在这里，我们将 'system' 角色也映射为 'user'
-        let roleType = {
-            user: 'user',
-            assistant: 'model',
-            system: 'user' // <--- 新增这一行
-        }
-        return {
-            url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getRandomValue(apiKey)}`,
-            data: {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+// ▼▼▼ 【最终修复方案】请用这个全新的、兼容性更强的函数替换旧的 toGeminiRequestData ▼▼▼
+function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
+    const roleType = {
+        user: 'user',
+        assistant: 'model',
+        system: 'user' 
+    };
+
+    // --- 核心修复：将 systemInstruction 模拟成第一次用户对话 ---
+    // 这大大提高了在各种反代服务上的兼容性
+    const contents = [
+        {
+            role: 'user',
+            parts: [{ text: systemInstruction }]
+        },
+        {
+            role: 'model',
+            parts: [{ text: '好的，我明白了。我会严格遵守以上所有规则和设定。' }] // 模拟AI的确认
+        },
+        ...messagesForDecision.map((item) => ({
+            role: roleType[item.role],
+            parts: Array.isArray(item.content) && item.content.length > 0 && item.content[0].type === 'image_url' 
+                   ? isImage(item.content[0]) 
+                   : [{ text: String(item.content) }]
+        }))
+    ];
+
+    return {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getRandomValue(apiKey)}`,
+        data: {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: contents, // 使用我们新构建的、兼容性更强的 contents 数组
+                generationConfig: {
+                    temperature: 0.8,
                 },
-                body: JSON.stringify({
-                    contents: messagesForDecision.map((item) => {
-                        return {
-                            role: roleType[item.role], // 现在 'system' 会被正确转换为 'user'
-                            parts: Array.isArray(item.content) && item.content.length > 0 && item.content[0].type === 'image_url' ? isImage(item.content[0]) : [{ text: String(item.content) }] // 增加 String() 转换以防万一
-                        }
-                    }),
-                    generationConfig: {
-                        temperature: 0.8,
-                    },
-                    "systemInstruction": {
-                        "parts": [{
-                            "text": systemInstruction
-                        }]
-                    }
-                })
-            }
+                // 不再使用专门的 systemInstruction 字段，以避免兼容性问题
+                // "systemInstruction": { ... }
+            })
         }
-    }
+    };
+}
+// ▲▲▲ 替换结束 ▲▲▲
     document.addEventListener('DOMContentLoaded', () => {
 
         // ===================================================================
