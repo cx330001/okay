@@ -8163,7 +8163,7 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
-// ▼▼▼ 请用这个【已修复外卖代付人名称】的全新版本，完整替换您现有的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 【已修复】请用这个新版本替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
 if (msg.type === 'recalled_message') {
@@ -8343,7 +8343,6 @@ else if (msg.type === 'location_share') {
     let titleText, noteText;
     const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
 
-    // 【核心修正】在这里获取所有涉及到的角色的显示名称
     const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
     const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
 
@@ -8392,7 +8391,6 @@ else if (msg.type === 'location_share') {
         </div>
     `;
     
-// ▲▲▲ 替换结束 ▲▲▲
 } else if (msg.type === 'waimai_request') {
         bubble.classList.add('is-waimai-request');
         if (msg.status === 'paid' || msg.status === 'rejected') {
@@ -8445,14 +8443,11 @@ else if (msg.type === 'location_share') {
             if (detailsBtn) {
                 detailsBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    // ▼▼▼ 从这里开始是本次的核心修复 ▼▼▼
                     let paidByText = '';
                     if (msg.paidBy) {
-                        // 使用 getDisplayNameInGroup 函数将本名转换为群昵称
                         const payerDisplayName = getDisplayNameInGroup(chat, msg.paidBy);
                         paidByText = `<br><br><b>状态：</b>由 ${payerDisplayName} 为您代付成功`;
                     }
-                    // ▲▲▲ 修复结束 ▲▲▲
                     showCustomAlert('订单详情', `<b>商品：</b>${msg.productInfo}<br><b>金额：</b>¥${Number(msg.amount).toFixed(2)}${paidByText}`);
                 });
             }
@@ -8470,8 +8465,8 @@ else if (msg.type === 'location_share') {
     bubble.classList.add('is-red-packet');
     const myNickname = chat.settings.myNickname || '我';
     
-    const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
     const isFinished = msg.isFullyClaimed;
+    const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
 
     let cardClass = '';
     let claimedInfoHtml = '';
@@ -8479,18 +8474,22 @@ else if (msg.type === 'location_share') {
 
     if (isFinished) {
         cardClass = 'opened';
-    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        cardClass = 'opened';
     }
     
     const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
     
     if (msg.packetType === 'direct') {
         typeText = `专属红包: 给 ${receiverDisplayName}`;
+        if (Object.keys(msg.claimedBy || {}).length > 0) {
+            cardClass = 'opened';
+        }
     }
     
     if (hasClaimed) {
-        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${msg.claimedBy[myNickname].toFixed(2)} 元</div>`;
+        // ▼▼▼ 核心修复：在这里确保 msg.claimedBy[myNickname] 是一个数字 ▼▼▼
+        const myClaimedAmount = msg.claimedBy[myNickname] || 0;
+        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
+        // ▲▲▲ 修复结束 ▲▲▲
     } else if (isFinished) {
         claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
     } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
@@ -8575,10 +8574,11 @@ else if (msg.type === 'location_share') {
 
     let quoteHtml = '';
     if (msg.quote) {
+        const quotedSenderDisplayName = getDisplayNameInGroup(chat, msg.quote.senderName);
         const fullQuotedContent = String(msg.quote.content || '');
         quoteHtml = `
             <div class="quoted-message">
-                <div class="quoted-sender">回复 ${msg.quote.senderName}:</div>
+                <div class="quoted-sender">回复 ${quotedSenderDisplayName}:</div>
                 <div class="quoted-content">${fullQuotedContent}</div>
             </div>
         `;
@@ -8710,7 +8710,7 @@ function setAvatarActingState(chatId, isActing) {
 
 
 
-// ▼▼▼ 【已更新】请用这个新版本替换旧的 triggerAiResponse 函数 ▼▼▼
+// ▼▼▼ 【已修复】请用这个新版本替换旧的 triggerAiResponse 函数 ▼▼▼
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -9407,7 +9407,6 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                     }
                     continue;
 
-                // ▼▼▼ 从这里开始是本次的核心修改 ▼▼▼
                 case 'qzone_post':
                     const newPost = { 
                         type: msgData.postType, 
@@ -9416,7 +9415,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                         hiddenContent: msgData.hiddenContent || '', 
                         timestamp: Date.now(), 
                         authorId: chatId, 
-                        authorOriginalName: chat.originalName, // 【核心】在这里存入本名
+                        authorOriginalName: chat.originalName, 
                         authorGroupId: chat.groupId,
                         visibleGroupIds: null 
                     };
@@ -9426,7 +9425,6 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                        await renderQzonePosts();
                     }
                     continue;
-                // ▲▲▲ 修改结束 ▲▲▲
 
                 case 'qzone_comment':
                     const postToComment = await db.qzonePosts.get(parseInt(msgData.postId));
@@ -9678,49 +9676,15 @@ case 'repost': {
                     }
                     continue;
 
-case 'red_packet': { 
-    bubble.classList.add('is-red-packet');
-    const myNickname = chat.settings.myNickname || '我';
-    
-    const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
-    const isFinished = msg.isFullyClaimed;
-
-    let cardClass = '';
-    let claimedInfoHtml = '';
-    let typeText = '拼手气红包';
-
-    if (isFinished) {
-        cardClass = 'opened';
-    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        cardClass = 'opened';
-    }
-    
-    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
-    
-    if (msg.packetType === 'direct') {
-        typeText = `专属红包: 给 ${receiverDisplayName}`;
-    }
-    
-    if (hasClaimed) {
-        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${msg.claimedBy[myNickname].toFixed(2)} 元</div>`;
-    } else if (isFinished) {
-        claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
-    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
-    }
-
-    contentHtml = `
-        <div class="red-packet-card ${cardClass}">
-            <div class="rp-header">
-                <img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon">
-                <span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span>
-            </div>
-            <div class="rp-type">${typeText}</div>
-            ${claimedInfoHtml}
-        </div>
-    `;
-    break;
-}
+                case 'red_packet':
+                    aiMessage = {
+                        ...baseMessage,
+                        ...msgData,
+                        totalAmount: msgData.amount, 
+                        claimedBy: {}, 
+                        isFullyClaimed: false
+                    };
+                    break;
                 
                 case 'open_red_packet':
                     const packetToOpen = chat.history.find(m => m.timestamp === msgData.packet_timestamp);
@@ -9801,6 +9765,7 @@ case 'red_packet': {
                         }
                         if (isViewingThisChat) {
                             renderChatInterface(chatId);
+                            renderChatList(); 
                         }
                     }
                     continue;
