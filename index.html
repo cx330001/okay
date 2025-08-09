@@ -6447,7 +6447,30 @@ function getDisplayNameInGroup(groupChat, originalName) {
 }
 
 // ▲▲▲ 函数结束 ▲▲▲
-
+// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
+/**
+ * 【全新】根据角色的本名，在整个应用中查找其正确的显示名称
+ * @param {string} originalName - 角色的本名 (e.g., "李星辰")
+ * @returns {string} - 该角色的备注名/群昵称/用户昵称，如果找不到则返回其本名
+ */
+function getDisplayNameByOriginalName(originalName) {
+    // 1. 检查是不是用户自己
+    if (state.qzoneSettings && originalName === state.qzoneSettings.nickname) {
+        return state.qzoneSettings.nickname;
+    }
+    
+    // 2. 在所有单聊角色中查找
+    const characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === originalName);
+    
+    // 3. 如果找到了，返回该角色的当前备注名
+    if (characterChat) {
+        return characterChat.name;
+    }
+    
+    // 4. 如果没找到，返回原始的本名作为备用
+    return originalName;
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 请用这个【修正后】的完整函数，替换掉您现有的 showCustomConfirm 函数 ▼▼▼
 
 function showCustomConfirm(title, message, options = {}) {
@@ -6845,7 +6868,7 @@ function formatTimeAgo(timestamp) {
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
-// ▼▼▼ 请用这个【已集成转发功能】的版本，完整替换旧的 renderQzonePosts 函数 ▼▼▼
+// ▼▼▼ 【最终版】请用这个新版本替换旧的 renderQzonePosts 函数 ▼▼▼
 async function renderQzonePosts() {
     const postsListEl = document.getElementById('qzone-posts-list');
     if (!postsListEl) return;
@@ -6884,8 +6907,9 @@ async function renderQzonePosts() {
             authorAvatar = authorChat.settings.aiAvatar || defaultAvatar;
             authorNickname = authorChat.name;
         } else {
+            // 如果找不到作者信息，也尝试通过本名翻译
+            authorNickname = getDisplayNameByOriginalName(post.authorOriginalName);
             authorAvatar = defaultAvatar;
-            authorNickname = '{{char}}';
         }
 
         function renderOriginalPostContent(targetPost) {
@@ -6913,9 +6937,12 @@ async function renderQzonePosts() {
             if (post.originalPost.authorId === 'user') {
                 originalAuthorAvatar = state.qzoneSettings.avatar;
                 originalAuthorNickname = state.qzoneSettings.nickname;
-            } else if (state.chats[post.originalPost.authorId]) {
-                originalAuthorAvatar = state.chats[post.originalPost.authorId].settings.aiAvatar;
-                originalAuthorNickname = state.chats[post.originalPost.authorId].name;
+            } else {
+                const originalAuthorChat = state.chats[post.originalPost.authorId];
+                if (originalAuthorChat) {
+                    originalAuthorAvatar = originalAuthorChat.settings.aiAvatar || defaultAvatar;
+                }
+                originalAuthorNickname = getDisplayNameByOriginalName(post.originalPost.authorOriginalName);
             }
 
             mainContentHtml = `
@@ -6937,36 +6964,36 @@ async function renderQzonePosts() {
 
         let likesHtml = '';
         if (post.likes && post.likes.length > 0) {
-            likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${post.likes.join('、')} 觉得很赞</span></div>`;
+            // ▼▼▼ 核心修改：渲染点赞列表 ▼▼▼
+            const displayLikes = post.likes.map(name => getDisplayNameByOriginalName(name)).join('、');
+            likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
+            // ▲▲▲ 修改结束 ▲▲▲
         }
 
         let commentsHtml = '';
         if (post.comments && post.comments.length > 0) {
             commentsHtml = '<div class="post-comments-container">';
             post.comments.forEach((comment, index) => {
-                // --- ▼▼▼ 核心修正部分 ▼▼▼ ---
+                const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                
                 let innerCommentContent;
                 if (STICKER_REGEX.test(comment.text)) {
-                    // 如果是表情，生成<img>标签
                     innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
                 } else {
-                    // 否则，就是纯文本
                     innerCommentContent = comment.text;
                 }
                 
-                // 无论内容是表情还是文字，都用 .comment-text 包裹起来，保证结构统一
                 commentsHtml += `<div class="comment-item">
-                                    <span class="commenter-name">${comment.commenterName}:</span>
+                                    <span class="commenter-name">${commenterDisplayName}:</span>
                                     <span class="comment-text">${innerCommentContent}</span>
                                     <span class="comment-delete-btn" data-comment-index="${index}">×</span>
                                  </div>`;
-                // --- ▲▲▲ 修正结束 ▲▲▲ ---
             });
             commentsHtml += '</div>';
         }
 
-        const userNickname = state.qzoneSettings.nickname;
-        const isLikedByUser = post.likes && post.likes.includes(userNickname);
+        const userOriginalName = state.qzoneSettings.nickname;
+        const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
         const isFavoritedByUser = favoritedPostIds.has(post.id);
 
         let repostIconHtml = '';
@@ -8683,7 +8710,7 @@ function setAvatarActingState(chatId, isActing) {
 
 
 
-// ▼▼▼ 用这个【已完全修复】的版本，完整替换旧的 triggerAiResponse 函数 ▼▼▼
+// ▼▼▼ 【已更新】请用这个新版本替换旧的 triggerAiResponse 函数 ▼▼▼
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -8924,9 +8951,6 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
 if (chat.isGroup) {
-       // ▼▼▼ 在 triggerAiResponse 函数的 if (chat.isGroup) { ... } 分支中...
-// ▼▼▼ 请用这个【已放宽规则】的全新版本，完整替换旧的 systemPrompt ▼▼▼
-// 【核心修改1】生成更详细的成员列表，包含群昵称和本名
 const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
 const myNickname = chat.settings.myNickname || '我';
 
@@ -9021,7 +9045,6 @@ ${membersList}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-// ▲▲▲ 替换结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -9091,8 +9114,6 @@ ${membersList}
             }).filter(Boolean);
 
         } else {
-// ▼▼▼ 在 triggerAiResponse 函数的 else (单聊) 分支中...
-// ▼▼▼ 请用这个【已增加“曾用名”记忆】的全新版本，完整替换旧的 systemPrompt ▼▼▼
 let nameHistoryContext = '';
 if (chat.nameHistory && chat.nameHistory.length > 0) {
     nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
@@ -9185,7 +9206,6 @@ ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
-// ▲▲▲ 替换结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 if (msg.isHidden) return null;
@@ -9319,12 +9339,10 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
         let notificationShown = false;
 
         for (const msgData of messagesArray) {
-            // ▼▼▼ 【全新的防火墙代码】请粘贴在这里 ▼▼▼
             if (chat.isGroup && msgData.name && msgData.name === chat.name) {
                 console.error(`AI幻觉已被拦截！试图使用群名 ("${chat.name}") 作为角色名。消息内容:`, msgData);
                 continue; // 拦截并跳过这条消息
             }
-            // ▲▲▲ 粘贴结束 ▲▲▲
             if (!msgData || typeof msgData !== 'object') {
                 console.warn("收到了格式不规范的AI指令，已跳过:", msgData);
                 continue;
@@ -9389,6 +9407,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                     }
                     continue;
 
+                // ▼▼▼ 从这里开始是本次的核心修改 ▼▼▼
                 case 'qzone_post':
                     const newPost = { 
                         type: msgData.postType, 
@@ -9397,6 +9416,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                         hiddenContent: msgData.hiddenContent || '', 
                         timestamp: Date.now(), 
                         authorId: chatId, 
+                        authorOriginalName: chat.originalName, // 【核心】在这里存入本名
                         authorGroupId: chat.groupId,
                         visibleGroupIds: null 
                     };
@@ -9406,6 +9426,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                        await renderQzonePosts();
                     }
                     continue;
+                // ▲▲▲ 修改结束 ▲▲▲
 
                 case 'qzone_comment':
                     const postToComment = await db.qzonePosts.get(parseInt(msgData.postId));
@@ -9475,7 +9496,6 @@ case 'repost': {
                     continue;
 
                 case 'pat_user':
-                    // ▼▼▼ 核心修正 ▼▼▼
                     let patterName;
                     if (chat.isGroup) {
                         const member = chat.members.find(m => m.originalName === msgData.name);
@@ -9485,7 +9505,6 @@ case 'repost': {
                     }
                     const suffix = msgData.suffix ? ` ${msgData.suffix.trim()}` : '';
                     const patText = `${patterName} 拍了拍我${suffix}`;
-                    // ▲▲▲ 修正结束 ▲▲▲
 
                     const patMessage = { 
                         role: 'system', 
@@ -9539,7 +9558,6 @@ case 'repost': {
                             playSong(targetSongIndex);
                             const track = musicState.playlist[targetSongIndex];
                             
-                            // ▼▼▼ 核心修正 ▼▼▼
                             let changerName;
                             if (chat.isGroup) {
                                 const member = chat.members.find(m => m.originalName === msgData.name);
@@ -9547,7 +9565,6 @@ case 'repost': {
                             } else {
                                 changerName = chat.name;
                             }
-                            // ▲▲▲ 修正结束 ▲▲▲
                             
                             const musicChangeMessage = {
                                 role: 'system',
@@ -9661,12 +9678,10 @@ case 'repost': {
                     }
                     continue;
 
-// ▼▼▼ 用这【一整块代码】，完整替换旧的 case 'red_packet' ▼▼▼
-case 'red_packet': { // 使用花括号明确作用域
+case 'red_packet': { 
     bubble.classList.add('is-red-packet');
     const myNickname = chat.settings.myNickname || '我';
     
-    // 从这里开始是关键逻辑
     const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
     const isFinished = msg.isFullyClaimed;
 
@@ -9680,12 +9695,9 @@ case 'red_packet': { // 使用花括号明确作用域
         cardClass = 'opened';
     }
     
-    // 【【【核心修复就在这里！】】】
-    // 我们调用之前的助手函数，根据本名(msg.receiverName)获取正确的显示名称
     const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
     
     if (msg.packetType === 'direct') {
-        // 使用我们刚刚获取到的、正确的显示名称
         typeText = `专属红包: 给 ${receiverDisplayName}`;
     }
     
@@ -9694,7 +9706,6 @@ case 'red_packet': { // 使用花括号明确作用域
     } else if (isFinished) {
         claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
     } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        // 在这里也使用正确的显示名称
         claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
     }
 
@@ -9710,9 +9721,7 @@ case 'red_packet': { // 使用花括号明确作用域
     `;
     break;
 }
-// ▲▲▲ 替换结束 ▲▲▲
                 
-// ▼▼▼ 用这【一整块代码】，完整替换旧的 case 'open_red_packet' ▼▼▼
                 case 'open_red_packet':
                     const packetToOpen = chat.history.find(m => m.timestamp === msgData.packet_timestamp);
                     
@@ -9728,12 +9737,9 @@ case 'red_packet': { // 使用花括号明确作用域
                         const remainingAmount = packetToOpen.totalAmount - Object.values(packetToOpen.claimedBy || {}).reduce((sum, val) => sum + val, 0);
                         const remainingCount = packetToOpen.count - Object.keys(packetToOpen.claimedBy || {}).length;
                         if (remainingCount > 0) {
-                            // 【【【核心修正就在这里！】】】
                             if (packetToOpen.packetType === 'direct') {
-                                // 1. 如果是专属红包，领取的金额就是总金额
                                 claimedAmountAI = packetToOpen.totalAmount;
                             } else {
-                                // 2. 否则（是拼手气红包），才进行随机计算
                                 if (remainingCount === 1) { claimedAmountAI = remainingAmount; } 
                                 else {
                                     const min = 0.01;
@@ -9741,7 +9747,6 @@ case 'red_packet': { // 使用花括号明确作用域
                                     claimedAmountAI = Math.random() * (max - min) + min;
                                 }
                             }
-                            // 【【【修正结束】】】
 
                             claimedAmountAI = parseFloat(claimedAmountAI.toFixed(2));
                             if (!packetToOpen.claimedBy) packetToOpen.claimedBy = {};
@@ -9798,11 +9803,7 @@ case 'red_packet': { // 使用花括号明确作用域
                             renderChatInterface(chatId);
                         }
                     }
-                    // ▼▼▼ 在这里添加下面这行 ▼▼▼
-                    //needsImmediateReaction = true; // 告诉程序，AI需要立即对抢红包的结果做出反应
-                    // ▲▲▲ 添加结束 ▲▲▲
                     continue;
-// ▲▲▲ 替换结束 ▲▲▲
 
                 case 'change_avatar':
                     const avatarName = msgData.name;
@@ -9866,10 +9867,8 @@ case 'change_group_name':
 
         chat.name = newName; 
 
-        // ▼▼▼ 核心修正 ▼▼▼
         const changerMember = chat.members.find(m => m.originalName === msgData.name);
         const changerDisplayName = changerMember ? changerMember.groupNickname : msgData.name;
-        // ▲▲▲ 修正结束 ▲▲▲
         
         const systemMessage = {
             role: 'system',
@@ -9885,25 +9884,21 @@ case 'change_group_name':
         }
     }
     continue;
-// ▼▼▼ 用这【一整块代码】，完整替换旧的 case 'change_remark_name' ▼▼▼
 case 'change_remark_name':
     if (!chat.isGroup && msgData.new_name) {
         const oldName = chat.name; 
         const newName = msgData.new_name.trim();
 
         if (newName && newName !== oldName) {
-            // 【核心修改1】在这里记录曾用名
             if (!chat.nameHistory) {
                 chat.nameHistory = [];
             }
             if (!chat.nameHistory.includes(oldName)) {
                 chat.nameHistory.push(oldName);
             }
-            // 【修改结束】
             
             chat.name = newName; 
 
-            // 1. 创建对用户可见的系统消息
             const systemMessage = {
                 role: 'system',
                 type: 'pat_message', 
@@ -9912,7 +9907,6 @@ case 'change_remark_name':
             };
             chat.history.push(systemMessage);
 
-            // 2. 创建一条对用户隐藏、但对AI可见的“记忆”消息
             const hiddenMemoryMessage = {
                 role: 'system',
                 content: `[系统提示：你刚刚成功将自己的备注名修改为了“${newName}”。请自然地接受这个新名字，不要对此感到惊讶。]`,
@@ -9930,7 +9924,6 @@ case 'change_remark_name':
         }
     }
     continue;
-// ▲▲▲ 替换结束 ▲▲▲
 
 case 'change_group_avatar':
     if (chat.isGroup && msgData.avatar_name) {
@@ -9941,10 +9934,8 @@ case 'change_group_avatar':
         if (foundAvatar) {
             chat.settings.groupAvatar = foundAvatar.url;
             
-            // ▼▼▼ 核心修正 ▼▼▼
             const changerMember = chat.members.find(m => m.originalName === msgData.name);
             const changerDisplayName = changerMember ? changerMember.groupNickname : msgData.name;
-            // ▲▲▲ 修正结束 ▲▲▲
 
             const systemMessage = {
                 role: 'system',
@@ -10097,16 +10088,10 @@ case 'change_group_avatar':
                 alert('无人接听群聊邀请。');
             }
         }
-                // ▼▼▼ 把下面这段【全新的代码】粘贴到 for 循环之后、await db.chats.put(chat) 之前 ▼▼▼
-        // 如果在上面的循环中发生了需要AI立即反应的事件（比如抢红包）
         if (needsImmediateReaction) {
-            // 我们就立即再次调用AI，让它根据刚刚发生的事（比如抢到的金额）生成新的回复
             await triggerAiResponse();
-            // 重要的：因为第二次调用已经处理了所有后续逻辑（包括保存数据库），
-            // 所以第一次调用必须在这里结束，以避免重复操作。
             return; 
         }
-        // ▲▲▲ 新代码粘贴结束 ▲▲▲
         await db.chats.put(chat);
 
     } catch (error) {
@@ -10699,8 +10684,7 @@ function runBackgroundSimulationTick() {
 }
 // ▲▲▲ 到这里替换结束 ▲▲▲
 
-// ▼▼▼ 从这里开始复制，完整替换旧的 triggerInactiveAiAction 函数 ▼▼▼
-// ▼▼▼ 请用这个【已修复AI间转发内容不可见问题】的全新版本，完整替换您现有的 triggerInactiveAiAction 函数 ▼▼▼
+// ▼▼▼ 【已更新】请用这个新版本替换旧的 triggerInactiveAiAction 函数 ▼▼▼
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -10732,10 +10716,7 @@ async function triggerInactiveAiAction(chatId) {
             else { timeContextText = `你们在${Math.floor(timeDiffHours)}小时前聊过。`; }
 
             const selfMemoryCount = 10;
-// ▼▼▼ 用这整块代码，替换旧的 if (recentHistory.length > 0) { ... } ▼▼▼
 const recentHistory = chat.history.filter(m => !m.isHidden).slice(-selfMemoryCount);
-
-// 【核心修正】在遍历前，先过滤掉“删除”提示
 const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
 
 if (filteredHistory.length > 0) {
@@ -10746,7 +10727,6 @@ if (filteredHistory.length > 0) {
 } else { 
     recentContextSummary = "你们最近没有有效聊天记录。"; 
 }
-// ▲▲▲ 替换结束 ▲▲▲
         }
     } else {
         timeContextText = "这是你们的第一次互动。";
@@ -10784,11 +10764,9 @@ ${recentlyPostedSummaries.join('\n')}
         }
     }
     
-         // ▼▼▼ 从这里开始是核心修复：智能排序并标记时间的挂载记忆逻辑 ▼▼▼
         let linkedMemoryContext = '';
         const memoryCount = chat.settings.linkedMemoryCount || 10;
         if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            // 1. 获取所有挂载的聊天对象，并计算它们的最新时间戳
             const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
                 const linkedChat = state.chats[id];
                 if (!linkedChat) return null;
@@ -10797,25 +10775,19 @@ ${recentlyPostedSummaries.join('\n')}
                     chat: linkedChat,
                     latestTimestamp: lastMsg ? lastMsg.timestamp : 0
                 };
-            }).filter(Boolean); // 过滤掉可能不存在的聊天
+            }).filter(Boolean); 
 
-            // 2. 根据最新时间戳进行降序排序（最新的排在最前面）
             linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 
-            // 3. 构建上下文，并加入“时间标记”
             linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
 
             for (const item of linkedChatsWithTimestamps) {
                 const linkedChat = item.chat;
                 const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                // 使用 formatTimeAgo 辅助函数生成时间标记
                 const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
                 linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
 
-                // ▼▼▼ 用这整块代码，替换旧的 if (recentHistory.length > 0) { ... } ▼▼▼
 const recentHistory = linkedChat.history.slice(-memoryCount);
-
-// 【核心修正】在遍历前，先过滤掉“删除”提示
 const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
 
 if (filteredHistory.length > 0) {
@@ -10832,15 +10804,13 @@ if (filteredHistory.length > 0) {
 } else {
     linkedMemoryContext += "(暂无有效聊天记录)\n";
 }
-// ▲▲▲ 替换结束 ▲▲▲
             }
         }
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
-        // ▲▲▲ 修复结束 ▲▲▲
     
     const systemPrompt = `
 # 你的任务
-你现在扮演一个名为"${chat.name}"的角色。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
+你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 # 核心规则
 1.  **【【【决策依据】】】**: 你的所有行动（无论是发动态、评论还是发消息）都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。不要凭空捏造与上下文无关的内容。
 2.  **【【【内容多样性铁律】】】**: 你的行动【必须】具有逻辑和多样性。你【绝对不能】发布与下方“内容禁忌”列表或“最近的动态列表”中内容相似或主题重复的动态。必须创新！
@@ -10854,9 +10824,9 @@ if (filteredHistory.length > 0) {
 -   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：\`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]\`
 -   **发布文字图**: \`[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]\`
 -   **【【【评论动态的三种方式】】】**:
-    -   **方式1 (单条文字)**: \`[{"type": "qzone_comment", "postId": 123, "commentText": "这太有趣了！"}]\`
-    -   **方式2 (多条文字)**: \`[{"type": "qzone_comment", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]\`
-    -   **方式3 (表情)**: \`[{"type": "qzone_comment", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]\`
+    -   **方式1 (单条文字)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]\`
+    -   **方式2 (多条文字)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]\`
+    -   **方式3 (表情)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]\`
 -   **点赞**: \`[{"type": "qzone_like", "postId": 456}]\`
 -   **打视频**: \`[{"type": "video_call_request"}]\`
 ${contentTabooPrompt}
@@ -10886,7 +10856,6 @@ ${linkedMemoryContext}
                 if (post.comments && post.comments.some(c => c.commenterName === chat.name)) interactionStatus += " [你已评论]";
                 if (post.authorId === chatId) authorName += " (这是你的帖子)";
 
-                // ▼▼▼ 从这里开始是核心修复 ▼▼▼
                 let contentSummary;
                 if (post.type === 'repost') {
                     const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
@@ -10919,7 +10888,6 @@ ${linkedMemoryContext}
                 } else {
                     contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
                 }
-                // ▲▲▲ 修复结束 ▲▲▲
 
                 postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
 
@@ -11002,6 +10970,7 @@ ${linkedMemoryContext}
                     hiddenContent: action.hiddenContent || '', 
                     timestamp: actionTimestamp++,
                     authorId: chatId, 
+                    authorOriginalName: chat.originalName, 
                     authorGroupId: chat.groupId,
                     visibleGroupIds: null 
                 };
@@ -11012,21 +10981,21 @@ ${linkedMemoryContext}
                 const post = await db.qzonePosts.get(parseInt(action.postId));
                 if (post) {
                     if (!post.comments) post.comments = [];
+                    const commenterName = action.name || chat.originalName; 
                     
                     if (action.stickerUrl && action.stickerMeaning) {
-                        post.comments.push({ commenterName: chat.name, text: action.stickerUrl, meaning: action.stickerMeaning, timestamp: Date.now() });
+                        post.comments.push({ commenterName: commenterName, text: action.stickerUrl, meaning: action.stickerMeaning, timestamp: Date.now() });
                     } 
                     else if (Array.isArray(action.comments)) {
                         for (const commentText of action.comments) {
                             if (typeof commentText === 'string' && commentText.trim()) {
-                                post.comments.push({ commenterName: chat.name, text: commentText, timestamp: Date.now() });
+                                post.comments.push({ commenterName: commenterName, text: commentText, timestamp: Date.now() });
                             }
                         }
                     } 
                     else if (typeof action.commentText === 'string' && action.commentText.trim()) {
-                        post.comments.push({ commenterName: chat.name, text: action.commentText, timestamp: Date.now() });
+                        post.comments.push({ commenterName: commenterName, text: action.commentText, timestamp: Date.now() });
                     }
-                    
                     await db.qzonePosts.update(post.id, { comments: post.comments });
                     updateUnreadIndicator(unreadPostsCount + 1);
                     console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${post.id}`);
@@ -11076,6 +11045,11 @@ ${linkedMemoryContext}
     }
 }
 // ▲▲▲ 替换结束 ▲▲▲
+
+
+
+
+
 
 
 
@@ -16133,30 +16107,26 @@ postsList.addEventListener('touchmove', handleSwipeMove, { passive: false });
 postsList.addEventListener('touchend', handleSwipeEnd);
 
 // --- 绑定所有点击事件 ---
+// ▼▼▼ 【最终版】请用这个新版本替换旧的 postsList 事件监听器 ▼▼▼
 postsList.addEventListener('click', async (e) => {
     e.stopPropagation();
     const target = e.target;
 
-    // --- 【核心修正】处理评论区表情按钮的点击逻辑 ---
     const stickerBtn = target.closest('.comment-sticker-btn');
     if (stickerBtn) {
         const postContainer = stickerBtn.closest('.qzone-post-container');
         if (!postContainer) return;
         const postId = parseInt(postContainer.dataset.postId);
 
-        // 判断：如果表情面板当前是打开的，并且正是为这个帖子打开的，那么就关闭它
         if (qzoneStickerPanelState.isOpen && qzoneStickerPanelState.activePostId === postId) {
             closeQzoneStickerPanel();
         } 
-        // 否则，就打开它
         else {
             openQzoneStickerPanel(postId, stickerBtn);
         }
-        return; // 处理完直接返回
+        return; 
     }
-    // --- 修正结束 ---
 
-    // --- 以下是您原有的其他点击事件逻辑，保持不变 ---
     if (target.classList.contains('comment-delete-btn')) {
         const postContainer = target.closest('.qzone-post-container');
         if (!postContainer) return;
@@ -16244,12 +16214,14 @@ postsList.addEventListener('click', async (e) => {
             const post = await db.qzonePosts.get(postId);
             if (!post) return;
             if (!post.likes) post.likes = [];
-            const userNickname = state.qzoneSettings.nickname;
-            const userLikeIndex = post.likes.indexOf(userNickname);
+            // ▼▼▼ 核心修改：用户点赞时，存入用户的固定昵称 ▼▼▼
+            const userOriginalName = state.qzoneSettings.nickname;
+            const userLikeIndex = post.likes.indexOf(userOriginalName);
             if (userLikeIndex > -1) {
                 post.likes.splice(userLikeIndex, 1);
             } else {
-                post.likes.push(userNickname);
+                post.likes.push(userOriginalName);
+            // ▲▲▲ 修改结束 ▲▲▲
                 icon.classList.add('animate-like');
                 icon.addEventListener('animationend', () => icon.classList.remove('animate-like'), { once: true });
             }
@@ -16284,7 +16256,9 @@ postsList.addEventListener('click', async (e) => {
         if (!post) return;
 
         if (!post.comments) post.comments = [];
+        // ▼▼▼ 核心修改：用户评论时，存入用户的固定昵称 ▼▼▼
         post.comments.push({ commenterName: state.qzoneSettings.nickname, text: commentText, timestamp: Date.now() });
+        // ▲▲▲ 修改结束 ▲▲▲
         await db.qzonePosts.update(postId, { comments: post.comments });
 
         let postSummary = (post.publicText || post.content || '').substring(0, 30);
