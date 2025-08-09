@@ -4663,13 +4663,21 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
-/* ▼▼▼ 【最终修复方案】用于彻底解决 Safari 头像挤压的 Bug ▼▼▼ */
+/* ▼▼▼ 【最终修复方案】请用这整块代码替换所有旧的头像和气泡相关样式 ▼▼▼ */
 
 /* 1. 强制外层气泡容器(.message-bubble)成为一个真正的“弹性”项目。*/
 /* 这让它可以正确地为旁边的“时间戳”收缩。*/
 .message-bubble {
     flex: 1;          /* 关键修复①: 让它填充所有可用空间 (flex-grow: 1, flex-shrink: 1) */
     min-width: 0;     /* 关键修复②: 允许它收缩至比其内容更小，这是解决此类问题的核心技巧 */
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 100%;
+}
+
+.message-bubble.user { 
+    flex-direction: row-reverse; 
 }
 
 /* 2. 强制内层内容区(.content)也成为一个“弹性”项目。*/
@@ -4678,6 +4686,10 @@ input:checked + .slider:before {
     flex: 1;          /* 关键修复③: 让内容区填充气泡内的所有可用空间 */
     min-width: 0;     /* 关键修复④: 同样允许它收缩，防止长文本撑破布局 */
     word-break: break-all !important; /* 关键修复⑤: 使用最强力的换行模式，确保长串字符能被截断 */
+    position: relative;
+    font-size: var(--chat-font-size, 16px);
+    padding: 8px 12px;
+    line-height: 1.5;
 }
 
 /* 3. 再次确保头像容器绝对不收缩 (作为最终保险) */
@@ -4807,6 +4819,21 @@ input:checked + .slider:before {
     display: flex;
     justify-content: center;
     align-items: center;
+}
+/* ▲▲▲ 修正结束 ▲▲▲ */
+/* ▼▼▼ 【终极强制修正】请将这段代码粘贴到 <style> 的最末尾 ▼▼▼ */
+
+/* 使用ID选择器和!important，强制提升这条规则的优先级到最高，
+   以覆盖任何可能存在的未知冲突样式。*/
+
+#chat-interface-screen .message-bubble .avatar-group.has-frame .avatar-with-frame {
+    width: 43px !important;
+    height: 43px !important;
+}
+
+#chat-interface-screen .message-bubble .avatar-with-frame .avatar-img {
+    width: 100% !important;
+    height: 100% !important;
 }
 /* ▲▲▲ 修正结束 ▲▲▲ */
     </style>
