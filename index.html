@@ -4795,6 +4795,20 @@ input:checked + .slider:before {
     color: var(--text-secondary); /* 用次要颜色显示，以示区别 */
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】卡片/特殊内容居中修正 ▼▼▼ */
+.message-bubble.is-link-share .content,
+.message-bubble.is-transfer .content,
+.message-bubble.is-waimai-request .content,
+.message-bubble.is-red-packet .content,
+.message-bubble.is-poll .content,
+.message-bubble.is-location-share .content,
+.message-bubble.is-sticker .content,
+.message-bubble.is-ai-image .content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+/* ▲▲▲ 修正结束 ▲▲▲ */
     </style>
 </head>
 <body>
