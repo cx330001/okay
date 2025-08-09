@@ -8136,7 +8136,7 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
-// ▼▼▼ 请用这个【已修复头像框点击问题】的全新版本，完整替换您现有的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 请用这个【已修复外卖代付人名称】的全新版本，完整替换您现有的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
 if (msg.type === 'recalled_message') {
@@ -8371,11 +8371,8 @@ else if (msg.type === 'location_share') {
         if (msg.status === 'paid' || msg.status === 'rejected') {
             bubble.classList.add(`status-${msg.status}`);
         }
-// ▼▼▼ 将上面那一行替换为下面这段代码 ▼▼▼
-        // 【核心修正】获取发送者的显示名称
         const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
         const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
-// ▲▲▲ 替换结束 ▲▲▲
         let actionButtonsHtml = '';
         if (msg.status === 'pending' && !isUser) {
             actionButtonsHtml = `
@@ -8421,7 +8418,14 @@ else if (msg.type === 'location_share') {
             if (detailsBtn) {
                 detailsBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const paidByText = msg.paidBy ? `<br><br><b>状态：</b>由 ${msg.paidBy} 为您代付成功` : '';
+                    // ▼▼▼ 从这里开始是本次的核心修复 ▼▼▼
+                    let paidByText = '';
+                    if (msg.paidBy) {
+                        // 使用 getDisplayNameInGroup 函数将本名转换为群昵称
+                        const payerDisplayName = getDisplayNameInGroup(chat, msg.paidBy);
+                        paidByText = `<br><br><b>状态：</b>由 ${payerDisplayName} 为您代付成功`;
+                    }
+                    // ▲▲▲ 修复结束 ▲▲▲
                     showCustomAlert('订单详情', `<b>商品：</b>${msg.productInfo}<br><b>金额：</b>¥${Number(msg.amount).toFixed(2)}${paidByText}`);
                 });
             }
@@ -8452,8 +8456,10 @@ else if (msg.type === 'location_share') {
         cardClass = 'opened';
     }
     
+    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+    
     if (msg.packetType === 'direct') {
-        typeText = `专属红包: 给 ${msg.receiverName}`;
+        typeText = `专属红包: 给 ${receiverDisplayName}`;
     }
     
     if (hasClaimed) {
@@ -8461,7 +8467,7 @@ else if (msg.type === 'location_share') {
     } else if (isFinished) {
         claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
     } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${msg.receiverName} 领取</div>`;
+        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
     }
 
     contentHtml = `
@@ -8566,25 +8572,20 @@ else if (msg.type === 'location_share') {
     wrapper.addEventListener('click', () => { if (isSelectionMode) toggleMessageSelection(msg.timestamp); });
 
     if (!isUser) {
-        // ▼▼▼ 从这里开始是核心修复 ▼▼▼
-// ▼▼▼ 在 createMessageElement 函数中，用这段代码替换旧的 avatarGroupEl 事件监听器 ▼▼▼
         const avatarGroupEl = wrapper.querySelector('.avatar-group'); 
         if (avatarGroupEl) {
             avatarGroupEl.style.cursor = 'pointer';
             avatarGroupEl.addEventListener('click', (e) => {
                 e.stopPropagation();
-                // 【核心修正】现在我们传递的是 AI 的“本名”，而不是不确定的“名字”
                 const characterOriginalName = chat.isGroup ? msg.senderName : chat.originalName;
                 handleUserPat(chat.id, characterOriginalName);
             });
         }
-// ▲▲▲ 替换结束 ▲▲▲
     }
 
     return wrapper;
 }
-// ▲▲▲ 替换结束 ▲▲▲
-
+// ▼▼▼ 替换结束
         function prependMessage(msg, chat) { const messagesContainer = document.getElementById('chat-messages'); const messageEl = createMessageElement(msg, chat); 
 
     if (!messageEl) return; // <--- 新增这行，同样的处理
@@ -9798,7 +9799,7 @@ case 'red_packet': { // 使用花括号明确作用域
                         }
                     }
                     // ▼▼▼ 在这里添加下面这行 ▼▼▼
-                    needsImmediateReaction = true; // 告诉程序，AI需要立即对抢红包的结果做出反应
+                    //needsImmediateReaction = true; // 告诉程序，AI需要立即对抢红包的结果做出反应
                     // ▲▲▲ 添加结束 ▲▲▲
                     continue;
 // ▲▲▲ 替换结束 ▲▲▲
@@ -12585,26 +12586,36 @@ async function handleWaimaiResponse(originalTimestamp, choice) {
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
+// ▼▼▼ 用这个【新版本】替换旧的 handleUserPat 函数 ▼▼▼
 /**
  * 【全新】处理用户点击头像发起的“拍一-拍”，带有自定义后缀功能
  * @param {string} chatId - 发生“拍一-拍”的聊天ID
- * @param {string} characterName - 被拍的角色名
+ * @param {string} characterOriginalName - 被拍的角色的【本名】，用于AI识别
  */
-// ▼▼▼ 用这个【新版本】替换旧的 handleUserPat 函数 ▼▼▼
-async function handleUserPat(chatId, characterOriginalName) { // 核心修改：参数名改为 characterOriginalName
+async function handleUserPat(chatId, characterOriginalName) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    // 【核心修正】在这里调用我们的新助手函数来获取正确的显示名称！
-    const characterDisplayName = getDisplayNameInGroup(chat, characterOriginalName);
+    // --- 【【【核心修复就在这里！】】】 ---
+    // 1. 智能判断应该在UI上显示哪个名字
+    let displayNameForUI;
+    if (chat.isGroup) {
+        // 如果是群聊，就通过本名找到正确的群昵称
+        displayNameForUI = getDisplayNameInGroup(chat, characterOriginalName);
+    } else {
+        // 如果是单聊，直接使用用户设置的备注名
+        displayNameForUI = chat.name;
+    }
+    // --- 【【【修复结束】】】 ---
 
     const phoneScreen = document.getElementById('phone-screen');
     phoneScreen.classList.remove('pat-animation');
     void phoneScreen.offsetWidth;
     phoneScreen.classList.add('pat-animation');
 
+    // 2. 使用我们刚刚获取到的、正确的显示名称来创建弹窗
     const suffix = await showCustomPrompt(
-        `你拍了拍 “${characterDisplayName}”`, 
+        `你拍了拍 “${displayNameForUI}”`, 
         "（可选）输入后缀",
         "",
         "text"
@@ -12614,8 +12625,8 @@ async function handleUserPat(chatId, characterOriginalName) { // 核心修改：
 
     const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
     
-    // 使用正确的显示名称来构建消息
-    const visibleMessageContent = `${myNickname} 拍了拍 “${characterDisplayName}” ${suffix.trim()}`;
+    // 3. 创建对用户可见的系统消息时，也使用正确的显示名称
+    const visibleMessageContent = `${myNickname} 拍了拍 “${displayNameForUI}” ${suffix.trim()}`;
     const visibleMessage = {
         role: 'system',
         type: 'pat_message',
@@ -12624,7 +12635,7 @@ async function handleUserPat(chatId, characterOriginalName) { // 核心修改：
     };
     chat.history.push(visibleMessage);
 
-    // 【重要】给AI的指令中，依然使用“本名”，确保AI能识别是谁
+    // 4. 【重要】创建给AI看的隐藏消息时，依然使用“本名”，确保AI能正确识别
     const hiddenMessageContent = `[系统提示：用户（${myNickname}）刚刚拍了拍你（${characterOriginalName}）${suffix.trim()}。请你对此作出回应。]`;
     const hiddenMessage = {
         role: 'system',
