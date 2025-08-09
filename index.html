@@ -10817,21 +10817,21 @@ function runBackgroundSimulationTick() {
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
-    // --- 1. 【核心机制：硬性冷却检查】 ---
-    const ACTION_COOLDOWN_MINUTES = 30; // 设置一个动作的冷却时间为3小时（180分钟）
+
+    // --- 1. 总行动冷却检查 (保持不变) ---
+    const ACTION_COOLDOWN_MINUTES = 30; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
             console.log(`角色 "${chat.name}" 处于行动冷却中 (还剩 ${Math.round(ACTION_COOLDOWN_MINUTES - minutesSinceLastAction)} 分钟)，本次独立行动跳过。`);
-            return; // 直接退出，不执行任何操作
+            return;
         }
     }
+    
     setAvatarActingState(chatId, true);
 
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
-
-
 
     const userNickname = state.qzoneSettings.nickname;
     const now = new Date();
@@ -10992,6 +10992,7 @@ ${linkedMemoryContext}
 
   
   try {
+        const COMMENT_COOLDOWN_MINUTES = 60; // 对同一条动态的评论冷却时间为1小时
        const unInteractedPosts = visiblePosts.filter(post => {
             const aiName = chat.name;
             const alreadyLiked = post.likes && post.likes.includes(aiName);
@@ -11093,7 +11094,7 @@ ${linkedMemoryContext}
         for (const action of responseArray) {
             // ... (for循环内的其他case保持不变，我们只修改qzone_comment)
             // ...
-            if (action.type === 'qzone_comment') {
+if (action.type === 'qzone_comment') {
     const post = await db.qzonePosts.get(parseInt(action.postId));
     if (post) {
         if (!post.comments) post.comments = [];
@@ -11101,7 +11102,7 @@ ${linkedMemoryContext}
         
         const createCommentObject = (text, meaning = null, replyTo = null) => ({
             commenterName,
-            text: processMentions(text), // 【核心】在这里处理@占位符
+            text: processMentions(text),
             meaning,
             replyTo,
             timestamp: Date.now()
@@ -11123,6 +11124,14 @@ ${linkedMemoryContext}
         await db.qzonePosts.update(post.id, { comments: post.comments });
         updateUnreadIndicator(unreadPostsCount + 1);
         console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${post.id}`);
+        
+        // --- ▼▼▼ 核心新增代码就在这里！▼▼▼ ---
+        // 记录下对这条postId的评论时间，启动针对这条动态的冷却
+        if (!chat.commentCooldowns) {
+            chat.commentCooldowns = {};
+        }
+        chat.commentCooldowns[action.postId] = Date.now();
+        // --- ▲▲▲ 新增代码结束 ▲▲▲ ---
     }
 }
 // ▲▲▲ 替换结束 ▲▲▲
@@ -11273,23 +11282,17 @@ async function triggerGroupAiAction(chatId) {
         dynamicContext = postsContext;
     }
     // --- ▲▲▲ 优化结束 ▲▲▲ ---
-    const systemPrompt = `
+// ▼▼▼ 【最终修复方案·步骤1】请用这段已统一的新 systemPrompt 替换旧的 ▼▼▼
+const systemPrompt = `
 # 你的任务
 你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
-${timeContextText} 你的任务是根据群成员的性格和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
+${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
 
 # 核心规则
-1.  **【【【身份与称呼指南】】】**: 
-    - 用户的身份是【${myNickname}】。
-    - 在生成JSON时，\`name\`字段【必须】使用角色的【本名】。
-    - 在对话内容中互相称呼时，可以【自由选择】使用角色的【群昵称】或【本名】。
-    - 你【绝对不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
-2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
-3.  **对话节奏**: 模拟真实的群聊，可以是一个人先说话，然后另一个人回应，形成自然的对话流。一次可以生成2-5条消息。
-
+// ... (核心规则保持不变) ...
 # 你的可选行动指令:
--   **发送文本**: \`{"type": "text", "name": "角色本名", "message": "文本内容"}\`
+-   **发送文本**: \`{"type": "text", "name": "角色本名", "content": "文本内容"}\` (注意：文本内容必须在 "content" 字段中！)
 -   **发送表情**: \`{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}\`
 -   **发送图片**: \`{"type": "ai_image", "name": "角色本名", "description": "..."}\`
 -   **发起投票**: \`{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}\`
@@ -11302,6 +11305,7 @@ ${membersList}
 
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
+// ▲▲▲ 替换结束 ▲▲▲
     
     try {
         const messagesPayload = [{ role: 'user', content: systemPrompt }];
@@ -11327,7 +11331,7 @@ ${membersList}
              console.warn(`群聊 "${chat.name}" 的独立行动API返回为空或格式不正确，本次跳过。`);
              return;
         }
-
+        const majorActionTypes = new Set(['qzone_post', 'qzone_comment', 'qzone_like', 'repost', 'text', 'video_call_request']);
         let hasPerformedMajorAction = false;
         let notificationContent = '';
         let notificationSender = '';
@@ -11335,19 +11339,23 @@ ${membersList}
         for (const action of responseArray) {
             if (!action || !action.type || !action.name) continue;
 
-            const aiMessage = {
-                role: 'assistant',
-                senderName: action.name,
-                timestamp: Date.now(),
-                ...action
-            };
-            if (action.message) aiMessage.content = action.message;
-            
-            chat.history.push(aiMessage);
-            if (!notificationSender) {
-                notificationSender = getDisplayNameInGroup(chat, action.name);
-                notificationContent = action.message || `[${action.type}]`;
-            }
+const messageContent = action.content || action.message;
+const aiMessage = {
+    role: 'assistant',
+    senderName: action.name,
+    timestamp: Date.now(),
+    ...action
+};
+if (messageContent) {
+    aiMessage.content = messageContent;
+}
+
+chat.history.push(aiMessage);
+if (!notificationSender) {
+    notificationSender = getDisplayNameInGroup(chat, action.name);
+    notificationContent = messageContent || `[${action.type}]`;
+}
+// ▲▲▲ 替换结束 ▲▲▲
             hasPerformedMajorAction = true;
         }
         
