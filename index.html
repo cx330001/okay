@@ -10975,12 +10975,17 @@ ${linkedMemoryContext}
 
   
   try {
-        // --- 3. 【核心修改】拓宽AI的“视野” ---
-        // 我们不再使用 unInteractedPosts，而是直接使用 visiblePosts，让AI看到所有它能看到的动态，无论是否互动过
+       const unInteractedPosts = visiblePosts.filter(post => {
+            const aiName = chat.name;
+            const alreadyLiked = post.likes && post.likes.includes(aiName);
+            const alreadyCommented = post.comments && post.comments.some(c => c.commenterName === chat.name);
+            return !alreadyLiked && !alreadyCommented;
+        });
+
         let dynamicContext = "";
-        if (visiblePosts.length > 0) {
+        if (unInteractedPosts.length > 0) {
             let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            for (const post of visiblePosts) { // 使用 visiblePosts
+            for (const post of unInteractedPosts) {
                 let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
                 let interactionStatus = '';
                 if (post.likes && post.likes.includes(chat.name)) interactionStatus += " [你已点赞]";
