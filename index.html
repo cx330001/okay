@@ -10788,7 +10788,7 @@ function runBackgroundSimulationTick() {
         }
     });
 
-    // --- 2. 【全新】处理所有群聊 ---
+    // --- 2. 【核心新增】处理所有群聊 ---
     const allGroupChats = Object.values(state.chats).filter(chat => chat.isGroup);
     allGroupChats.forEach(chat => {
         // 确保不在当前打开的聊天窗口，且通过随机概率检查
@@ -11123,6 +11123,232 @@ ${linkedMemoryContext}
 
 
 
+
+// ▼▼▼ 【全新】请将这个完整的函数，粘贴到 triggerInactiveAiAction 函数的后面 ▼▼▼
+/**
+ * 【全新】触发一个非活跃的群聊进行独立行动（如AI成员主动发言）
+ * @param {string} chatId - 目标群聊的ID
+ */
+async function triggerGroupAiAction(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.isGroup) return;
+
+    // --- 1. 硬性冷却检查：群聊也需要冷却，防止过于频繁地自言自语 ---
+    const GROUP_ACTION_COOLDOWN_MINUTES = 240; // 群聊冷却时间可以更长，比如4小时
+    if (chat.lastActionTimestamp) {
+        const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
+        if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
+            console.log(`群聊 "${chat.name}" 处于行动冷却中，本次独立行动跳过。`);
+            return;
+        }
+    }
+    
+    const { proxyUrl, apiKey, model } = state.apiConfig;
+    if (!proxyUrl || !apiKey || !model) return;
+
+    const myNickname = chat.settings.myNickname || '我';
+    const now = new Date();
+    
+    const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
+    let timeContextText = "群里已经安静很久了。";
+    if (lastMessage) {
+        const lastTime = new Date(lastMessage.timestamp);
+        const diffMinutes = (now - lastTime) / (1000 * 60);
+        if (diffMinutes > 60) { // 超过1小时没说话
+            timeContextText = `群里已经安静了 ${Math.round(diffMinutes / 60)} 小时了。`;
+        }
+    }
+    
+    const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
+    // --- ▼▼▼ 核心新增：为群聊加载世界书和挂载记忆 ▼▼▼ ---
+    let worldBookContent = '';
+    if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+        const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+            const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+            return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
+        }).filter(Boolean).join('');
+        if (linkedContents) {
+            worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
+        }
+    }
+
+    let linkedMemoryContext = '';
+    const memoryCount = chat.settings.linkedMemoryCount || 10;
+    if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+        const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+            const linkedChat = state.chats[id];
+            if (!linkedChat) return null;
+            const lastMsg = linkedChat.history.slice(-1)[0];
+            return {
+                chat: linkedChat,
+                latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+            };
+        }).filter(Boolean); 
+
+        linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+        linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
+
+        for (const item of linkedChatsWithTimestamps) {
+            const linkedChat = item.chat;
+            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+            const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+
+            const recentHistory = linkedChat.history.slice(-memoryCount);
+            const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+
+            if (filteredHistory.length > 0) {
+                filteredHistory.forEach(msg => {
+                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                    let contentText = String(msg.content);
+                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                    } else if (msg.type === 'voice_message') {
+                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                    }
+                    linkedMemoryContext += `${sender}: ${contentText}\n`;
+                });
+            } else {
+                linkedMemoryContext += "(暂无有效聊天记录)\n";
+            }
+        }
+    }
+    // --- ▲▲▲ 新增结束 ▲▲▲ ---
+    // --- ▼▼▼ 核心优化：为群聊引入高效的“未互动动态”过滤逻辑 ▼▼▼ ---
+    const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
+    let dynamicContext = "";
+    
+    // 1. 获取对本群所有成员可见的动态
+    const visiblePostsForGroup = new Set();
+    for (const member of chat.members) {
+        const memberChat = state.chats[member.id];
+        if (memberChat) {
+            const visibleForMember = filterVisiblePostsForAI(allRecentPosts, memberChat);
+            visibleForMember.forEach(post => visiblePostsForGroup.add(post));
+        }
+    }
+
+    // 2. 从可见动态中，筛选出本群【从未】互动过的动态
+    const groupMemberNames = new Set(chat.members.map(m => m.originalName));
+    const unInteractedPostsForGroup = [...visiblePostsForGroup].filter(post => {
+        const hasBeenLikedByGroup = post.likes && post.likes.some(likerName => groupMemberNames.has(likerName));
+        const hasBeenCommentedByGroup = post.comments && post.comments.some(comment => typeof comment === 'object' && groupMemberNames.has(comment.commenterName));
+        return !hasBeenLikedByGroup && !hasBeenCommentedByGroup;
+    });
+    
+    // 3. 只使用“未互动”的动态来构建上下文，大大节省Token
+    if (unInteractedPostsForGroup.length > 0) {
+        let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
+        for (const post of unInteractedPostsForGroup) {
+            let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
+            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${(post.content || post.publicText || '图片动态').substring(0, 30)}..."\n`;
+            if (post.comments && post.comments.length > 0) {
+                for (const comment of post.comments) {
+                    if (typeof comment === 'object' && comment.commenterName) {
+                        const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                        let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                        postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                    }
+                }
+            }
+        }
+        dynamicContext = postsContext;
+    }
+    // --- ▲▲▲ 优化结束 ▲▲▲ ---
+    const systemPrompt = `
+# 你的任务
+你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
+当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
+${timeContextText} 你的任务是根据群成员的性格和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
+
+# 核心规则
+1.  **【【【身份与称呼指南】】】**: 
+    - 用户的身份是【${myNickname}】。
+    - 在生成JSON时，\`name\`字段【必须】使用角色的【本名】。
+    - 在对话内容中互相称呼时，可以【自由选择】使用角色的【群昵称】或【本名】。
+    - 你【绝对不能】生成 \`name\` 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
+2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
+3.  **对话节奏**: 模拟真实的群聊，可以是一个人先说话，然后另一个人回应，形成自然的对话流。一次可以生成2-5条消息。
+
+# 你的可选行动指令:
+-   **发送文本**: \`{"type": "text", "name": "角色本名", "message": "文本内容"}\`
+-   **发送表情**: \`{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}\`
+-   **发送图片**: \`{"type": "ai_image", "name": "角色本名", "description": "..."}\`
+-   **发起投票**: \`{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}\`
+-   **发起群视频**: \`{"type": "group_call_request", "name": "角色本名"}\`
+
+# 群成员列表及人设
+${membersList}
+# 用户的角色
+- **${myNickname}**: ${chat.settings.myPersona}
+
+现在，请开始你的导演工作，让群聊再次热闹起来吧！
+`;
+    
+    try {
+        const messagesPayload = [{ role: 'user', content: systemPrompt }];
+        let  isGemini = proxyUrl === GEMINI_API_URL;
+        let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
+        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+            body: JSON.stringify({
+                model: model,
+                messages: messagesPayload,
+                temperature: 0.9,
+            })
+        });
+
+        if (!response.ok) throw new Error((await response.json()).error.message);
+
+        const data = await response.json();
+        const aiResponseContent = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
+        const responseArray = parseAiResponse(aiResponseContent);
+
+        if (!responseArray || responseArray.length === 0) {
+             console.warn(`群聊 "${chat.name}" 的独立行动API返回为空或格式不正确，本次跳过。`);
+             return;
+        }
+
+        let hasPerformedMajorAction = false;
+        let notificationContent = '';
+        let notificationSender = '';
+
+        for (const action of responseArray) {
+            if (!action || !action.type || !action.name) continue;
+
+            const aiMessage = {
+                role: 'assistant',
+                senderName: action.name,
+                timestamp: Date.now(),
+                ...action
+            };
+            if (action.message) aiMessage.content = action.message;
+            
+            chat.history.push(aiMessage);
+            if (!notificationSender) {
+                notificationSender = getDisplayNameInGroup(chat, action.name);
+                notificationContent = action.message || `[${action.type}]`;
+            }
+            hasPerformedMajorAction = true;
+        }
+        
+        if (hasPerformedMajorAction) {
+            chat.lastActionTimestamp = Date.now(); // 更新群聊的冷却时间
+            chat.unreadCount = (chat.unreadCount || 0) + responseArray.length;
+            await db.chats.put(chat);
+            
+            showNotification(chatId, `${notificationSender}: ${notificationContent}`);
+            renderChatList();
+            console.log(`群聊 "${chat.name}" 成功执行了独立行动。`);
+        }
+
+    } catch (error) {
+        console.error(`群聊 "${chat.name}" 的独立行动失败:`, error);
+    }
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 
 
 
