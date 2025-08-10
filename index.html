@@ -248,7 +248,7 @@ body {
         #notification-content .name { font-weight: 600; font-size: 15px; color: #000; }
         #notification-content .message { font-size: 14px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
         .sticker-image { max-width: 100px; max-height: 100px; display: block; object-fit: contain; }
-        .message-bubble.is-sticker .content, .message-bubble.is-voice-message .content { padding: 0; background-color: transparent; box-shadow: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
         #chat-input-actions-top { display: flex; gap: 8px; padding: 0 5px; }
         .chat-action-icon-btn { font-size: 24px; padding: 0; width: 38px; height: 38px; line-height: 38px; text-align: center; border-radius: 50%; background-color: rgba(255, 255, 255, 0.5); color: var(--text-primary); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 1px solid rgba(0,0,0,0.05); cursor: pointer; display:flex; justify-content:center; align-items:center; }
         #sticker-panel { position: absolute; bottom: 0; left: 0; width: 100%; height: 50%; background-color: rgba(242, 242, 247, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid var(--border-color); border-radius: 20px 20px 0 0; z-index: 200; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); visibility: hidden; }
@@ -336,7 +336,7 @@ body {
         .bg-upload-container { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
         .bg-preview-img { max-width: 120px; max-height: 80px; border-radius: 8px; border: 1px solid var(--border-color); object-fit: cover; display: none; }
         #remove-bg-btn { padding: 8px 12px; border: 1px solid #ff3b30; color: #ff3b30; background-color: #fff; border-radius: 5px; cursor: pointer; font-size: 14px; display: none; }
-        .message-bubble.is-ai-image .content { padding: 5px; background: transparent; box-shadow: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+
         .ai-generated-image { max-width: 180px; border-radius: 12px; display: block; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
         .ai-generated-image:hover { transform: scale(1.05); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .voice-message-body { display: flex; align-items: center; cursor: pointer; padding: 8px 12px; min-width: 80px; max-width: 200px; }
@@ -427,7 +427,7 @@ body {
         .transfer-actions button:active { transform: scale(0.95); }
         #transfer-cancel-btn { background-color: #ffdde9; color: #a35c7b; }
         #transfer-confirm-btn { background-color: #ff85b3; color: white; }
-        .message-bubble.is-transfer .content { padding: 0; background: transparent; box-shadow: none; border: none; backdrop-filter: none; -webkit-backdrop-filter: none; cursor: pointer; }
+
         .transfer-card { width: 200px; border-radius: 12px; padding: 12px; color: white; position: relative; overflow: hidden; }
         .transfer-card::before { content: '🐾'; position: absolute; right: 10px; top: 5px; font-size: 30px; opacity: 0.2; transform: rotate(15deg); }
         .message-bubble.user .transfer-card { background: radial-gradient(circle at top left, #ffc5d5, #ff85b3); }
@@ -1968,14 +1968,7 @@ body {
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
 
 /* ▼▼▼ 【全新】外卖代付卡片样式 ▼▼▼ */
-.message-bubble.is-waimai-request .content {
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
+
 
 .waimai-card {
     width: 240px;
@@ -2773,14 +2766,7 @@ body {
 }
 
 /* ▼▼▼ 【全新】红包卡片样式 ▼▼▼ */
-.message-bubble.is-red-packet .content {
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
+
 
 .red-packet-card {
     width: 220px;
@@ -2880,14 +2866,6 @@ body {
 /* ▼▼▼ 【全新】投票功能样式 ▼▼▼ */
 
 /* 投票卡片在消息气泡中的样式 */
-.message-bubble.is-poll .content {
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
 
 /* 投票卡片主体 */
 .poll-card {
@@ -3145,14 +3123,7 @@ body {
 }
 
 /* 2. 聊天气泡中的链接卡片样式 (无图版) */
-.message-bubble.is-link-share .content {
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
+
 
 .link-share-card {
     width: 210px; 
@@ -4337,14 +4308,7 @@ input:checked + .slider:before {
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
 /* ▼▼▼ 【全新】共享位置卡片样式 (微信风格) ▼▼▼ */
-.message-bubble.is-location-share .content {
-    padding: 0;
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
+
 
 /* 卡片总容器，负责圆角和阴影 */
 .location-share-card {
@@ -4836,6 +4800,33 @@ input:checked + .slider:before {
     height: 100% !important;
 }
 /* ▲▲▲ 修正结束 ▲▲▲ */
+/* ▼▼▼ 【最终卡片布局修复】请用这一整块代码，替换所有旧的、分散的卡片内容样式 ▼▼▼ */
+
+/* 
+  这个选择器会一次性选中所有包含特殊卡片的消息气泡的内容区 
+*/
+.message-bubble.is-sticker .content,
+.message-bubble.is-voice-message .content,
+.message-bubble.is-transfer .content,
+.message-bubble.is-ai-image .content,
+.message-bubble.is-waimai-request .content,
+.message-bubble.is-red-packet .content,
+.message-bubble.is-poll .content,
+.message-bubble.is-link-share .content,
+.message-bubble.is-location-share .content {
+    /* 核心修复：重置flex属性，让内容区不再伸展，而是根据内部卡片的大小自适应 */
+    flex: initial; 
+    
+    /* 保持原有的样式，移除内边距和背景，让卡片自己负责外观 */
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -10764,10 +10755,7 @@ function stopBackgroundSimulation() {
 }
 // ▲▲▲ 粘贴结束 ▲▲▲
 
-/**
- * 这是模拟器的“心跳”，每次定时器触发时运行
- */
-// ▼▼▼ 从这里开始替换 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 runBackgroundSimulationTick ▼▼▼
 /**
  * 这是模拟器的“心跳”，每次定时器触发时运行
  */
@@ -10781,6 +10769,14 @@ function runBackgroundSimulationTick() {
     // --- 1. 处理所有单聊 ---
     const allSingleChats = Object.values(state.chats).filter(chat => !chat.isGroup);
     allSingleChats.forEach(chat => {
+        // 【核心修复1】获取最后一条消息
+        const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
+        // 【核心修复2】如果最后一条消息是用户发的，则本次跳过，给AI留出正常的回复时间
+        if (lastMessage && lastMessage.role === 'user') {
+            console.log(`角色 "${chat.name}" 检测到用户最新消息，本次独立行动跳过，等待常规回复。`);
+            return;
+        }
+
         // 处理【被用户拉黑】的角色
         if (chat.relationship?.status === 'blocked_by_user') {
             const blockedTimestamp = chat.relationship.blockedTimestamp;
@@ -10811,7 +10807,7 @@ function runBackgroundSimulationTick() {
         }
     });
 }
-// ▲▲▲ 到这里替换结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【最终版·评论冷却+情感维系强化】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
 async function triggerInactiveAiAction(chatId) {
@@ -10837,7 +10833,7 @@ async function triggerInactiveAiAction(chatId) {
     const now = new Date();
     let timeContextText;
     let recentContextSummary; 
-    let longTimeNoSee = false; // <--- 【核心修复】在这里声明变量，并给予初始值 false
+    let longTimeNoSee = false; // 新增一个标志，判断是否很久没聊天
 
     const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
     
@@ -10956,6 +10952,7 @@ ${recentlyPostedSummaries.join('\n')}
             }
         }
 
+    // --- 【核心修改】在这里强化对发消息的引导 ---
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -10972,7 +10969,8 @@ ${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久�
     - 为了让你的行为看起来更真实，你本次的行动【必须】选择一个与上次【不同类型】的指令。例如，如果上次是发动态(qzone_post)，这次就应该优先考虑评论(qzone_comment)、点赞(qzone_like)或发消息(text)。
 4.  **【【【行为组合指南 (高级技巧)】】】**:
     -   你可以在一次行动中执行【多个不同类型的指令】，让你的行为更丰富、更主动。
-    -   **绝佳范例**：在你使用 'qzone_post' 指令发布一条新动态后，你可以紧接着使用 'text' 指令给用户发一条私信，例如：'[{"type": "qzone_post", ...}, {"type": "text", "content": "我刚刚发了个动态，快去看看呀！"}]'。这会让你看起来非常主动和真实！
+    -   **【核心修正：更柔和的引导】**: 你可以根据你的性格，决定在发动态后是否要私信提醒用户。例如，一个外向、渴望关注的角色可能会这么做，而一个内向、安静的角色则可能更喜欢默默分享，等待用户自己发现。
+
 5.  **【【【回复铁律 (终极版)】】】**:
     -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
     -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
