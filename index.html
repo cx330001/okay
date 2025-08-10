@@ -7717,27 +7717,31 @@ async function importBackup(file) {
             alert('已恢复默认字体。');
         }
 
-// ▼▼▼ 请用这个【新版本】的函数，完整替换旧的 loadAllDataFromDB 函数 ▼▼▼
+// ▼▼▼ 【最终版】请用这个【已彻底修复数据迁移逻辑】的版本，完整替换旧的 loadAllDataFromDB 函数 ▼▼▼
 async function loadAllDataFromDB() {
     const [
         chatsArr, apiConfig, globalSettings, userStickers, worldBooks,
-        musicLib, personaPresets, qzoneSettings, initialFavorites
+        musicLib, personaPresets, qzoneSettings, initialFavorites,
+        allMemories
     ] = await Promise.all([
         db.chats.toArray(), db.apiConfig.get('main'), db.globalSettings.get('main'),
         db.userStickers.toArray(), db.worldBooks.toArray(), db.musicLibrary.get('main'),
-        db.personaPresets.toArray(), db.qzoneSettings.get('main'), db.favorites.orderBy('timestamp').reverse().toArray()
+        db.personaPresets.toArray(), db.qzoneSettings.get('main'), db.favorites.orderBy('timestamp').reverse().toArray(),
+        db.memories.toArray()
     ]);
 
-    state.chats = chatsArr.reduce((acc, chat) => {
-        // --- ▼▼▼ 核心修改部分 ▼▼▼ ---
-        // 1. 【数据迁移】为旧的单人聊天数据补充 "originalName" 字段
+    // 【核心修正1】先处理 chatsArr，确保所有单聊角色都有 originalName
+    chatsArr.forEach(chat => {
         if (!chat.isGroup && typeof chat.originalName === 'undefined') {
-            chat.originalName = chat.name; // 默认将旧的备注名作为本名
+            chat.originalName = chat.name; // 将旧的备注名作为本名
             console.log(`为旧角色 "${chat.name}" 补全了 originalName 属性。`);
-            // 注意：这里不需要立刻存回数据库，会在后续操作中自然保存
+            // 注意：这里我们暂时不存回数据库，让后续逻辑统一处理
         }
-        // --- ▲▲▲ 修改结束 ▲▲▲
+    });
 
+    // 现在 state.chats 可以安全地构建了
+    state.chats = chatsArr.reduce((acc, chat) => {
+        // --- ▼▼▼ 原有的其他数据修正逻辑保持不变 ▼▼▼ ---
         if (typeof chat.unreadCount === 'undefined') chat.unreadCount = 0;
         if (chat.isGroup && chat.members && chat.members.length > 0 && chat.members[0].name) {
             chat.members.forEach(member => {
@@ -7758,6 +7762,12 @@ async function loadAllDataFromDB() {
 
         if (chat.isGroup && chat.members) {
             let needsUpdate = false;
+            chatsArr.forEach(c => {
+                 if (c.id === chat.id && c.originalName) {
+                    // This is likely a logic error from previous attempts, cleaning up.
+                    delete c.originalName;
+                 }
+            });
             chat.members.forEach(member => {
                 const originalCharacter = chatsArr.find(c => c.id === member.id);
                 if (originalCharacter && originalCharacter.settings) {
@@ -7777,6 +7787,36 @@ async function loadAllDataFromDB() {
         return acc;
     }, {});
 
+    // --- ▼▼▼ 【核心修正2】在这里执行更可靠的数据迁移 ▼▼▼ ---
+    const memoriesToUpdate = [];
+    allMemories.forEach(memory => {
+        // 检查是否是旧格式的、需要修复的日记
+        if (memory.type === 'ai_generated' && memory.authorName && !memory.authorId) {
+            // 我们现在直接在处理过的 chatsArr 中查找
+            // 查找那个 originalName 与旧日记 authorName 匹配的角色
+            const foundChat = chatsArr.find(c => !c.isGroup && c.originalName === memory.authorName);
+            
+            if (foundChat) {
+                memory.authorId = foundChat.id; // 为它补上正确的ID
+                memoriesToUpdate.push(memory); // 把它加入待更新列表
+            } else {
+                 // 如果根据 originalName 找不到，再尝试用当前备注名做最后一次匹配（以防万一）
+                 const fallbackChat = chatsArr.find(c => !c.isGroup && c.name === memory.authorName);
+                 if(fallbackChat) {
+                    memory.authorId = fallbackChat.id;
+                    memoriesToUpdate.push(memory);
+                 }
+            }
+        }
+    });
+
+    if (memoriesToUpdate.length > 0) {
+        console.log(`检测到 ${memoriesToUpdate.length} 条旧格式日记，正在自动升级数据...`);
+        await db.memories.bulkPut(memoriesToUpdate); // 一次性更新所有需要修复的日记
+        console.log("日记数据升级完成！");
+    }
+    // --- ▲▲▲ 数据迁移结束 ▲▲▲ ---
+
     state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '' };
     state.globalSettings = globalSettings || { id: 'main', wallpaper: 'linear-gradient(135deg, #89f7fe, #66a6ff)', fontUrl: '', enableBackgroundActivity: false, backgroundActivityInterval: 60, blockCooldownHours: 1, appIcons: { ...DEFAULT_APP_ICONS } };
     state.globalSettings.appIcons = { ...DEFAULT_APP_ICONS, ...(state.globalSettings.appIcons || {}) };
@@ -7787,6 +7827,7 @@ async function loadAllDataFromDB() {
     state.qzoneSettings = qzoneSettings || { id: 'main', nickname: '{{user}}', avatar: 'https://files.catbox.moe/q6z5fc.jpeg', banner: 'https://files.catbox.moe/r5heyt.gif' };
     allFavoriteItems = initialFavorites || [];
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
         async function saveGlobalPlaylist() { await db.musicLibrary.put({ id: 'main', playlist: musicState.playlist }); }
 
@@ -9773,10 +9814,12 @@ case 'repost': {
                     continue; // 无论成功与否，都跳过后续的消息追加逻辑
                 // ▲▲▲ 修复结束 ▲▲▲
                     
+// ▼▼▼ 在 triggerAiResponse 函数中找到这个 case ▼▼▼
                 case 'create_memory':
+                    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
                     const newMemory = {
                         chatId: chatId,
-                        authorId: chatId, 
+                        authorId: chatId, // 【核心修复1】不再存 authorName，而是存角色的ID
                         description: msgData.description,
                         timestamp: Date.now(),
                         type: 'ai_generated'
@@ -9784,6 +9827,7 @@ case 'repost': {
                     await db.memories.add(newMemory);
                     console.log(`AI "${chat.name}" 记录了一条新回忆:`, msgData.description);
                     continue; 
+                    // ▲▲▲ 替换结束 ▲▲▲
 
                 case 'create_countdown':
                     const targetDate = new Date(msgData.date);
@@ -10853,7 +10897,7 @@ async function triggerInactiveAiAction(chatId) {
     if (!chat) return;
 
     // --- 1. 总行动冷却检查 (保持不变) ---
-    const ACTION_COOLDOWN_MINUTES = 10; 
+    const ACTION_COOLDOWN_MINUTES = 30; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
@@ -10869,9 +10913,9 @@ async function triggerInactiveAiAction(chatId) {
 
     const userNickname = state.qzoneSettings.nickname;
     const now = new Date();
-    // ... (后续的 timeContextText, recentContextSummary 等变量定义保持不变)
     let timeContextText;
     let recentContextSummary; 
+    let longTimeNoSee = false; // 新增一个标志，判断是否很久没聊天
 
     const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
     
@@ -10880,6 +10924,7 @@ async function triggerInactiveAiAction(chatId) {
         const timeDiffHours = (now - lastTime) / (1000 * 60 * 60);
 
         if (timeDiffHours > 12) {
+            longTimeNoSee = true; // 标记为很久没聊天
             const diffDays = Math.floor(timeDiffHours / 24);
             timeContextText = `你们已经有${diffDays > 0 ? diffDays + '天' : Math.floor(timeDiffHours) + '小时'}没有聊天了。`;
             recentContextSummary = `[重要指令] ${timeContextText} 请你根据当前时间（${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}）和你的角色设定，主动开启一个全新的话题来问候用户。绝对不要延续之前的话题。`;
@@ -10903,6 +10948,7 @@ async function triggerInactiveAiAction(chatId) {
             }
         }
     } else {
+        longTimeNoSee = true; // 第一次互动也算
         timeContextText = "这是你们的第一次互动。";
         recentContextSummary = "你们从没聊过天，主动打个招呼吧！";
     }
@@ -10912,7 +10958,6 @@ async function triggerInactiveAiAction(chatId) {
 
     let recentlyPostedSummaries = [];
     if (visiblePosts.length > 0) {
-        // ▼▼▼ 核心修改1：在这里为不同动态类型生成更详细的摘要 ▼▼▼
         recentlyPostedSummaries = visiblePosts.map(post => {
             let contentSummary;
             if (post.type === 'text_image') {
@@ -10924,7 +10969,6 @@ async function triggerInactiveAiAction(chatId) {
             }
             return `- "${contentSummary}"`;
         });
-        // ▲▲▲ 修改结束 ▲▲▲
     }
 
     let contentTabooPrompt = '';
@@ -10990,13 +11034,14 @@ ${recentlyPostedSummaries.join('\n')}
             }
         }
 
-    // --- 2. 【核心机制：软性行为引导】 ---
+    // --- 【核心修改】在这里强化对发消息的引导 ---
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 
 # 【【【最高优先级指令：情感维系】】】
-**你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。特别是当你们很久没聊天时，一条贴心的问候远比一个点赞更有意义。
+**你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
+${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！**` : ''}
 
 # 核心规则
 1.  **【【【决策依据】】】**: 你的所有行动都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。
@@ -11006,7 +11051,8 @@ ${recentlyPostedSummaries.join('\n')}
     - 为了让你的行为看起来更真实，你本次的行动【必须】选择一个与上次【不同类型】的指令。例如，如果上次是发动态(qzone_post)，这次就应该优先考虑评论(qzone_comment)、点赞(qzone_like)或发消息(text)。
 4.  **【【【行为组合指南 (高级技巧)】】】**:
     -   你可以在一次行动中执行【多个不同类型的指令】，让你的行为更丰富、更主动。
-    -   **绝佳范例**：在你使用 \`qzone_post\` 指令发布一条新动态后，你可以紧接着使用 \`text\` 指令给用户发一条私信，例如：\`[{"type": "qzone_post", ...}, {"type": "text", "content": "我刚刚发了个动态，快去看看呀！"}]\`。这会让你看起来非常主动和真实！
+    -   **【核心修正：更柔和的引导】**: 你可以根据你的性格，决定在发动态后是否要私信提醒用户。例如，一个外向、渴望关注的角色可能会这么做，而一个内向、安静的角色则可能更喜欢默默分享，等待用户自己发现。
+
 5.  **【【【回复铁律 (终极版)】】】**:
     -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
     -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
@@ -11035,7 +11081,7 @@ ${linkedMemoryContext}
 
   
   try {
-        const COMMENT_COOLDOWN_MINUTES = 60; // 对同一条动态的评论冷却时间为1小时
+        const COMMENT_COOLDOWN_MINUTES = 60;
        const unInteractedPosts = visiblePosts.filter(post => {
             const aiName = chat.name;
             const alreadyLiked = post.likes && post.likes.includes(aiName);
@@ -11053,7 +11099,6 @@ ${linkedMemoryContext}
                 if (post.comments && post.comments.some(c => c.commenterName === chat.name)) interactionStatus += " [你已评论]";
                 if (post.authorId === chatId) authorName += " (这是你的帖子)";
 
-                // ▼▼▼ 核心修改2：在这里也使用和上面一样的、更详细的摘要生成逻辑 ▼▼▼
                 let contentSummary;
                 if (post.type === 'repost') {
                     const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
@@ -11081,8 +11126,6 @@ ${linkedMemoryContext}
                 } else {
                     contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
                 }
-                // ▲▲▲ 修改结束 ▲▲▲
-
                 postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
 
                 if (post.comments && post.comments.length > 0) {
@@ -11269,11 +11312,16 @@ ${linkedMemoryContext}
 /**
  * 【全新】触发一个非活跃的群聊进行独立行动（如AI成员主动发言）
  */
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
+/**
+ * 【全新】触发一个非活跃的群聊进行独立行动（如AI成员主动发言）
+ * @param {string} chatId - 目标群聊的ID
+ */
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    const GROUP_ACTION_COOLDOWN_MINUTES = 15;
+    const GROUP_ACTION_COOLDOWN_MINUTES = 40;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
@@ -11297,7 +11345,6 @@ async function triggerGroupAiAction(chatId) {
             timeContextText = `群里已经安静了 ${Math.round(diffMinutes / 60)} 小时了。`;
         }
     }
-
     let recentContextSummary = "你们最近没有有效聊天记录。";
     const selfMemoryCount = 10;
     const recentHistory = chat.history.filter(m => !m.isHidden).slice(-selfMemoryCount);
@@ -11382,7 +11429,6 @@ async function triggerGroupAiAction(chatId) {
         let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
         for (const post of unInteractedPostsForGroup) {
             let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
-            // ▼▼▼ 核心修改：在这里也使用和上面一样的、更详细的摘要生成逻辑 ▼▼▼
             let contentSummary;
             if (post.type === 'repost') {
                 const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
@@ -11410,7 +11456,6 @@ async function triggerGroupAiAction(chatId) {
             } else {
                 contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
             }
-            // ▲▲▲ 修改结束 ▲▲▲
             postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
             if (post.comments && post.comments.length > 0) {
                 for (const comment of post.comments) {
@@ -11521,21 +11566,46 @@ ${membersList}
                     timestamp: actionTimestamp++
                 });
             } else {
-                const messageContent = action.content || action.message;
-                const aiMessage = {
+                // ▼▼▼ 【核心修复】在这里为 poll 类型做特殊处理 ▼▼▼
+                let aiMessage;
+                const baseMessage = {
                     role: 'assistant',
                     senderName: action.name,
                     timestamp: actionTimestamp++,
-                    ...action
                 };
-                if (messageContent) {
-                    aiMessage.content = messageContent;
+
+                if (action.type === 'poll') {
+                    const pollOptions = typeof action.options === 'string' 
+                        ? action.options.split('\n').filter(opt => opt.trim()) 
+                        : (Array.isArray(action.options) ? action.options : []);
+                    
+                    if (pollOptions.length < 2) continue; // 如果选项少于2个，跳过这条无效指令
+
+                    aiMessage = {
+                        ...baseMessage,
+                        ...action,
+                        options: pollOptions,
+                        votes: {}, // <-- 关键！在这里补上空的 votes 对象
+                        isClosed: false,
+                    };
+                } else {
+                    // 对于所有其他类型的消息，保持原来的通用逻辑
+                    const messageContent = action.content || action.message;
+                    aiMessage = {
+                        ...baseMessage,
+                        ...action
+                    };
+                    if (messageContent) {
+                        aiMessage.content = messageContent;
+                    }
                 }
+                // ▲▲▲ 修复结束 ▲▲▲
+                
                 chat.history.push(aiMessage);
 
                 if (!notificationSender) {
                     notificationSender = senderDisplayName;
-                    notificationContent = messageContent || `[${action.type}]`;
+                    notificationContent = aiMessage.content || `[${aiMessage.type}]`;
                 }
             }
             hasPerformedMajorAction = true;
@@ -13277,7 +13347,7 @@ async function renderMemoriesScreen() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 【最终版】请用这个【已修复】的完整函数，完整替换旧的 createMemoryCard 函数 ▼▼▼
+// ▼▼▼ 【最终版】请用这个【已简化】的完整函数，完整替换旧的 createMemoryCard 函数 ▼▼▼
 /**
  * 创建普通回忆卡片DOM元素
  */
@@ -13293,23 +13363,25 @@ function createMemoryCard(memory) {
         titleHtml = `[约定达成] ${memory.description}`;
         contentHtml = `在 ${new Date(memory.targetDate).toLocaleString()}，我们一起见证了这个约定。`;
     } else {
-        let authorDisplayName = '我们的回忆'; 
-        // 【核心修复1】现在我们统一通过 authorId 来查找名字
+        // ▼▼▼ 核心逻辑修改：现在我们只认 authorId ▼▼▼
+        let authorDisplayName = '我们的回忆'; // 默认值
+        
+        // 检查是否存在 authorId
         if (memory.authorId) {
-            if (memory.authorId === 'user') {
-                // 如果是用户自己创建的
-                authorDisplayName = state.qzoneSettings.nickname || '我';
+            const authorChat = state.chats[memory.authorId];
+            if (authorChat) {
+                authorDisplayName = authorChat.name; // 从 state 实时获取最新的备注名
             } else {
-                // 如果是AI创建的
-                const authorChat = state.chats[memory.authorId];
-                authorDisplayName = authorChat ? authorChat.name : '一位朋友';
+                // 如果找不到角色（可能已被删除），就优雅地显示旧名字（如果有的话）
+                authorDisplayName = memory.authorName || '一位朋友'; 
             }
         } else if (memory.authorName) {
-            // 兼容非常旧的数据
+            // 这是为了兼容那些因为某些原因迁移失败的极少数旧数据
             authorDisplayName = memory.authorName; 
         }
 
         titleHtml = `${authorDisplayName} 的日记`;
+        // ▲▲▲ 逻辑修改结束 ▲▲▲
         contentHtml = memory.description;
     }
 
@@ -16638,6 +16710,7 @@ function resetAllSwipes(exceptThisOne = null) {
  * 【全新】处理动态区域内所有点击事件的统一入口
  */
 async function handlePostClick(e) {
+    // 【核心修复1】在函数最开始就停止事件冒泡，防止点击穿透到滑动监听器
     e.stopPropagation();
     const target = e.target;
 
@@ -16843,22 +16916,17 @@ async function handlePostClick(e) {
         for (const aiId of notifiedAiIds) {
             const chat = state.chats[aiId];
             if (chat && !chat.isGroup) {
-                // ▼▼▼ 核心修复：在这里判断评论内容是否是表情 ▼▼▼
                 const stickerMatch = state.userStickers.find(s => s.url === commentText);
                 let notificationText;
 
                 if (stickerMatch) {
-                    // 如果是表情，就明确告诉AI含义
                     notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，发送了一个表情评论，意思是：“${stickerMatch.name}”。`;
                 } else if (newComment.replyTo) {
-                    // 如果是回复，保持原有逻辑
                     const repliedToDisplayName = currentQzoneReplyContext.replyToDisplayName;
                     notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${repliedToDisplayName}'的评论，内容是：“${commentText}”。`;
                 } else {
-                    // 如果是普通文字评论，保持原有逻辑
                     notificationText = `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
                 }
-                // ▲▲▲ 修复结束 ▲▲▲
 
                 const historyMessage = { 
                     role: 'system', 
@@ -16878,7 +16946,24 @@ async function handlePostClick(e) {
     }
 }
 // ▲▲▲ 替换结束 ▲▲▲
+
+
+// ▼▼▼ 【最终修复方案】请用这一整块代码，替换所有旧的滑动与点击处理函数 ▼▼▼
+
+// --- 1. 全新的、更智能的滑动开始函数 ---
 const handleSwipeStart = (e) => {
+    const target = e.target;
+
+    // 【核心修复】在开始滑动之前，检查点击目标是否是交互区域。如果是，则直接退出，不启动滑动状态。
+    if (target.closest('.post-footer') ||           // 评论输入区
+        target.closest('.post-feedback-icons') ||    // 点赞/转发/收藏区
+        target.closest('.post-actions-btn') ||       // “...”菜单按钮
+        target.closest('.post-comments-container') ||// 整个评论列表（包括删除按钮）
+        target.closest('.reposted-content-wrapper')  // 转发的原始内容区域
+       ) {
+        return; // 在这些区域点击，不触发滑动
+    }
+
     const targetContainer = e.target.closest('.qzone-post-container');
     if (!targetContainer) return;
 
@@ -16892,6 +16977,7 @@ const handleSwipeStart = (e) => {
     swipeState.activeContainer.querySelector('.qzone-post-item').style.transition = 'none';
 };
 
+// --- 2. 滑动移动函数（保持不变，但为了完整性一并提供） ---
 const handleSwipeMove = (e) => {
     if (!swipeState.isDragging || !swipeState.activeContainer) return;
 
@@ -16917,52 +17003,61 @@ const handleSwipeMove = (e) => {
         }
     }
     if (swipeState.swipeDirection === 'vertical') {
-        handleSwipeEnd(e);
+        // 如果判定为垂直滑动，我们就不再处理，让页面可以正常滚动
         return;
     }
     if (swipeState.swipeDirection === 'horizontal') {
+        // 如果是水平滑动，阻止页面默认的滚动行为
         e.preventDefault();
         swipeState.currentX = currentX;
         let translation = diffX;
-        if (translation > 0) translation = 0;
-        if (translation < -90) translation = -90;
+        if (translation > 0) translation = 0; // 不允许向右滑
+        if (translation < -90) translation = -90; // 最多滑90px
         swipeState.activeContainer.querySelector('.qzone-post-item').style.transform = `translateX(${translation}px)`;
     }
 };
 
-// ▼▼▼ 【最终修复方案】请用这个全新的函数，完整替换旧的 handleSwipeEnd 函数 ▼▼▼
-const handleSwipeEnd = async (e) => {
-    // 立即检查是否应该运行
+// --- 3. 滑动结束函数（逻辑微调，更清晰） ---
+const handleSwipeEnd = (e) => {
     if (!swipeState.isDragging || !swipeState.activeContainer) return;
 
     const postItem = swipeState.activeContainer.querySelector('.qzone-post-item');
-    postItem.style.transition = 'transform 0.3s ease'; // 总是重新启用过渡效果
+    postItem.style.transition = 'transform 0.3s ease'; 
 
     if (swipeState.isClick) {
-        // 这是一个点击事件
+        // 如果是点击，什么都不做，让独立的 'click' 事件去处理
         postItem.style.transform = ''; 
-        await handlePostClick(e); // 调用我们统一的点击处理函数
     } else {
-        // 这是一个滑动事件
+        // 如果是滑动
         const finalX = e.type.includes('touchend') ? e.changedTouches[0].pageX : e.pageX;
         const diffX = finalX - swipeState.startX;
-        const swipeThreshold = -40;
+        const swipeThreshold = -40; // 滑动超过40像素就触发
 
         if (swipeState.swipeDirection === 'horizontal' && diffX < swipeThreshold) {
             postItem.classList.add('swiped');
         } else {
             postItem.classList.remove('swiped');
         }
-        postItem.style.transform = ''; // 重置内联样式，让CSS类接管
+        postItem.style.transform = '';
     }
     
-    // 无论点击还是滑动，最后都重置状态
+    // 重置状态
     swipeState.isDragging = false;
     swipeState.activeContainer = null;
     swipeState.swipeDirection = null;
     swipeState.isClick = true; 
 };
+
+
+// --- 4. 独立的点击处理函数（也请确保您用的是这个最新版本） ---
+postsList.addEventListener('click', (e) => {
+    // 这个函数现在只负责处理真正的“点击”事件，不再与滑动逻辑混淆
+    handlePostClick(e);
+});
+
 // ▲▲▲ 替换结束 ▲▲▲
+
+
 
 // --- 绑定所有滑动事件 ---
 postsList.addEventListener('mousedown', handleSwipeStart);
