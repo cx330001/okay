@@ -10813,7 +10813,7 @@ function runBackgroundSimulationTick() {
 }
 // ▲▲▲ 到这里替换结束 ▲▲▲
 
-// ▼▼▼ 【最终版·评论冷却】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
+// ▼▼▼ 【最终版·评论冷却+情感维系强化】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -10835,9 +10835,9 @@ async function triggerInactiveAiAction(chatId) {
 
     const userNickname = state.qzoneSettings.nickname;
     const now = new Date();
-    // ... (后续的 timeContextText, recentContextSummary 等变量定义保持不变)
     let timeContextText;
     let recentContextSummary; 
+    let longTimeNoSee = false; // <--- 【核心修复】在这里声明变量，并给予初始值 false
 
     const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
     
@@ -10846,6 +10846,7 @@ async function triggerInactiveAiAction(chatId) {
         const timeDiffHours = (now - lastTime) / (1000 * 60 * 60);
 
         if (timeDiffHours > 12) {
+            longTimeNoSee = true; // 标记为很久没聊天
             const diffDays = Math.floor(timeDiffHours / 24);
             timeContextText = `你们已经有${diffDays > 0 ? diffDays + '天' : Math.floor(timeDiffHours) + '小时'}没有聊天了。`;
             recentContextSummary = `[重要指令] ${timeContextText} 请你根据当前时间（${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}）和你的角色设定，主动开启一个全新的话题来问候用户。绝对不要延续之前的话题。`;
@@ -10869,6 +10870,7 @@ async function triggerInactiveAiAction(chatId) {
             }
         }
     } else {
+        longTimeNoSee = true; // 第一次互动也算
         timeContextText = "这是你们的第一次互动。";
         recentContextSummary = "你们从没聊过天，主动打个招呼吧！";
     }
@@ -10954,7 +10956,6 @@ ${recentlyPostedSummaries.join('\n')}
             }
         }
 
-    // --- 2. 【核心机制：软性行为引导】 ---
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -11000,7 +11001,7 @@ ${linkedMemoryContext}
 
   
   try {
-        const COMMENT_COOLDOWN_MINUTES = 60; // 对同一条动态的评论冷却时间为1小时
+        const COMMENT_COOLDOWN_MINUTES = 60;
        const unInteractedPosts = visiblePosts.filter(post => {
             const aiName = chat.name;
             const alreadyLiked = post.likes && post.likes.includes(aiName);
@@ -11169,7 +11170,7 @@ ${linkedMemoryContext}
                     const postToComment = await db.qzonePosts.get(parseInt(action.postId));
                     if (postToComment) {
                         if (!postToComment.comments) postToComment.comments = [];
-                        const commenterName = action.name || chat.originalName; 
+                        const commenterName = action.name || chat.originalName;
                         const createCommentObject = (text, meaning = null, replyTo = null) => ({
                             commenterName,
                             text: processMentions(text),
