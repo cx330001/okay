@@ -6597,15 +6597,20 @@ function getDisplayNameByOriginalName(originalName) {
  * @param {string} text - AI生成的、可能包含 @[[本名]] 占位符的原始文本
  * @returns {string} - 处理完成后，对用户友好的显示文本
  */
-function processMentions(text) {
+function processMentions(text, chat = null) {
     if (!text || typeof text !== 'string' || !text.includes('@[[')) {
-        return text; // 如果文本无效或不包含占位符，直接返回
+        return text; 
     }
-    // 正则表达式：匹配所有 @[[...]] 格式的占位符
     return text.replace(/@\[\[([^\]]+)\]\]/g, (match, originalName) => {
-        // 对每个匹配到的占位符，提取出其中的“本名”
-        const displayName = getDisplayNameByOriginalName(originalName.trim());
-        // 用“本名”查找到正确的“显示名”，并替换回去
+        const trimmedOriginalName = originalName.trim();
+        let displayName;
+        
+        if (chat && chat.isGroup) {
+            displayName = getDisplayNameInGroup(chat, trimmedOriginalName);
+        } else {
+            displayName = getDisplayNameByOriginalName(trimmedOriginalName);
+        }
+        
         return `@${displayName}`;
     });
 }
@@ -8385,7 +8390,7 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
-// ▼▼▼ 【已修复】请用这个新版本替换旧的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 用这个【新版本】替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
 if (msg.type === 'recalled_message') {
@@ -8561,9 +8566,8 @@ else if (msg.type === 'location_share') {
         </div>
         <div class="voice-transcript"></div>
     `;
-}// ... createMessageElement函数前面的代码 ...
-else if (msg.type === 'transfer') {
-    bubble.classList.add('is-transfer'); // <--- 【核心修改】把这行加到最前面
+}else if (msg.type === 'transfer') {
+    bubble.classList.add('is-transfer');
     let titleText, noteText;
     const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
 
@@ -8595,9 +8599,8 @@ else if (msg.type === 'transfer') {
             } else if (msg.status === 'declined') {
                 noteText = '你已拒收';
             } else {
-                // 【核心修改】这是AI发给我、且我还没处理的转账
-                bubble.style.cursor = 'pointer'; // 鼠标变成手型
-                bubble.dataset.status = 'pending'; // 做个标记
+                bubble.style.cursor = 'pointer'; 
+                bubble.dataset.status = 'pending'; 
                 noteText = msg.note || '点击处理';
             }
         } else { // AI在群里转账给别人
@@ -8617,7 +8620,6 @@ else if (msg.type === 'transfer') {
     `;
     
 } 
-// ... createMessageElement函数后面的代码 ...
 else if (msg.type === 'waimai_request') {
         bubble.classList.add('is-waimai-request');
         if (msg.status === 'paid' || msg.status === 'rejected') {
@@ -8713,10 +8715,8 @@ else if (msg.type === 'waimai_request') {
     }
     
     if (hasClaimed) {
-        // ▼▼▼ 核心修复：在这里确保 msg.claimedBy[myNickname] 是一个数字 ▼▼▼
         const myClaimedAmount = msg.claimedBy[myNickname] || 0;
         claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
-        // ▲▲▲ 修复结束 ▲▲▲
     } else if (isFinished) {
         claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
     } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
@@ -8734,14 +8734,10 @@ else if (msg.type === 'waimai_request') {
         </div>
     `;
 
-// ▼▼▼ 【最终修复方案】请用这个全新的代码块，替换旧的 else if (msg.type === 'poll') 逻辑 ▼▼▼
 } else if (msg.type === 'poll') {
     bubble.classList.add('is-poll');
     
-    // --- 核心修复：在这里增加备用逻辑 ---
-    // 优先使用 question 字段，如果不存在，则使用 content 字段作为问题
     const pollQuestionText = msg.question || msg.content || '(无标题投票)'; 
-    // --- 修复结束 ---
 
     let totalVotes = 0;
     const voteCounts = {};
@@ -8793,7 +8789,6 @@ else if (msg.type === 'waimai_request') {
             ${footerHtml}
         </div>
     `;
-// ▲▲▲ 替换结束 ▲▲▲
 
     } else if (typeof msg.content === 'string' && STICKER_REGEX.test(msg.content)) {
         bubble.classList.add('is-sticker');
@@ -8803,7 +8798,11 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        contentHtml = String(msg.content || '').replace(/\n/g, '<br>');
+        // ▼▼▼ 核心修复就在这里！▼▼▼
+        // 在渲染普通文本之前，先调用 processMentions 函数进行处理
+        const processedText = processMentions(String(msg.content || ''), chat);
+        contentHtml = processedText.replace(/\n/g, '<br>');
+        // ▲▲▲ 修复结束 ▲▲▲
     }
 
     let quoteHtml = '';
@@ -9236,6 +9235,7 @@ systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的�
     - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
     - 你也可以随时主动发起投票。
 8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
+9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
@@ -9781,15 +9781,11 @@ case 'repost': {
                     };
                     break;
                 
-                // ▼▼▼ 【核心修复】在这里添加健壮性检查 ▼▼▼
                 case 'change_music':
                     if (musicState.isActive && musicState.activeChatId === chatId) {
-                        // 1. 优先尝试 song_name，不行再尝试 song，再不行就尝试 name
                         const songNameFromAI = msgData.song_name || msgData.song || msgData.name;
 
-                        // 2. 检查获取到的名字是否是一个有效的字符串
                         if (typeof songNameFromAI === 'string' && songNameFromAI.trim()) {
-                            // 3. 安全地执行后续操作
                             const songNameToFind = songNameFromAI.replace(/^\[?\d+\]?[\s.-]*/, '').trim();
                             const targetSongIndex = musicState.playlist.findIndex(track => track.name.toLowerCase() === songNameToFind.toLowerCase());
                             
@@ -9822,15 +9818,12 @@ case 'repost': {
                             console.error("AI返回的change_music指令中，歌曲名无效或缺失:", msgData);
                         }
                     }
-                    continue; // 无论成功与否，都跳过后续的消息追加逻辑
-                // ▲▲▲ 修复结束 ▲▲▲
+                    continue;
                     
-// ▼▼▼ 在 triggerAiResponse 函数中找到这个 case ▼▼▼
                 case 'create_memory':
-                    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
                     const newMemory = {
                         chatId: chatId,
-                        authorId: chatId, // 【核心修复1】不再存 authorName，而是存角色的ID
+                        authorId: chatId,
                         description: msgData.description,
                         timestamp: Date.now(),
                         type: 'ai_generated'
@@ -9838,7 +9831,6 @@ case 'repost': {
                     await db.memories.add(newMemory);
                     console.log(`AI "${chat.name}" 记录了一条新回忆:`, msgData.description);
                     continue; 
-                    // ▲▲▲ 替换结束 ▲▲▲
 
                 case 'create_countdown':
                     const targetDate = new Date(msgData.date);
@@ -10907,7 +10899,7 @@ async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    const ACTION_COOLDOWN_MINUTES = 30; 
+    const ACTION_COOLDOWN_MINUTES = 10; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
@@ -11335,7 +11327,7 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    const GROUP_ACTION_COOLDOWN_MINUTES = 40;
+    const GROUP_ACTION_COOLDOWN_MINUTES = 10;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
@@ -18504,4 +18496,5 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
 </div>
 </body>
 </html>
+
 
