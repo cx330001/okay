@@ -10901,13 +10901,8 @@ function runBackgroundSimulationTick() {
     // --- 1. 处理所有单聊 ---
     const allSingleChats = Object.values(state.chats).filter(chat => !chat.isGroup);
     allSingleChats.forEach(chat => {
-        // 【核心修复1】获取最后一条消息
-        const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
-        // 【核心修复2】如果最后一条消息是用户发的，则本次跳过，给AI留出正常的回复时间
-        if (lastMessage && lastMessage.role === 'user') {
-            console.log(`角色 "${chat.name}" 检测到用户最新消息，本次独立行动跳过，等待常规回复。`);
-            return;
-        }
+        // 【【【核心修改：已删除对 lastMessage.role === 'user' 的检查】】】
+        // 现在AI不再关心最后一条消息是谁发的了！
 
         // 处理【被用户拉黑】的角色
         if (chat.relationship?.status === 'blocked_by_user') {
