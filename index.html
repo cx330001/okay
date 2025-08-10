@@ -7097,9 +7097,7 @@ async function renderQzonePosts() {
         if (post.comments && post.comments.length > 0) {
             commentsHtml = '<div class="post-comments-container">';
             post.comments.forEach((comment, index) => {
-                // --- 核心修复：在这里判断评论的数据格式 ---
                 if (typeof comment === 'object' && comment !== null && comment.commenterName) {
-                    // --- 这是新格式的、功能完整的评论 ---
                     const commenterOriginalName = comment.commenterName;
                     const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
                     
@@ -7124,8 +7122,6 @@ async function renderQzonePosts() {
                                      </div>`;
 
                 } else {
-                    // --- 这是旧格式的、只做显示的评论 ---
-                    // 我们把它渲染成一个没有交互、没有data属性的简单div，从而避免报错
                     commentsHtml += `<div class="legacy-comment-item">
                                         <span class="comment-text">${String(comment)}</span>
                                      </div>`;
@@ -7185,15 +7181,18 @@ async function renderQzonePosts() {
         deleteAction.innerHTML = '<span>删除</span>';
         postContainer.appendChild(postEl);
         postContainer.appendChild(deleteAction);
-        const commentSection = postContainer.querySelector('.comment-section');
-        if (commentSection) {
-            commentSection.addEventListener('touchstart', (e) => e.stopPropagation());
-            commentSection.addEventListener('mousedown', (e) => e.stopPropagation());
-        }
+        
+        // ▼▼▼ 核心修复：删除了导致问题的 stopPropagation 代码 ▼▼▼
+        // const commentSection = postContainer.querySelector('.comment-section');
+        // if (commentSection) {
+        //     commentSection.addEventListener('touchstart', (e) => e.stopPropagation());
+        //     commentSection.addEventListener('mousedown', (e) => e.stopPropagation());
+        // }
+        // ▲▲▲ 修复结束 ▲▲▲
+
         postsListEl.appendChild(postContainer);
     });
 }
-// ▲▲▲ 替换结束 ▲▲▲
 // ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【全新】动态评论区表情面板管理函数 ▼▼▼
@@ -7280,38 +7279,36 @@ function closeQzoneStickerPanel() {
 async function sendQzoneStickerComment(postId, sticker) {
     if (!sticker || !sticker.url) return;
 
-    // 1. 从数据库中获取最新的帖子数据
     const post = await db.qzonePosts.get(postId);
     if (!post) {
         console.error("sendQzoneStickerComment: 找不到帖子:", postId);
         return;
     }
 
-    // 2. 准备新的评论对象
     if (!post.comments) {
         post.comments = [];
     }
+    // ▼▼▼ 核心修复：在这里为您发送的表情也添加 meaning 字段 ▼▼▼
     const newComment = {
-        commenterName: state.qzoneSettings.nickname, // 使用当前用户的昵称
-        text: sticker.url, // 评论内容是表情的URL，用于显示
-        meaning: sticker.name, // 【核心修改】在这里保存表情的含义
+        commenterName: state.qzoneSettings.nickname,
+        text: sticker.url,
+        meaning: sticker.name, // 保存表情的含义
         timestamp: Date.now()
     };
+    // ▲▲▲ 修复结束 ▲▲▲
     post.comments.push(newComment);
 
-    // 3. 将更新后的帖子存回数据库
     await db.qzonePosts.update(postId, { comments: post.comments });
 
-    // 4. 关闭表情面板并重新渲染动态列表
     closeQzoneStickerPanel();
     await renderQzonePosts();
     
-    // 5. 触发 AI 对这个表情评论的反应，并明确告知其含义
     const postSummary = (post.publicText || post.content || `[图片动态]`).substring(0, 30);
+    
+    // ▼▼▼ 核心修复：通知AI时，明确告知表情的含义 ▼▼▼
     for (const chatId in state.chats) {
         const chat = state.chats[chatId];
-        if (!chat.isGroup) { // 只通知单聊AI
-            
+        if (!chat.isGroup) {
             const intelligentPrompt = `[系统提示：'${state.qzoneSettings.nickname}' 在你的动态(ID: ${postId}, 内容摘要: “${postSummary}”)下发送了一个表情评论，意思是：“${sticker.name}”。请你对此作出回应。]`;
             
             const historyMessage = { 
@@ -7324,6 +7321,7 @@ async function sendQzoneStickerComment(postId, sticker) {
             await db.chats.put(chat);
         }
     }
+    // ▲▲▲ 修复结束 ▲▲▲
 }
 
 // ▲▲▲ 替换结束 ▲▲▲
@@ -9765,9 +9763,10 @@ case 'repost': {
                     continue;
                     
                 case 'create_memory':
+                    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
                     const newMemory = {
                         chatId: chatId,
-                        authorName: chat.name,
+                        authorId: chatId, // 【核心修复1】不再存 authorName，而是存角色的ID
                         description: msgData.description,
                         timestamp: Date.now(),
                         type: 'ai_generated'
@@ -9775,6 +9774,7 @@ case 'repost': {
                     await db.memories.add(newMemory);
                     console.log(`AI "${chat.name}" 记录了一条新回忆:`, msgData.description);
                     continue; 
+                    // ▲▲▲ 替换结束 ▲▲▲
 
                 case 'create_countdown':
                     const targetDate = new Date(msgData.date);
@@ -10862,7 +10862,7 @@ async function triggerInactiveAiAction(chatId) {
     const now = new Date();
     let timeContextText;
     let recentContextSummary; 
-    let longTimeNoSee = false; // 新增一个标志，判断是否很久没聊天
+    let longTimeNoSee = false; 
 
     const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
     
@@ -10871,7 +10871,7 @@ async function triggerInactiveAiAction(chatId) {
         const timeDiffHours = (now - lastTime) / (1000 * 60 * 60);
 
         if (timeDiffHours > 12) {
-            longTimeNoSee = true; // 标记为很久没聊天
+            longTimeNoSee = true; 
             const diffDays = Math.floor(timeDiffHours / 24);
             timeContextText = `你们已经有${diffDays > 0 ? diffDays + '天' : Math.floor(timeDiffHours) + '小时'}没有聊天了。`;
             recentContextSummary = `[重要指令] ${timeContextText} 请你根据当前时间（${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}）和你的角色设定，主动开启一个全新的话题来问候用户。绝对不要延续之前的话题。`;
@@ -10895,7 +10895,7 @@ async function triggerInactiveAiAction(chatId) {
             }
         }
     } else {
-        longTimeNoSee = true; // 第一次互动也算
+        longTimeNoSee = true; 
         timeContextText = "这是你们的第一次互动。";
         recentContextSummary = "你们从没聊过天，主动打个招呼吧！";
     }
@@ -10981,7 +10981,6 @@ ${recentlyPostedSummaries.join('\n')}
             }
         }
 
-    // --- 【核心修改】在这里强化对发消息的引导 ---
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -11147,12 +11146,15 @@ ${linkedMemoryContext}
                     chat.status.isBusy = action.is_busy || false;
                     chat.status.lastUpdate = Date.now();
                     break; 
+                // ▼▼▼ 核心修复也在这里 ▼▼▼
                 case 'qzone_post':
                     const newPost = { 
-                        type: action.postType, 
-                        content: action.content || '', 
-                        publicText: action.publicText || '', 
-                        hiddenContent: action.hiddenContent || '', 
+                        type: action.postType || 'shuoshuo', 
+                        content: action.content || '',
+                        publicText: action.publicText || '',
+                        hiddenContent: action.hiddenContent || '',
+                        imageDescription: action.imageDescription || '',
+                        imageUrl: action.imageUrl || '',
                         timestamp: Date.now(), 
                         authorId: chatId, 
                         authorOriginalName: chat.originalName,
@@ -11163,6 +11165,7 @@ ${linkedMemoryContext}
                     updateUnreadIndicator(unreadPostsCount + 1);
                     console.log(`后台活动: 角色 "${chat.name}" 发布了动态`);
                     break;
+                // ▲▲▲ 修复结束 ▲▲▲
                 case 'repost':
                     const originalPost = await db.qzonePosts.get(parseInt(action.postId));
                     if (originalPost) {
@@ -11255,10 +11258,9 @@ ${linkedMemoryContext}
 
 
 
-// ▼▼▼ 请用这个【最终修复版】的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
 /**
  * 【全新】触发一个非活跃的群聊进行独立行动（如AI成员主动发言）
- * @param {string} chatId - 目标群聊的ID
  */
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
@@ -11421,13 +11423,11 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 # 核心规则
 你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
 # 你的可选行动指令:
-// ▼▼▼ 核心修正：将指令示例中的反引号 \` 改为单引号 '，避免语法错误 ▼▼▼
 -   发送文本: '{"type": "text", "name": "角色本名", "content": "文本内容"}'
 -   发送表情: '{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}'
 -   发送图片: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
 -   发起投票: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
 -   发起群视频: '{"type": "group_call_request", "name": "角色本名"}'
-// ▲▲▲ 修正结束 ▲▲▲
 # 群成员列表及人设
 ${membersList}
 # 用户的角色
@@ -11473,12 +11473,26 @@ ${membersList}
             let visibleSystemMessage = null;
 
             switch (action.type) {
+                // ▼▼▼ 核心修复就在这里 ▼▼▼
                 case 'qzone_post':
-                    const newPost = { type: action.postType || 'shuoshuo', content: action.content, timestamp: Date.now(), authorId: state.chats[Object.keys(state.chats).find(key => state.chats[key].originalName === action.name)]?.id || action.name, authorOriginalName: action.name, visibleGroupIds: null };
+                    const newPost = { 
+                        type: action.postType || 'shuoshuo', 
+                        content: action.content || '',
+                        publicText: action.publicText || '',
+                        hiddenContent: action.hiddenContent || '',
+                        imageDescription: action.imageDescription || '',
+                        imageUrl: action.imageUrl || '',
+                        timestamp: Date.now(), 
+                        authorId: Object.values(state.chats).find(c => c.originalName === action.name)?.id || 'unknown_ai', 
+                        authorOriginalName: action.name,
+                        visibleGroupIds: null 
+                    };
                     await db.qzonePosts.add(newPost);
                     updateUnreadIndicator(unreadPostsCount + 1);
                     visibleSystemMessage = { content: `[${senderDisplayName} 发布了一条新动态]` };
                     break;
+                // ▲▲▲ 修复结束 ▲▲▲
+
                 case 'qzone_comment':
                     const postToComment = await db.qzonePosts.get(parseInt(action.postId));
                     if (postToComment) {
@@ -13222,6 +13236,10 @@ function clearQzoneReplyContext(postContainer) {
 /**
  * 【重构版】渲染回忆与约定界面，使用单一循环和清晰的if/else逻辑
  */
+// ▼▼▼ 【最终版】请用这个【已修复】的完整函数，完整替换旧的 renderMemoriesScreen 函数 ▼▼▼
+/**
+ * 【重构版】渲染回忆与约定界面，使用单一循环和清晰的if/else逻辑
+ */
 async function renderMemoriesScreen() {
     const listEl = document.getElementById('memories-list');
     listEl.innerHTML = '';
@@ -13263,6 +13281,7 @@ async function renderMemoriesScreen() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
+// ▼▼▼ 【最终版】请用这个【已修复】的完整函数，完整替换旧的 createMemoryCard 函数 ▼▼▼
 /**
  * 创建普通回忆卡片DOM元素
  */
@@ -13274,14 +13293,27 @@ function createMemoryCard(memory) {
     
     let titleHtml, contentHtml;
 
-    // 【核心修正】在这里，我们对不同类型的回忆进行清晰的区分
     if (memory.type === 'countdown' && memory.targetDate) {
-        // 如果是已到期的约定
         titleHtml = `[约定达成] ${memory.description}`;
         contentHtml = `在 ${new Date(memory.targetDate).toLocaleString()}，我们一起见证了这个约定。`;
     } else {
-        // 如果是普通的日记式回忆
-        titleHtml = memory.authorName ? `${memory.authorName} 的日记` : '我们的回忆';
+        let authorDisplayName = '我们的回忆'; 
+        // 【核心修复1】现在我们统一通过 authorId 来查找名字
+        if (memory.authorId) {
+            if (memory.authorId === 'user') {
+                // 如果是用户自己创建的
+                authorDisplayName = state.qzoneSettings.nickname || '我';
+            } else {
+                // 如果是AI创建的
+                const authorChat = state.chats[memory.authorId];
+                authorDisplayName = authorChat ? authorChat.name : '一位朋友';
+            }
+        } else if (memory.authorName) {
+            // 兼容非常旧的数据
+            authorDisplayName = memory.authorName; 
+        }
+
+        titleHtml = `${authorDisplayName} 的日记`;
         contentHtml = memory.description;
     }
 
@@ -13301,6 +13333,7 @@ function createMemoryCard(memory) {
     });
     return card;
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 function createCountdownCard(countdown) {
     const card = document.createElement('div');
@@ -16604,7 +16637,7 @@ function resetAllSwipes(exceptThisOne = null) {
         }
     });
 }
-// ▼▼▼ 【全新】将这个函数粘贴到 handleSwipeStart 函数之前 ▼▼▼
+// ▼▼▼ 【最终修复方案】请用这个全新的函数，完整替换旧的 handlePostClick 函数 ▼▼▼
 /**
  * 【全新】处理动态区域内所有点击事件的统一入口
  */
@@ -16814,13 +16847,23 @@ async function handlePostClick(e) {
         for (const aiId of notifiedAiIds) {
             const chat = state.chats[aiId];
             if (chat && !chat.isGroup) {
+                // ▼▼▼ 核心修复：在这里判断评论内容是否是表情 ▼▼▼
+                const stickerMatch = state.userStickers.find(s => s.url === commentText);
                 let notificationText;
-                if (newComment.replyTo) {
+
+                if (stickerMatch) {
+                    // 如果是表情，就明确告诉AI含义
+                    notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，发送了一个表情评论，意思是：“${stickerMatch.name}”。`;
+                } else if (newComment.replyTo) {
+                    // 如果是回复，保持原有逻辑
                     const repliedToDisplayName = currentQzoneReplyContext.replyToDisplayName;
                     notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${repliedToDisplayName}'的评论，内容是：“${commentText}”。`;
                 } else {
+                    // 如果是普通文字评论，保持原有逻辑
                     notificationText = `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
                 }
+                // ▲▲▲ 修复结束 ▲▲▲
+
                 const historyMessage = { 
                     role: 'system', 
                     content: `[系统提示：${notificationText}请你对此作出回应。]`, 
@@ -16838,7 +16881,7 @@ async function handlePostClick(e) {
         return;
     }
 }
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 const handleSwipeStart = (e) => {
     const targetContainer = e.target.closest('.qzone-post-container');
     if (!targetContainer) return;
@@ -17464,13 +17507,7 @@ document.getElementById('memories-back-btn').addEventListener('click', () => swi
 
 // ▲▲▲ 新增结束 ▲▲▲
 
-// 【全新】约定/倒计时功能事件绑定
-document.getElementById('add-countdown-btn').addEventListener('click', () => {
-    document.getElementById('create-countdown-modal').classList.add('visible');
-});
-document.getElementById('cancel-create-countdown-btn').addEventListener('click', () => {
-    document.getElementById('create-countdown-modal').classList.remove('visible');
-});
+// ▼▼▼ 在 init() 函数的事件监听器区域找到这个按钮的监听器 ▼▼▼
 document.getElementById('confirm-create-countdown-btn').addEventListener('click', async () => {
     const title = document.getElementById('countdown-title-input').value.trim();
     const dateValue = document.getElementById('countdown-date-input').value;
@@ -17486,14 +17523,15 @@ document.getElementById('confirm-create-countdown-btn').addEventListener('click'
         return;
     }
 
+    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
     const newCountdown = {
-        chatId: null, // 用户创建的，不属于任何特定AI
-        authorName: '我',
+        authorId: 'user', // 【核心修复2】不再存 authorName，而是用 'user' 作为您的专属ID
         description: title,
         timestamp: Date.now(),
         type: 'countdown',
         targetDate: targetDate.getTime()
     };
+    // ▲▲▲ 替换结束 ▲▲▲
     
     await db.memories.add(newCountdown);
     document.getElementById('create-countdown-modal').classList.remove('visible');
