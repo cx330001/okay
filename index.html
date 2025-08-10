@@ -9259,7 +9259,7 @@ systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的�
     - 在生成JSON时，'name'字段【必须】使用角色的【本名】（例如：${chat.members[0]?.originalName || '角色的本名'}）。
     - **【【【重要】】】在对话内容（'message'或'speech'字段）中互相称呼时，你可以根据你的人设、语气和上下文，【自由选择】使用角色的【群昵称】或【本名】。例如，关系亲密时用昵称，严肃或正式场合用本名。**
     - 你【绝对不能】生成 'name' 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
-2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
+2. **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
 3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
 4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
 5.  **情景感知**: 注意当前时间是 ${currentTime}。
@@ -10941,7 +10941,7 @@ async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    const ACTION_COOLDOWN_MINUTES = 0; 
+    const ACTION_COOLDOWN_MINUTES = 6; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
@@ -11242,9 +11242,14 @@ ${linkedMemoryContext}
                     break;
                 // 【【【最关键的修复】】】
                 case 'ai_image':
-                    // 我们现在不再只存 content，而是把整个 action 对象的信息都存进去
-                    aiMessage = { ...baseMessage, ...action };
+                    aiMessage = {
+                        ...baseMessage,
+                        type: 'ai_image',
+                        // 核心修复：将 AI 返回的 description 赋值给 content 字段
+                        content: action.description 
+                    };
                     break;
+
                 // 【【【修复结束】】】
                 case 'update_status':
                     chat.status.text = action.status_text;
@@ -11375,7 +11380,7 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    const GROUP_ACTION_COOLDOWN_MINUTES = 0;
+    const GROUP_ACTION_COOLDOWN_MINUTES = 6;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
@@ -11614,11 +11619,14 @@ ${membersList}
                         }
                     }
                     break;
-                // 【【【最关键的修复】】】
                 case 'ai_image':
-                    aiMessage = { ...baseMessage, ...action };
+                    aiMessage = {
+                        ...baseMessage,
+                        type: 'ai_image',
+                        // 核心修复：将 AI 返回的 description 赋值给 content 字段
+                        content: action.description 
+                    };
                     break;
-                // 【【【修复结束】】】
                 default:
                     // 对于其他所有消息类型，保持原样
                     if (action.type === 'poll') {
