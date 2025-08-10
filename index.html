@@ -4800,10 +4800,29 @@ input:checked + .slider:before {
     height: 100% !important;
 }
 /* ▲▲▲ 修正结束 ▲▲▲ */
-/* ▼▼▼ 【最终卡片布局修复】请用这一整块代码，替换所有旧的、分散的卡片内容样式 ▼▼▼ */
+/* ▼▼▼ 【Safari/iOS 最终卡片布局修复】请用这一整块全新的代码 ▼▼▼ */
 
 /* 
-  这个选择器会一次性选中所有包含特殊卡片的消息气泡的内容区 
+  第一步：【核心修复】
+  这个选择器会一次性选中所有包含特殊卡片的消息气泡容器(.message-bubble)。
+  我们告诉它不要再强制拉伸，而是根据内部卡片的大小自适应宽度。
+*/
+.message-bubble.is-sticker,
+.message-bubble.is-voice-message,
+.message-bubble.is-transfer,
+.message-bubble.is-ai-image,
+.message-bubble.is-waimai-request,
+.message-bubble.is-red-packet,
+.message-bubble.is-poll,
+.message-bubble.is-link-share,
+.message-bubble.is-location-share {
+    flex: initial; /* 覆盖掉通用的 flex: 1，这是解决问题的关键，让气泡本身不再拉伸 */
+    min-width: auto; /* 同样重置 min-width，允许其自由收缩 */
+}
+
+/* 
+  第二步：保持对卡片内部 .content 区域的样式重置。
+  我们移除它的背景和内边距，让卡片自己负责外观。
 */
 .message-bubble.is-sticker .content,
 .message-bubble.is-voice-message .content,
@@ -4814,10 +4833,10 @@ input:checked + .slider:before {
 .message-bubble.is-poll .content,
 .message-bubble.is-link-share .content,
 .message-bubble.is-location-share .content {
-    /* 核心修复：重置flex属性，让内容区不再伸展，而是根据内部卡片的大小自适应 */
+    /* 保持这个好习惯，确保内容区也不拉伸 */
     flex: initial; 
     
-    /* 保持原有的样式，移除内边距和背景，让卡片自己负责外观 */
+    /* 移除所有可能干扰卡片显示的样式 */
     padding: 0;
     background: transparent;
     box-shadow: none;
@@ -4826,7 +4845,7 @@ input:checked + .slider:before {
     -webkit-backdrop-filter: none;
 }
 
-/* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▲▲▲ 修复结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -6172,6 +6191,11 @@ input:checked + .slider:before {
 </div>
 
 <script>
+// ... 其他全局变量
+let activeMessageTimestamp = null;
+let activeTransferTimestamp = null; // <-- 确保这行在这里，并且只有一行
+let currentQzoneReplyContext = null;
+// ...
 // ... 位于 <script> 标签顶部 ...
 let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器”和“波动计时器”
 // ...
@@ -8487,7 +8511,9 @@ else if (msg.type === 'location_share') {
         </div>
         <div class="voice-transcript"></div>
     `;
-} else if (msg.type === 'transfer') {
+}// ... createMessageElement函数前面的代码 ...
+else if (msg.type === 'transfer') {
+    bubble.classList.add('is-transfer'); // <--- 【核心修改】把这行加到最前面
     let titleText, noteText;
     const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
 
@@ -8508,22 +8534,23 @@ else if (msg.type === 'location_share') {
                 noteText = msg.note || '等待对方处理...';
             }
         }
-    } else { 
+    } else { // AI的消息
         if (msg.isRefund) {
             titleText = `退款来自 ${senderDisplayName}`;
             noteText = '转账已被拒收';
-        } else if (msg.receiverName === myNickname) {
+        } else if (msg.receiverName === myNickname) { // AI转账给我
             titleText = `转账给 ${myNickname}`;
              if (msg.status === 'accepted') {
                 noteText = '你已收款';
             } else if (msg.status === 'declined') {
                 noteText = '你已拒收';
             } else {
-                bubble.style.cursor = 'pointer';
-                bubble.dataset.status = 'pending';
+                // 【核心修改】这是AI发给我、且我还没处理的转账
+                bubble.style.cursor = 'pointer'; // 鼠标变成手型
+                bubble.dataset.status = 'pending'; // 做个标记
                 noteText = msg.note || '点击处理';
             }
-        } else {
+        } else { // AI在群里转账给别人
             titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`;
             noteText = msg.note || '群聊内转账';
         }
@@ -8539,7 +8566,9 @@ else if (msg.type === 'location_share') {
         </div>
     `;
     
-} else if (msg.type === 'waimai_request') {
+} 
+// ... createMessageElement函数后面的代码 ...
+else if (msg.type === 'waimai_request') {
         bubble.classList.add('is-waimai-request');
         if (msg.status === 'paid' || msg.status === 'rejected') {
             bubble.classList.add(`status-${msg.status}`);
@@ -13094,6 +13123,89 @@ async function handleUserPat(chatId, characterOriginalName) {
     await renderChatList();
 }
 // ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 【全新】用户处理转账的核心功能函数 ▼▼▼
+
+
+
+/**
+ * 显示处理转账的操作菜单
+ * @param {number} timestamp - 被点击的转账消息的时间戳
+ */
+function showTransferActionModal(timestamp) {
+    activeTransferTimestamp = timestamp;
+
+    const chat = state.chats[state.activeChatId];
+    const message = chat.history.find(m => m.timestamp === timestamp);
+    if (message) {
+        // 将AI的名字填入弹窗
+        document.getElementById('transfer-sender-name').textContent = message.senderName;
+    }
+    document.getElementById('transfer-actions-modal').classList.add('visible');
+}
+
+/**
+ * 隐藏处理转账的操作菜单
+ */
+function hideTransferActionModal() {
+    document.getElementById('transfer-actions-modal').classList.remove('visible');
+    activeTransferTimestamp = null;
+}
+
+/**
+ * 处理用户接受或拒绝转账的逻辑
+ * @param {string} choice - 用户的选择, 'accepted' 或 'declined'
+ */
+async function handleUserTransferResponse(choice) {
+    if (!activeTransferTimestamp) return;
+
+    const timestamp = activeTransferTimestamp;
+    const chat = state.chats[state.activeChatId];
+    const messageIndex = chat.history.findIndex(m => m.timestamp === timestamp);
+    if (messageIndex === -1) return;
+
+    // 1. 更新原始转账消息的状态
+    const originalMessage = chat.history[messageIndex];
+    originalMessage.status = choice;
+
+    let systemContent;
+
+    // 2. 如果用户选择“拒绝”
+    if (choice === 'declined') {
+        // 立刻在前端生成一个“退款”卡片，让用户看到
+        const refundMessage = {
+            role: 'user',
+            type: 'transfer',
+            isRefund: true, // 这是一个关键标记，用于UI显示这是退款
+            amount: originalMessage.amount,
+            note: '已拒收对方转账',
+            timestamp: Date.now()
+        };
+        chat.history.push(refundMessage);
+        
+        // 准备一条对AI可见的隐藏消息，告诉它发生了什么
+        systemContent = `[系统提示：你拒绝并退还了“${originalMessage.senderName}”的转账。]`;
+    } else { // 如果用户选择“接受”
+        // 只需准备隐藏消息通知AI即可
+        systemContent = `[系统提示：你接受了“${originalMessage.senderName}”的转账。]`;
+    }
+
+    // 3. 创建这条对用户隐藏、但对AI可见的系统消息
+    const hiddenMessage = {
+        role: 'system',
+        content: systemContent,
+        timestamp: Date.now() + 1, // 保证时间戳在退款消息之后
+        isHidden: true // 这个标记会让它不在聊天界面显示
+    };
+    chat.history.push(hiddenMessage);
+
+    // 4. 保存所有更改到数据库，并刷新界面
+    await db.chats.put(chat);
+    hideTransferActionModal(); 
+    renderChatInterface(state.activeChatId);
+    renderChatList();
+}
+
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 【全新】清除动态回复状态并重置输入框 ▼▼▼
 function clearQzoneReplyContext(postContainer) {
     currentQzoneReplyContext = null;
@@ -17128,7 +17240,33 @@ document.getElementById('select-message-btn').addEventListener('click', () => {
     }
 });
 // ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 在 init() 的事件监听器区域添加 ▼▼▼
 
+// 监听聊天区域的点击，专门用于处理AI发来的转账
+document.getElementById('chat-messages').addEventListener('click', (e) => {
+    // 1. 向上查找被点击的元素是否在一个消息气泡内
+    const bubble = e.target.closest('.message-bubble');
+    if (!bubble) return; // 如果不在，就退出
+
+    // 2. 检查是否是AI的、待处理的转账消息
+    if (bubble.classList.contains('ai') && 
+        bubble.classList.contains('is-transfer') && 
+        bubble.dataset.status === 'pending') {
+        
+        // 3. 只有满足所有条件，才显示操作菜单
+        const timestamp = parseInt(bubble.dataset.timestamp);
+        if (!isNaN(timestamp)) {
+            showTransferActionModal(timestamp);
+        }
+    }
+});
+
+// 绑定新转账操作模态框的按钮
+document.getElementById('transfer-action-accept').addEventListener('click', () => handleUserTransferResponse('accepted'));
+document.getElementById('transfer-action-decline').addEventListener('click', () => handleUserTransferResponse('declined'));
+document.getElementById('transfer-action-cancel').addEventListener('click', hideTransferActionModal);
+
+// ▲▲▲ 添加结束 ▲▲▲
 // ▼▼▼ 在 init() 函数的事件监听器区域末尾添加 ▼▼▼
 
 // 动态操作菜单的按钮事件
