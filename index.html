@@ -4857,6 +4857,24 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
+/* ▼▼▼ 【全新】文字图占位符美化样式 ▼▼▼ */
+.text-image-placeholder {
+    width: 200px; /* 给一个固定的宽度 */
+    aspect-ratio: 1 / 1; /* 保持1:1的正方形比例 */
+    background-color: #f0f2f5; /* 浅灰色背景 */
+    border-radius: 12px; /* 圆角 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer; /* 显示可点击手势 */
+    overflow: hidden; /* 防止图片溢出 */
+}
+.text-image-placeholder img {
+    width: 80%; /* 图片宽度为容器的80% */
+    height: 80%;/* 图片高度为容器的80% */
+    object-fit: contain; /* 确保图片完整显示 */
+    opacity: 0.8; /* 图片可以稍微透明一点，更有设计感 */
+}
     </style>
 </head>
 <body>
@@ -7849,7 +7867,43 @@ async function loadAllDataFromDB() {
 
         function formatTimestamp(timestamp) { if (!timestamp) return ''; const date = new Date(timestamp); const hours = String(date.getHours()).padStart(2, '0'); const minutes = String(date.getMinutes()).padStart(2, '0'); return `${hours}:${minutes}`; }
 
-        function showNotification(chatId, messageContent) { clearTimeout(notificationTimeout); const chat = state.chats[chatId]; if (!chat) return; const bar = document.getElementById('notification-bar'); document.getElementById('notification-avatar').src = chat.settings.aiAvatar || chat.settings.groupAvatar || defaultAvatar; document.getElementById('notification-content').querySelector('.name').textContent = chat.name; document.getElementById('notification-content').querySelector('.message').textContent = messageContent; const newBar = bar.cloneNode(true); bar.parentNode.replaceChild(newBar, bar); newBar.addEventListener('click', () => { openChat(chatId); newBar.classList.remove('visible'); }); newBar.classList.add('visible'); notificationTimeout = setTimeout(() => { newBar.classList.remove('visible'); }, 4000); }
+ // ▼▼▼ 【全新】请用这个更可靠的版本，替换旧的 showNotification 函数 ▼▼▼
+function showNotification(chatId, messageContent) {
+    clearTimeout(notificationTimeout);
+    const chat = state.chats[chatId];
+    if (!chat) return;
+
+    // 1. 获取通知栏元素
+    const bar = document.getElementById('notification-bar');
+    
+    // 2. 填充内容
+    document.getElementById('notification-avatar').src = chat.settings.aiAvatar || chat.settings.groupAvatar || defaultAvatar;
+    document.getElementById('notification-content').querySelector('.name').textContent = chat.name;
+    document.getElementById('notification-content').querySelector('.message').textContent = messageContent;
+    
+    // 3. 【核心修复】使用“强制重排”技巧，确保动画每次都能触发
+    // 先移除class，让它回到初始的“隐藏”状态
+    bar.classList.remove('visible');
+    
+    // 这一行是关键！它会强制浏览器重新计算元素布局，从而“重置”动画状态。
+    void bar.offsetWidth; 
+    
+    // 再次添加class，浏览器会认为这是一个新的状态变化，从而平滑地执行CSS过渡动画。
+    bar.classList.add('visible');
+    
+    // 4. 为通知栏绑定点击事件（使用克隆节点技巧清除旧监听器）
+    const newBar = bar.cloneNode(true);
+    bar.parentNode.replaceChild(newBar, bar);
+    newBar.addEventListener('click', () => {
+        openChat(chatId);
+        newBar.classList.remove('visible');
+    });
+
+    // 5. 设置定时器，在4秒后自动隐藏通知
+    notificationTimeout = setTimeout(() => {
+        newBar.classList.remove('visible');
+    }, 4000);
+}
 
         function updateClock() { const now = new Date(); const timeString = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }); const dateString = now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' }); document.getElementById('main-time').textContent = timeString; document.getElementById('status-bar-time').textContent = timeString; document.getElementById('main-date').textContent = dateString; }
 
@@ -8390,7 +8444,7 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
-// ▼▼▼ 用这个【新版本】替换旧的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 【全新】请用这个已包含“文字图”美化逻辑的版本，完整替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
 if (msg.type === 'recalled_message') {
@@ -8545,11 +8599,18 @@ else if (msg.type === 'location_share') {
         </div>
     `;
 }
+    // ▼▼▼ 核心修改就在这里！▼▼▼
     else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
         bubble.classList.add('is-ai-image');
-        const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
-        contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
-    } else if (msg.type === 'voice_message') {
+        // 【新增】我们为它创建一个更美观的、带背景的容器
+        contentHtml = `
+            <div class="text-image-placeholder" data-description="${msg.content}">
+                <img src="https://i.postimg.cc/KYr2qRCK/1.jpg" alt="文字图占位符">
+            </div>
+        `;
+    }
+    // ▲▲▲ 修改结束 ▲▲▲
+    else if (msg.type === 'voice_message') {
     bubble.classList.add('is-voice-message');
     
     bubble.dataset.voiceText = msg.content;
@@ -8798,11 +8859,8 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        // ▼▼▼ 核心修复就在这里！▼▼▼
-        // 在渲染普通文本之前，先调用 processMentions 函数进行处理
         const processedText = processMentions(String(msg.content || ''), chat);
         contentHtml = processedText.replace(/\n/g, '<br>');
-        // ▲▲▲ 修复结束 ▲▲▲
     }
 
     let quoteHtml = '';
@@ -10895,10 +10953,11 @@ function runBackgroundSimulationTick() {
 // ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【最终版·已修复通知功能】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
+// ▼▼▼ 【最终版·已修复通知功能】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
-// ▼▼▼ 第一个修改点：单聊冷却时间 ▼▼▼
+
     const ACTION_COOLDOWN_MINUTES = 0; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
@@ -11184,7 +11243,6 @@ ${linkedMemoryContext}
         }
         let actionTimestamp = Date.now();
         
-        // ▼▼▼ 核心修复：在这里声明一个变量，用于确保只通知一次 ▼▼▼
         let hasSentNotification = false;
 
         for (const action of responseArray) {
@@ -11195,20 +11253,17 @@ ${linkedMemoryContext}
                 case 'text':
                     const aiMessage = { role: 'assistant', senderName: chat.originalName, content: action.content, timestamp: actionTimestamp++ };
                     chat.history.push(aiMessage);
-                    // ▼▼▼ 核心修复：更新未读数并发送通知 ▼▼▼
                     chat.unreadCount = (chat.unreadCount || 0) + 1;
                     if (!hasSentNotification) {
                         showNotification(chatId, action.content);
-                        hasSentNotification = true; // 标记已通知，避免后续消息重复弹窗
+                        hasSentNotification = true;
                     }
-                    // ▲▲▲ 修复结束 ▲▲▲
                     break;
                 case 'update_status':
                     chat.status.text = action.status_text;
                     chat.status.isBusy = action.is_busy || false;
                     chat.status.lastUpdate = Date.now();
                     break; 
-                // ... (其他case保持不变) ...
                 case 'qzone_post':
                     const newPost = { 
                         type: action.postType, 
@@ -11262,7 +11317,7 @@ ${linkedMemoryContext}
                         const commenterName = action.name || chat.originalName;
                         const createCommentObject = (text, meaning = null, replyTo = null) => ({
                             commenterName,
-                            text: processMentions(text),
+                            text: processMentions(text, chat),
                             meaning,
                             replyTo,
                             timestamp: Date.now()
@@ -11277,7 +11332,7 @@ ${linkedMemoryContext}
                                 }
                             });
                         } else if (typeof action.commentText === 'string' && action.commentText.trim()) {
-                            postToComment.comments.push(createCommentObject(commentText, null, action.replyTo || null));
+                            postToComment.comments.push(createCommentObject(action.commentText, null, action.replyTo || null));
                         }
                         
                         await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
@@ -11303,18 +11358,17 @@ ${linkedMemoryContext}
             }
         }
         await db.chats.put(chat);
-        // ▼▼▼ 核心修复：在所有行动处理完后，刷新聊天列表以显示小红点 ▼▼▼
-        if (hasSentNotification) {
-            renderChatList();
-        }
-        // ▲▲▲ 修复结束 ▲▲▲
         
     } catch (error) {
         console.error(`角色 "${chat.name}" 的独立行动失败:`, error);
     } finally {
-        setTimeout(() => {
-            setAvatarActingState(chatId, false);
-        }, 1500);
+        setAvatarActingState(chatId, false);
+        // ★★★★★ 这就是唯一的、核心的修改！ ★★★★★
+        // 无论try/catch的结果如何，finally块里的代码都【保证】会被执行。
+        // 我们在这里强制调用一次renderChatList，它会读取数据库里的最新数据
+        // (包括刚刚由AI添加的新消息和更新的未读数)，然后重绘整个列表。
+        renderChatList();
+        // ★★★★★ 修改结束 ★★★★★
     }
 }
 // ▲▲▲ 替换结束 ▲▲▲
@@ -11326,7 +11380,7 @@ ${linkedMemoryContext}
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
-// ▼▼▼ 第二个修改点：群聊冷却时间 ▼▼▼
+
     const GROUP_ACTION_COOLDOWN_MINUTES = 0;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
@@ -11616,22 +11670,22 @@ ${membersList}
         
         if (hasPerformedMajorAction) {
             chat.lastActionTimestamp = Date.now();
-            // ▼▼▼ 核心修复：在这里更新未读数和发送通知 ▼▼▼
             chat.unreadCount = (chat.unreadCount || 0) + responseArray.filter(a => a.type !== 'qzone_post' && a.type !== 'qzone_comment' && a.type !== 'qzone_like').length;
             if (notificationSender && notificationContent) {
                  showNotification(chatId, `${notificationSender}: ${notificationContent}`);
             }
             await db.chats.put(chat);
-            renderChatList(); // 刷新列表以显示小红点
-            // ▲▲▲ 修复结束 ▲▲▲
-            console.log(`群聊 "${chat.name}" 成功执行了独立行动。`);
         }
 
     } catch (error) {
         console.error(`群聊 "${chat.name}" 的独立行动失败:`, error);
+    } finally {
+        // ★★★★★ 这就是唯一的、核心的修改！ ★★★★★
+        // 在 `finally` 块中，无论成功还是失败，都强制刷新一次聊天列表。
+        renderChatList();
+        // ★★★★★ 修改结束 ★★★★★
     }
 }
-
 
 
 
@@ -18496,5 +18550,4 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
 </div>
 </body>
 </html>
-
 
