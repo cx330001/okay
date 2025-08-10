@@ -4857,24 +4857,7 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
-/* ▼▼▼ 【全新】文字图占位符美化样式 ▼▼▼ */
-.text-image-placeholder {
-    width: 200px; /* 给一个固定的宽度 */
-    aspect-ratio: 1 / 1; /* 保持1:1的正方形比例 */
-    background-color: #f0f2f5; /* 浅灰色背景 */
-    border-radius: 12px; /* 圆角 */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer; /* 显示可点击手势 */
-    overflow: hidden; /* 防止图片溢出 */
-}
-.text-image-placeholder img {
-    width: 80%; /* 图片宽度为容器的80% */
-    height: 80%;/* 图片高度为容器的80% */
-    object-fit: contain; /* 确保图片完整显示 */
-    opacity: 0.8; /* 图片可以稍微透明一点，更有设计感 */
-}
+
     </style>
 </head>
 <body>
@@ -8444,7 +8427,7 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
-// ▼▼▼ 【全新】请用这个已包含“文字图”美化逻辑的版本，完整替换旧的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 用这个【新版本】替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
 if (msg.type === 'recalled_message') {
@@ -8599,18 +8582,11 @@ else if (msg.type === 'location_share') {
         </div>
     `;
 }
-    // ▼▼▼ 核心修改就在这里！▼▼▼
     else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
         bubble.classList.add('is-ai-image');
-        // 【新增】我们为它创建一个更美观的、带背景的容器
-        contentHtml = `
-            <div class="text-image-placeholder" data-description="${msg.content}">
-                <img src="https://i.postimg.cc/KYr2qRCK/1.jpg" alt="文字图占位符">
-            </div>
-        `;
-    }
-    // ▲▲▲ 修改结束 ▲▲▲
-    else if (msg.type === 'voice_message') {
+        const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
+        contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
+    } else if (msg.type === 'voice_message') {
     bubble.classList.add('is-voice-message');
     
     bubble.dataset.voiceText = msg.content;
@@ -8859,8 +8835,11 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
+        // ▼▼▼ 核心修复就在这里！▼▼▼
+        // 在渲染普通文本之前，先调用 processMentions 函数进行处理
         const processedText = processMentions(String(msg.content || ''), chat);
         contentHtml = processedText.replace(/\n/g, '<br>');
+        // ▲▲▲ 修复结束 ▲▲▲
     }
 
     let quoteHtml = '';
