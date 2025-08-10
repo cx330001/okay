@@ -10898,8 +10898,8 @@ function runBackgroundSimulationTick() {
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
-
-    const ACTION_COOLDOWN_MINUTES = 10; 
+// ▼▼▼ 第一个修改点：单聊冷却时间 ▼▼▼
+    const ACTION_COOLDOWN_MINUTES = 0; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
@@ -11326,8 +11326,8 @@ ${linkedMemoryContext}
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
-
-    const GROUP_ACTION_COOLDOWN_MINUTES = 10;
+// ▼▼▼ 第二个修改点：群聊冷却时间 ▼▼▼
+    const GROUP_ACTION_COOLDOWN_MINUTES = 0;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
