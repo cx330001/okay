@@ -10879,8 +10879,15 @@ async function triggerInactiveAiAction(chatId) {
     let recentlyPostedSummaries = [];
     if (visiblePosts.length > 0) {
         recentlyPostedSummaries = visiblePosts.map(post => {
-            let summary = post.content || post.publicText || post.hiddenContent || post.imageDescription || "（图片或无文字动态）";
-            return `- "${summary.substring(0, 20)}..."`;
+            let contentSummary;
+            if (post.type === 'text_image') {
+                contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else if (post.type === 'image_post') {
+                contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else {
+                contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+            }
+            return `- "${contentSummary}"`;
         });
     }
 
@@ -10953,7 +10960,8 @@ ${recentlyPostedSummaries.join('\n')}
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 
 # 【【【最高优先级指令：情感维系】】】
-**你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。特别是当你们很久没聊天时，一条贴心的问候远比一个点赞更有意义。
+**你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
+${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！**` : ''}
 
 # 核心规则
 1.  **【【【决策依据】】】**: 你的所有行动都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。
@@ -10963,24 +10971,24 @@ ${recentlyPostedSummaries.join('\n')}
     - 为了让你的行为看起来更真实，你本次的行动【必须】选择一个与上次【不同类型】的指令。例如，如果上次是发动态(qzone_post)，这次就应该优先考虑评论(qzone_comment)、点赞(qzone_like)或发消息(text)。
 4.  **【【【行为组合指南 (高级技巧)】】】**:
     -   你可以在一次行动中执行【多个不同类型的指令】，让你的行为更丰富、更主动。
-    -   **绝佳范例**：在你使用 \`qzone_post\` 指令发布一条新动态后，你可以紧接着使用 \`text\` 指令给用户发一条私信，例如：\`[{"type": "qzone_post", ...}, {"type": "text", "content": "我刚刚发了个动态，快去看看呀！"}]\`。这会让你看起来非常主动和真实！
+    -   **绝佳范例**：在你使用 'qzone_post' 指令发布一条新动态后，你可以紧接着使用 'text' 指令给用户发一条私信，例如：'[{"type": "qzone_post", ...}, {"type": "text", "content": "我刚刚发了个动态，快去看看呀！"}]'。这会让你看起来非常主动和真实！
 5.  **【【【回复铁律 (终极版)】】】**:
     -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
     -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
 6.  你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。
 
 # 你的可选行动指令:
--   **发消息+更新状态**: \`[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]\`
--   **发说说 (原创内容)**: \`[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]\`
--   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：\`[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]\`
--   **发布文字图**: \`[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]\`
+-   **发消息+更新状态**: '[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]'
+-   **发说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
+-   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
+-   **发布文字图**: '[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]'
 -   **【【【评论动态的四种方式】】】**:
-    -   **方式1 (单条文字)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]\`
-    -   **方式2 (多条文字)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]\`
-    -   **方式3 (表情)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]\`
-    -   **方式4 (回复评论)**: \`[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]\`
--   **点赞**: \`[{"type": "qzone_like", "postId": 456}]\`
--   **打视频**: \`[{"type": "video_call_request"}]\`
+    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
+    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
+    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
+-   **点赞**: '[{"type": "qzone_like", "postId": 456}]'
+-   **打视频**: '[{"type": "video_call_request"}]'
 ${contentTabooPrompt}
 # 供你决策的参考信息：
 -   **你的角色设定**: ${chat.settings.aiPersona}
@@ -11092,51 +11100,120 @@ ${linkedMemoryContext}
         let actionTimestamp = Date.now();
 
         for (const action of responseArray) {
-            // ... (for循环内的其他case保持不变，我们只修改qzone_comment)
-            // ...
-if (action.type === 'qzone_comment') {
-    const post = await db.qzonePosts.get(parseInt(action.postId));
-    if (post) {
-        if (!post.comments) post.comments = [];
-        const commenterName = action.name || chat.originalName; 
-        
-        const createCommentObject = (text, meaning = null, replyTo = null) => ({
-            commenterName,
-            text: processMentions(text),
-            meaning,
-            replyTo,
-            timestamp: Date.now()
-        });
+            chat.lastActionType = action.type;
+            chat.lastActionTimestamp = actionTimestamp;
+            let hasSentNotification = false;
 
-        if (action.stickerUrl && action.stickerMeaning) {
-            post.comments.push(createCommentObject(action.stickerUrl, action.stickerMeaning, action.replyTo || null));
-        } 
-        else if (Array.isArray(action.comments)) {
-            for (const commentText of action.comments) {
-                if (typeof commentText === 'string' && commentText.trim()) {
-                    post.comments.push(createCommentObject(commentText, null, action.replyTo || null));
-                }
+            switch (action.type) {
+                case 'text':
+                    const aiMessage = { role: 'assistant', senderName: chat.originalName, content: action.content, timestamp: actionTimestamp++ };
+                    chat.history.push(aiMessage);
+                    chat.unreadCount = (chat.unreadCount || 0) + 1;
+                    if (!hasSentNotification) {
+                        showNotification(chatId, action.content);
+                        hasSentNotification = true;
+                    }
+                    break;
+                case 'update_status':
+                    chat.status.text = action.status_text;
+                    chat.status.isBusy = action.is_busy || false;
+                    chat.status.lastUpdate = Date.now();
+                    break; 
+                case 'qzone_post':
+                    const newPost = { 
+                        type: action.postType, 
+                        content: action.content || '', 
+                        publicText: action.publicText || '', 
+                        hiddenContent: action.hiddenContent || '', 
+                        timestamp: Date.now(), 
+                        authorId: chatId, 
+                        authorOriginalName: chat.originalName,
+                        authorGroupId: chat.groupId,
+                        visibleGroupIds: null 
+                    };
+                    await db.qzonePosts.add(newPost);
+                    updateUnreadIndicator(unreadPostsCount + 1);
+                    console.log(`后台活动: 角色 "${chat.name}" 发布了动态`);
+                    break;
+                case 'repost':
+                    const originalPost = await db.qzonePosts.get(parseInt(action.postId));
+                    if (originalPost) {
+                        const newRepost = {
+                            type: 'repost',
+                            timestamp: Date.now(),
+                            authorId: chatId,
+                            authorGroupId: chat.groupId,
+                            authorOriginalName: chat.originalName,
+                            repostComment: action.comment || '',
+                            originalPost: originalPost,
+                            visibleGroupIds: null
+                        };
+                        await db.qzonePosts.add(newRepost);
+                        updateUnreadIndicator(unreadPostsCount + 1);
+                        console.log(`后台活动: 角色 "${chat.name}" 转发了动态 #${action.postId}`);
+                    }
+                    break;
+                case 'qzone_like':
+                    const postToLike = await db.qzonePosts.get(parseInt(action.postId));
+                    if (postToLike) {
+                        if (!postToLike.likes) postToLike.likes = [];
+                        if (!postToLike.likes.includes(chat.originalName)) {
+                            postToLike.likes.push(chat.originalName);
+                            await db.qzonePosts.update(postToLike.id, { likes: postToLike.likes });
+                            updateUnreadIndicator(unreadPostsCount + 1);
+                            console.log(`后台活动: 角色 "${chat.name}" 点赞了动态 #${action.postId}`);
+                        }
+                    }
+                    break;
+                case 'qzone_comment':
+                    const postToComment = await db.qzonePosts.get(parseInt(action.postId));
+                    if (postToComment) {
+                        if (!postToComment.comments) postToComment.comments = [];
+                        const commenterName = action.name || chat.originalName; 
+                        const createCommentObject = (text, meaning = null, replyTo = null) => ({
+                            commenterName,
+                            text: processMentions(text),
+                            meaning,
+                            replyTo,
+                            timestamp: Date.now()
+                        });
+
+                        if (action.stickerUrl && action.stickerMeaning) {
+                            postToComment.comments.push(createCommentObject(action.stickerUrl, action.stickerMeaning, action.replyTo || null));
+                        } else if (Array.isArray(action.comments)) {
+                            action.comments.forEach(commentText => {
+                                if (typeof commentText === 'string' && commentText.trim()) {
+                                    postToComment.comments.push(createCommentObject(commentText, null, action.replyTo || null));
+                                }
+                            });
+                        } else if (typeof action.commentText === 'string' && action.commentText.trim()) {
+                            postToComment.comments.push(createCommentObject(action.commentText, null, action.replyTo || null));
+                        }
+                        
+                        await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
+                        updateUnreadIndicator(unreadPostsCount + 1);
+                        console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${action.postId}`);
+
+                        if (!chat.commentCooldowns) chat.commentCooldowns = {};
+                        chat.commentCooldowns[action.postId] = Date.now();
+                    }
+                    break;
+                case 'video_call_request':
+                    if (!videoCallState.isActive && !videoCallState.isAwaitingResponse) {
+                        videoCallState.isAwaitingResponse = true;
+                        videoCallState.activeChatId = chatId;
+                        videoCallState.isGroupCall = false;
+                        videoCallState.callRequester = chat.name;
+                        showIncomingCallModal();
+                    }
+                    break;
+                default:
+                    console.warn(`角色 "${chat.name}" 尝试执行未知的后台动作:`, action.type);
+                    break;
             }
-        } 
-        else if (typeof action.commentText === 'string' && action.commentText.trim()) {
-            post.comments.push(createCommentObject(action.commentText, null, action.replyTo || null));
         }
-        await db.qzonePosts.update(post.id, { comments: post.comments });
-        updateUnreadIndicator(unreadPostsCount + 1);
-        console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${post.id}`);
+        await db.chats.put(chat);
         
-        // --- ▼▼▼ 核心新增代码就在这里！▼▼▼ ---
-        // 记录下对这条postId的评论时间，启动针对这条动态的冷却
-        if (!chat.commentCooldowns) {
-            chat.commentCooldowns = {};
-        }
-        chat.commentCooldowns[action.postId] = Date.now();
-        // --- ▲▲▲ 新增代码结束 ▲▲▲ ---
-    }
-}
-// ▲▲▲ 替换结束 ▲▲▲
-            // ... (for循环内的其他case保持不变)
-        }
     } catch (error) {
         console.error(`角色 "${chat.name}" 的独立行动失败:`, error);
     } finally {
@@ -11150,7 +11227,7 @@ if (action.type === 'qzone_comment') {
 
 
 
-// ▼▼▼ 【全新】请将这个完整的函数，粘贴到 triggerInactiveAiAction 函数的后面 ▼▼▼
+// ▼▼▼ 请用这个【最终修复版】的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
 /**
  * 【全新】触发一个非活跃的群聊进行独立行动（如AI成员主动发言）
  * @param {string} chatId - 目标群聊的ID
@@ -11159,8 +11236,7 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    // --- 1. 硬性冷却检查：群聊也需要冷却，防止过于频繁地自言自语 ---
-    const GROUP_ACTION_COOLDOWN_MINUTES = 40; // 群聊冷却时间可以更长，比如4小时
+    const GROUP_ACTION_COOLDOWN_MINUTES = 40;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
@@ -11180,13 +11256,22 @@ async function triggerGroupAiAction(chatId) {
     if (lastMessage) {
         const lastTime = new Date(lastMessage.timestamp);
         const diffMinutes = (now - lastTime) / (1000 * 60);
-        if (diffMinutes > 60) { // 超过1小时没说话
+        if (diffMinutes > 60) {
             timeContextText = `群里已经安静了 ${Math.round(diffMinutes / 60)} 小时了。`;
         }
     }
-    
+    let recentContextSummary = "你们最近没有有效聊天记录。";
+    const selfMemoryCount = 10;
+    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-selfMemoryCount);
+    if (recentHistory.length > 0) {
+        recentContextSummary = "这是你们最近的对话：\n" + recentHistory.map(msg => {
+            const sender = msg.role === 'user' ? myNickname : getDisplayNameInGroup(chat, msg.senderName);
+            const content = String(msg.content || msg.message || '').substring(0, 50);
+            return `${sender}: ${content}...`;
+        }).join('\n');
+    }
+
     const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
-    // --- ▼▼▼ 核心新增：为群聊加载世界书和挂载记忆 ▼▼▼ ---
     let worldBookContent = '';
     if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
         const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -11212,18 +11297,14 @@ async function triggerGroupAiAction(chatId) {
         }).filter(Boolean); 
 
         linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-
         linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
-
         for (const item of linkedChatsWithTimestamps) {
             const linkedChat = item.chat;
             const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
             const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
             linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-
             const recentHistory = linkedChat.history.slice(-memoryCount);
             const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-
             if (filteredHistory.length > 0) {
                 filteredHistory.forEach(msg => {
                     const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
@@ -11240,12 +11321,9 @@ async function triggerGroupAiAction(chatId) {
             }
         }
     }
-    // --- ▲▲▲ 新增结束 ▲▲▲ ---
-    // --- ▼▼▼ 核心优化：为群聊引入高效的“未互动动态”过滤逻辑 ▼▼▼ ---
     const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
     let dynamicContext = "";
     
-    // 1. 获取对本群所有成员可见的动态
     const visiblePostsForGroup = new Set();
     for (const member of chat.members) {
         const memberChat = state.chats[member.id];
@@ -11255,7 +11333,6 @@ async function triggerGroupAiAction(chatId) {
         }
     }
 
-    // 2. 从可见动态中，筛选出本群【从未】互动过的动态
     const groupMemberNames = new Set(chat.members.map(m => m.originalName));
     const unInteractedPostsForGroup = [...visiblePostsForGroup].filter(post => {
         const hasBeenLikedByGroup = post.likes && post.likes.some(likerName => groupMemberNames.has(likerName));
@@ -11263,12 +11340,38 @@ async function triggerGroupAiAction(chatId) {
         return !hasBeenLikedByGroup && !hasBeenCommentedByGroup;
     });
     
-    // 3. 只使用“未互动”的动态来构建上下文，大大节省Token
     if (unInteractedPostsForGroup.length > 0) {
         let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
         for (const post of unInteractedPostsForGroup) {
             let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
-            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${(post.content || post.publicText || '图片动态').substring(0, 30)}..."\n`;
+            let contentSummary;
+            if (post.type === 'repost') {
+                const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                let originalAuthorName = '原作者';
+                const originalAuthorId = post.originalPost.authorId;
+                if (originalAuthorId === 'user') {
+                    originalAuthorName = state.qzoneSettings.nickname;
+                } else if (state.chats[originalAuthorId]) {
+                    originalAuthorName = state.chats[originalAuthorId].name;
+                }
+                let originalContentSummary;
+                const originalPost = post.originalPost;
+                if (originalPost.type === 'text_image') {
+                    originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                } else if (originalPost.type === 'image_post') {
+                    originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                } else { // 'shuoshuo'
+                    originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                }
+                contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+            } else if (post.type === 'text_image') {
+                contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else if (post.type === 'image_post') {
+                contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else {
+                contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+            }
+            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
             if (post.comments && post.comments.length > 0) {
                 for (const comment of post.comments) {
                     if (typeof comment === 'object' && comment.commenterName) {
@@ -11281,37 +11384,34 @@ async function triggerGroupAiAction(chatId) {
         }
         dynamicContext = postsContext;
     }
-    // --- ▲▲▲ 优化结束 ▲▲▲ ---
-// ▼▼▼ 【最终修复方案·步骤1】请用这段已统一的新 systemPrompt 替换旧的 ▼▼▼
-const systemPrompt = `
+
+    const systemPrompt = `
 # 你的任务
 你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
 ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
-
 # 核心规则
-// ... (核心规则保持不变) ...
+你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
 # 你的可选行动指令:
--   **发送文本**: \`{"type": "text", "name": "角色本名", "content": "文本内容"}\` (注意：文本内容必须在 "content" 字段中！)
--   **发送表情**: \`{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}\`
--   **发送图片**: \`{"type": "ai_image", "name": "角色本名", "description": "..."}\`
--   **发起投票**: \`{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}\`
--   **发起群视频**: \`{"type": "group_call_request", "name": "角色本名"}\`
-
+// ▼▼▼ 核心修正：将指令示例中的反引号 \` 改为单引号 '，避免语法错误 ▼▼▼
+-   发送文本: '{"type": "text", "name": "角色本名", "content": "文本内容"}'
+-   发送表情: '{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}'
+-   发送图片: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
+-   发起投票: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
+-   发起群视频: '{"type": "group_call_request", "name": "角色本名"}'
+// ▲▲▲ 修正结束 ▲▲▲
 # 群成员列表及人设
 ${membersList}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
-
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
-// ▲▲▲ 替换结束 ▲▲▲
-    
+
     try {
         const messagesPayload = [{ role: 'user', content: systemPrompt }];
-        let  isGemini = proxyUrl === GEMINI_API_URL;
-        let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
-        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
+        let isGemini = proxyUrl === GEMINI_API_URL;
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesPayload);
+        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
             body: JSON.stringify({
@@ -11324,14 +11424,16 @@ ${membersList}
         if (!response.ok) throw new Error((await response.json()).error.message);
 
         const data = await response.json();
-        const aiResponseContent = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
+        const aiResponseContent = isGemini ? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
         const responseArray = parseAiResponse(aiResponseContent);
 
         if (!responseArray || responseArray.length === 0) {
              console.warn(`群聊 "${chat.name}" 的独立行动API返回为空或格式不正确，本次跳过。`);
              return;
         }
-        const majorActionTypes = new Set(['qzone_post', 'qzone_comment', 'qzone_like', 'repost', 'text', 'video_call_request']);
+        
+        let actionTimestamp = Date.now();
+        
         let hasPerformedMajorAction = false;
         let notificationContent = '';
         let notificationSender = '';
@@ -11339,28 +11441,70 @@ ${membersList}
         for (const action of responseArray) {
             if (!action || !action.type || !action.name) continue;
 
-const messageContent = action.content || action.message;
-const aiMessage = {
-    role: 'assistant',
-    senderName: action.name,
-    timestamp: Date.now(),
-    ...action
-};
-if (messageContent) {
-    aiMessage.content = messageContent;
-}
+            const senderDisplayName = getDisplayNameInGroup(chat, action.name);
+            let visibleSystemMessage = null;
 
-chat.history.push(aiMessage);
-if (!notificationSender) {
-    notificationSender = getDisplayNameInGroup(chat, action.name);
-    notificationContent = messageContent || `[${action.type}]`;
-}
-// ▲▲▲ 替换结束 ▲▲▲
+            switch (action.type) {
+                case 'qzone_post':
+                    const newPost = { type: action.postType || 'shuoshuo', content: action.content, timestamp: Date.now(), authorId: state.chats[Object.keys(state.chats).find(key => state.chats[key].originalName === action.name)]?.id || action.name, authorOriginalName: action.name, visibleGroupIds: null };
+                    await db.qzonePosts.add(newPost);
+                    updateUnreadIndicator(unreadPostsCount + 1);
+                    visibleSystemMessage = { content: `[${senderDisplayName} 发布了一条新动态]` };
+                    break;
+                case 'qzone_comment':
+                    const postToComment = await db.qzonePosts.get(parseInt(action.postId));
+                    if (postToComment) {
+                        if (!postToComment.comments) postToComment.comments = [];
+                        postToComment.comments.push({ commenterName: action.name, text: action.commentText, timestamp: Date.now() });
+                        await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
+                        updateUnreadIndicator(unreadPostsCount + 1);
+                        visibleSystemMessage = { content: `[${senderDisplayName} 评论了动态]` };
+                    }
+                    break;
+                case 'qzone_like':
+                    const postToLike = await db.qzonePosts.get(parseInt(action.postId));
+                    if (postToLike) {
+                        if (!postToLike.likes) postToLike.likes = [];
+                        if (!postToLike.likes.includes(action.name)) {
+                            postToLike.likes.push(action.name);
+                            await db.qzonePosts.update(postToLike.id, { likes: postToLike.likes });
+                            updateUnreadIndicator(unreadPostsCount + 1);
+                            visibleSystemMessage = { content: `[${senderDisplayName} 点赞了动态]` };
+                        }
+                    }
+                    break;
+            }
+            
+            if (visibleSystemMessage) {
+                chat.history.push({
+                    role: 'system',
+                    type: 'pat_message',
+                    content: visibleSystemMessage.content,
+                    timestamp: actionTimestamp++
+                });
+            } else {
+                const messageContent = action.content || action.message;
+                const aiMessage = {
+                    role: 'assistant',
+                    senderName: action.name,
+                    timestamp: actionTimestamp++,
+                    ...action
+                };
+                if (messageContent) {
+                    aiMessage.content = messageContent;
+                }
+                chat.history.push(aiMessage);
+
+                if (!notificationSender) {
+                    notificationSender = senderDisplayName;
+                    notificationContent = messageContent || `[${action.type}]`;
+                }
+            }
             hasPerformedMajorAction = true;
         }
         
         if (hasPerformedMajorAction) {
-            chat.lastActionTimestamp = Date.now(); // 更新群聊的冷却时间
+            chat.lastActionTimestamp = Date.now();
             chat.unreadCount = (chat.unreadCount || 0) + responseArray.length;
             await db.chats.put(chat);
             
@@ -11373,8 +11517,6 @@ if (!notificationSender) {
         console.error(`群聊 "${chat.name}" 的独立行动失败:`, error);
     }
 }
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
-
 
 
 
@@ -16351,102 +16493,11 @@ function resetAllSwipes(exceptThisOne = null) {
         }
     });
 }
-
-const handleSwipeStart = (e) => {
-    const targetContainer = e.target.closest('.qzone-post-container');
-    if (!targetContainer) return;
-
-    resetAllSwipes(targetContainer);
-    swipeState.activeContainer = targetContainer;
-    swipeState.isDragging = true;
-    swipeState.isClick = true;
-    swipeState.swipeDirection = null;
-    swipeState.startX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
-    swipeState.startY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
-    swipeState.activeContainer.querySelector('.qzone-post-item').style.transition = 'none';
-};
-
-const handleSwipeMove = (e) => {
-    if (!swipeState.isDragging || !swipeState.activeContainer) return;
-
-    const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
-    const currentY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
-    const diffX = currentX - swipeState.startX;
-    const diffY = currentY - swipeState.startY;
-    const absDiffX = Math.abs(diffX);
-    const absDiffY = Math.abs(diffY);
-    const clickThreshold = 5;
-
-    if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
-        swipeState.isClick = false;
-    }
-
-    if (swipeState.swipeDirection === null) {
-        if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
-            if (absDiffX > absDiffY) {
-                swipeState.swipeDirection = 'horizontal';
-            } else {
-                swipeState.swipeDirection = 'vertical';
-            }
-        }
-    }
-    if (swipeState.swipeDirection === 'vertical') {
-        handleSwipeEnd(e);
-        return;
-    }
-    if (swipeState.swipeDirection === 'horizontal') {
-        e.preventDefault();
-        swipeState.currentX = currentX;
-        let translation = diffX;
-        if (translation > 0) translation = 0;
-        if (translation < -90) translation = -90;
-        swipeState.activeContainer.querySelector('.qzone-post-item').style.transform = `translateX(${translation}px)`;
-    }
-};
-
-const handleSwipeEnd = (e) => {
-    if (swipeState.isClick) {
-        swipeState.isDragging = false;
-        swipeState.activeContainer = null;
-        return;
-    }
-    if (!swipeState.isDragging || !swipeState.activeContainer) return;
-
-    const postItem = swipeState.activeContainer.querySelector('.qzone-post-item');
-    postItem.style.transition = 'transform 0.3s ease';
-
-    const finalX = e.type.includes('touchend') ? e.changedTouches[0].pageX : e.pageX;
-    const diffX = finalX - swipeState.startX;
-    const swipeThreshold = -40;
-
-    if (swipeState.swipeDirection === 'horizontal' && diffX < swipeThreshold) {
-        postItem.classList.add('swiped');
-        postItem.style.transform = '';
-    } else {
-        postItem.classList.remove('swiped');
-        postItem.style.transform = '';
-    }
-
-    swipeState.isDragging = false;
-    swipeState.startX = 0;
-    swipeState.startY = 0;
-    swipeState.currentX = 0;
-    swipeState.activeContainer = null;
-    swipeState.swipeDirection = null;
-    swipeState.isClick = true;
-};
-
-// --- 绑定所有滑动事件 ---
-postsList.addEventListener('mousedown', handleSwipeStart);
-document.addEventListener('mousemove', handleSwipeMove);
-document.addEventListener('mouseup', handleSwipeEnd);
-postsList.addEventListener('touchstart', handleSwipeStart, { passive: false });
-postsList.addEventListener('touchmove', handleSwipeMove, { passive: false });
-postsList.addEventListener('touchend', handleSwipeEnd);
-
-// --- 绑定所有点击事件 ---
-// ▼▼▼ 【最终版】请用这个新版本替换旧的 postsList 事件监听器 ▼▼▼
-postsList.addEventListener('click', async (e) => {
+// ▼▼▼ 【全新】将这个函数粘贴到 handleSwipeStart 函数之前 ▼▼▼
+/**
+ * 【全新】处理动态区域内所有点击事件的统一入口
+ */
+async function handlePostClick(e) {
     e.stopPropagation();
     const target = e.target;
 
@@ -16491,46 +16542,36 @@ postsList.addEventListener('click', async (e) => {
         }
         return;
     }
-// ... (在 if (target.classList.contains('comment-delete-btn')) { ... } 之后)
 
-// ▼▼▼ 【最终修复方案】请用这个全新的代码块，完整替换旧的 if(commentItem) 逻辑 ▼▼▼
-    // --- 逻辑8: 【核心修复】处理点击评论进行回复 ---
     const commentItem = target.closest('.comment-item');
     if (commentItem) {
         const postId = parseInt(commentItem.dataset.postId);
         const commenterOriginalName = commentItem.dataset.commenterOriginalName;
         const commenterDisplayName = commentItem.dataset.commenterDisplayName;
 
-        // 终极安全检查
         if (!commenterOriginalName || !commenterDisplayName) {
             console.error("评论元素缺少必要的data属性，操作中断。");
             return;
         }
 
-        // 防止自己回复自己
         if (commenterOriginalName === state.qzoneSettings.nickname) {
             clearQzoneReplyContext(commentItem.closest('.qzone-post-container'));
             return;
         }
 
-        // 设置回复上下文
         currentQzoneReplyContext = {
             postId: postId,
             replyToName: commenterOriginalName,
             replyToDisplayName: commenterDisplayName
         };
         
-        // 更新输入框并聚焦
         const postContainer = commentItem.closest('.qzone-post-container');
         const commentInput = postContainer.querySelector('.comment-input');
         commentInput.placeholder = `回复 ${commenterDisplayName}:`;
         commentInput.focus();
         return; 
-}
-// ▲▲▲ 替换结束 ▲▲▲
+    }
 
-
-// ▲▲▲ 新增代码结束 ▲▲▲
     if (target.classList.contains('post-actions-btn')) {
         const container = target.closest('.qzone-post-container');
         if (container && container.dataset.postId) {
@@ -16583,22 +16624,20 @@ postsList.addEventListener('click', async (e) => {
         if (!postContainer) return;
         const postId = parseInt(postContainer.dataset.postId);
         if (isNaN(postId)) return;
-    if (icon.classList.contains('repost')) {
-        openRepostModal(postId);
-        return;
-    }
+        if (icon.classList.contains('repost')) {
+            openRepostModal(postId);
+            return;
+        }
         if (icon.classList.contains('like')) {
             const post = await db.qzonePosts.get(postId);
             if (!post) return;
             if (!post.likes) post.likes = [];
-            // ▼▼▼ 核心修改：用户点赞时，存入用户的固定昵称 ▼▼▼
             const userOriginalName = state.qzoneSettings.nickname;
             const userLikeIndex = post.likes.indexOf(userOriginalName);
             if (userLikeIndex > -1) {
                 post.likes.splice(userLikeIndex, 1);
             } else {
                 post.likes.push(userOriginalName);
-            // ▲▲▲ 修改结束 ▲▲▲
                 icon.classList.add('animate-like');
                 icon.addEventListener('animationend', () => icon.classList.remove('animate-like'), { once: true });
             }
@@ -16620,83 +16659,172 @@ postsList.addEventListener('click', async (e) => {
         await renderQzonePosts();
         return;
     }
-// ▼▼▼ 【最终修复方案】请用这个全新的代码块，完整替换旧的 if(sendBtn) 逻辑 ▼▼▼
-const sendBtn = target.closest('.comment-send-btn');
-if (sendBtn) {
-    const postContainer = sendBtn.closest('.qzone-post-container');
-    if (!postContainer) return;
-    const postId = parseInt(postContainer.dataset.postId);
-    const commentInput = postContainer.querySelector('.comment-input');
-    const commentText = commentInput.value.trim();
-    if (!commentText) return alert('评论内容不能为空哦！');
-    
-    const post = await db.qzonePosts.get(postId);
-    if (!post) return;
+    const sendBtn = target.closest('.comment-send-btn');
+    if (sendBtn) {
+        const postContainer = sendBtn.closest('.qzone-post-container');
+        if (!postContainer) return;
+        const postId = parseInt(postContainer.dataset.postId);
+        const commentInput = postContainer.querySelector('.comment-input');
+        const commentText = commentInput.value.trim();
+        if (!commentText) return alert('评论内容不能为空哦！');
+        
+        const post = await db.qzonePosts.get(postId);
+        if (!post) return;
 
-    if (!post.comments) post.comments = [];
-    
-    const newComment = {
-        commenterName: state.qzoneSettings.nickname,
-        text: commentText,
-        timestamp: Date.now(),
-        replyTo: null 
-    };
-    if (currentQzoneReplyContext && currentQzoneReplyContext.postId === postId) {
-        newComment.replyTo = currentQzoneReplyContext.replyToName;
-    }
-    
-    post.comments.push(newComment);
-    await db.qzonePosts.update(postId, { comments: post.comments });
-
-    // --- ▼▼▼ 核心新增：通知相关AI ▼▼▼ ---
-    let postSummary = (post.publicText || post.content || '').substring(0, 30);
-    const userNickname = state.qzoneSettings.nickname;
-
-    // 收集需要通知的AI的ID
-    const notifiedAiIds = new Set();
-    // 1. 通知帖子的作者（如果TA是AI）
-    if (post.authorId !== 'user') {
-        notifiedAiIds.add(post.authorId);
-    }
-    // 2. 通知被回复的人（如果TA是AI）
-    if (newComment.replyTo && newComment.replyTo !== userNickname) {
-        const repliedToChat = Object.values(state.chats).find(c => c.originalName === newComment.replyTo);
-        if (repliedToChat) {
-            notifiedAiIds.add(repliedToChat.id);
+        if (!post.comments) post.comments = [];
+        
+        const newComment = {
+            commenterName: state.qzoneSettings.nickname,
+            text: commentText,
+            timestamp: Date.now(),
+            replyTo: null 
+        };
+        if (currentQzoneReplyContext && currentQzoneReplyContext.postId === postId) {
+            newComment.replyTo = currentQzoneReplyContext.replyToName;
         }
-    }
-    
-    // 循环发送隐藏的系统提示
-    for (const aiId of notifiedAiIds) {
-        const chat = state.chats[aiId];
-        if (chat && !chat.isGroup) {
-            let notificationText;
-            if (newComment.replyTo) {
-                const repliedToDisplayName = currentQzoneReplyContext.replyToDisplayName;
-                notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${repliedToDisplayName}'的评论，内容是：“${commentText}”。`;
-            } else {
-                notificationText = `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
+        
+        post.comments.push(newComment);
+        await db.qzonePosts.update(postId, { comments: post.comments });
+
+        let postSummary = (post.publicText || post.content || '').substring(0, 30);
+        const userNickname = state.qzoneSettings.nickname;
+
+        const notifiedAiIds = new Set();
+        if (post.authorId !== 'user') {
+            notifiedAiIds.add(post.authorId);
+        }
+        if (newComment.replyTo && newComment.replyTo !== userNickname) {
+            const repliedToChat = Object.values(state.chats).find(c => c.originalName === newComment.replyTo);
+            if (repliedToChat) {
+                notifiedAiIds.add(repliedToChat.id);
             }
-            const historyMessage = { 
-                role: 'system', 
-                content: `[系统提示：${notificationText}请你对此作出回应。]`, 
-                timestamp: Date.now(), 
-                isHidden: true 
-            };
-            chat.history.push(historyMessage);
-            await db.chats.put(chat);
+        }
+        
+        for (const aiId of notifiedAiIds) {
+            const chat = state.chats[aiId];
+            if (chat && !chat.isGroup) {
+                let notificationText;
+                if (newComment.replyTo) {
+                    const repliedToDisplayName = currentQzoneReplyContext.replyToDisplayName;
+                    notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${repliedToDisplayName}'的评论，内容是：“${commentText}”。`;
+                } else {
+                    notificationText = `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
+                }
+                const historyMessage = { 
+                    role: 'system', 
+                    content: `[系统提示：${notificationText}请你对此作出回应。]`, 
+                    timestamp: Date.now(), 
+                    isHidden: true 
+                };
+                chat.history.push(historyMessage);
+                await db.chats.put(chat);
+            }
+        }
+        
+        commentInput.value = '';
+        clearQzoneReplyContext(postContainer); 
+        await renderQzonePosts();
+        return;
+    }
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+const handleSwipeStart = (e) => {
+    const targetContainer = e.target.closest('.qzone-post-container');
+    if (!targetContainer) return;
+
+    resetAllSwipes(targetContainer);
+    swipeState.activeContainer = targetContainer;
+    swipeState.isDragging = true;
+    swipeState.isClick = true;
+    swipeState.swipeDirection = null;
+    swipeState.startX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+    swipeState.startY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
+    swipeState.activeContainer.querySelector('.qzone-post-item').style.transition = 'none';
+};
+
+const handleSwipeMove = (e) => {
+    if (!swipeState.isDragging || !swipeState.activeContainer) return;
+
+    const currentX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
+    const currentY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
+    const diffX = currentX - swipeState.startX;
+    const diffY = currentY - swipeState.startY;
+    const absDiffX = Math.abs(diffX);
+    const absDiffY = Math.abs(diffY);
+    const clickThreshold = 5;
+
+    if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
+        swipeState.isClick = false;
+    }
+
+    if (swipeState.swipeDirection === null) {
+        if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
+            if (absDiffX > absDiffY) {
+                swipeState.swipeDirection = 'horizontal';
+            } else {
+                swipeState.swipeDirection = 'vertical';
+            }
         }
     }
-    // --- ▲▲▲ 新增结束 ▲▲▲ ---
+    if (swipeState.swipeDirection === 'vertical') {
+        handleSwipeEnd(e);
+        return;
+    }
+    if (swipeState.swipeDirection === 'horizontal') {
+        e.preventDefault();
+        swipeState.currentX = currentX;
+        let translation = diffX;
+        if (translation > 0) translation = 0;
+        if (translation < -90) translation = -90;
+        swipeState.activeContainer.querySelector('.qzone-post-item').style.transform = `translateX(${translation}px)`;
+    }
+};
+
+// ▼▼▼ 【最终修复方案】请用这个全新的函数，完整替换旧的 handleSwipeEnd 函数 ▼▼▼
+const handleSwipeEnd = async (e) => {
+    // 立即检查是否应该运行
+    if (!swipeState.isDragging || !swipeState.activeContainer) return;
+
+    const postItem = swipeState.activeContainer.querySelector('.qzone-post-item');
+    postItem.style.transition = 'transform 0.3s ease'; // 总是重新启用过渡效果
+
+    if (swipeState.isClick) {
+        // 这是一个点击事件
+        postItem.style.transform = ''; 
+        await handlePostClick(e); // 调用我们统一的点击处理函数
+    } else {
+        // 这是一个滑动事件
+        const finalX = e.type.includes('touchend') ? e.changedTouches[0].pageX : e.pageX;
+        const diffX = finalX - swipeState.startX;
+        const swipeThreshold = -40;
+
+        if (swipeState.swipeDirection === 'horizontal' && diffX < swipeThreshold) {
+            postItem.classList.add('swiped');
+        } else {
+            postItem.classList.remove('swiped');
+        }
+        postItem.style.transform = ''; // 重置内联样式，让CSS类接管
+    }
     
-    commentInput.value = '';
-    clearQzoneReplyContext(postContainer); 
-    await renderQzonePosts();
-    return;
-}
+    // 无论点击还是滑动，最后都重置状态
+    swipeState.isDragging = false;
+    swipeState.activeContainer = null;
+    swipeState.swipeDirection = null;
+    swipeState.isClick = true; 
+};
 // ▲▲▲ 替换结束 ▲▲▲
-});
-// ▲▲▲ 替换结束 ▲▲▲
+
+// --- 绑定所有滑动事件 ---
+postsList.addEventListener('mousedown', handleSwipeStart);
+document.addEventListener('mousemove', handleSwipeMove);
+document.addEventListener('mouseup', handleSwipeEnd);
+postsList.addEventListener('touchstart', handleSwipeStart, { passive: false });
+postsList.addEventListener('touchmove', handleSwipeMove, { passive: false });
+postsList.addEventListener('touchend', handleSwipeEnd);
+
+// --- 绑定所有点击事件 ---
+
+
 
             // ▼▼▼ 在 init() 函数的事件监听器区域，粘贴下面这两行 ▼▼▼
 
@@ -18096,3 +18224,4 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
 </div>
 </body>
 </html>
+
