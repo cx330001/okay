@@ -4166,10 +4166,21 @@ input:checked + .slider:before {
 /* ▲▲▲ 修复结束 ▲▲▲ */
 /* ▼▼▼ 【全新】群聊@功能样式 ▼▼▼ */
 
-/* 1. 为总输入区容器添加相对定位，作为弹窗的“锚点” */
+/* ▼▼▼ 【核心修复】请用这段代码替换您现有的 #chat-input-area 样式 ▼▼▼ */
 #chat-input-area {
-    position: relative;
+    position: relative; /* 保持相对定位，作为弹窗的“锚点” */
+    z-index: 20;      /* 【关键修复】提升整个输入区的层级 */
+    flex-shrink: 0;
+    padding: 8px;
+    background-color: rgba(247, 247, 247, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
 }
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 2. 定义聊天@弹窗的具体位置和样式 */
 #chat-at-mention-popup {
