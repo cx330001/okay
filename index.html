@@ -4857,7 +4857,35 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
+/* ▼▼▼ 【终极版】群公告对齐修复 (强制所有内容靠左) ▼▼▼ */
 
+/* 
+  第一步：强制所有消息块（无论是AI还是用户）都在公告板内靠左对齐。
+  这确保了AI和用户的消息块在垂直方向上是对齐的。
+*/
+#announcement-board-content .message-wrapper {
+    align-self: flex-start !important;
+}
+
+/* 
+  第二步：这是最关键的一步！
+  我们专门针对用户的消息气泡，强制将其内部的元素顺序（头像和内容）
+  从“反向”恢复为“正向”，使其与AI的消息气泡布局完全一致。
+*/
+#announcement-board-content .message-bubble.user {
+    flex-direction: row !important;
+}
+
+/* 
+  第三步 (可选但推荐): 
+  同时，我们也强制将用户消息块外部的时间戳和气泡顺序恢复正常，
+  以防未来可能出现的布局问题。
+*/
+#announcement-board-content .message-wrapper.user {
+    flex-direction: row !important;
+}
+
+/* ▲▲▲ 修复结束 ▲▲▲ */
     </style>
 </head>
 <body>
