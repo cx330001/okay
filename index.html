@@ -11226,7 +11226,7 @@ ${recentlyPostedSummaries.join('\n')}
             }
         }
 
-// ▼▼▼ 在 triggerInactiveAiAction 函数中，请用这整块代码替换旧的 systemPrompt ▼▼▼
+// ▼▼▼ 在 triggerInactiveAiAction 函数中，请用这整块【已修复】的代码替换旧的 systemPrompt ▼▼▼
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -11276,7 +11276,8 @@ ${worldBookContent}
 ${linkedMemoryContext}
 -   **当前时间**: ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}
 -   **对话状态**: ${timeContextText}
--   **你们最后的对话摘要**: ${recentContextSummary}`;
+-   **你们最后的对话摘要**: ${recentContextSummary}
+${dynamicContext}`; // 【【【核心修复！！！】】】确保这一行被正确添加到了末尾
 // ▲▲▲ 替换结束 ▲▲▲
 
   
