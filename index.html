@@ -6738,31 +6738,43 @@ function getDisplayNameInGroup(groupChat, originalName) {
 }
 
 // ▲▲▲ 函数结束 ▲▲▲
-// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
+// ▼▼▼ 请用这个【全新、更智能】的函数，完整替换旧的 getDisplayNameByOriginalName 函数 ▼▼▼
+
 /**
- * 【全新】根据角色的本名，在整个应用中查找其正确的显示名称
- * @param {string} originalName - 角色的本名 (e.g., "李星辰")
- * @returns {string} - 该角色的备注名/群昵称/用户昵称，如果找不到则返回其本名
+ * 【全新】根据角色的本名或曾用名，在整个应用中查找其正确的【当前显示名称】
+ * @param {string} nameIdentifier - 角色的本名 或 储存在旧数据中的曾用名
+ * @returns {string} - 该角色的【当前】备注名/群昵称/用户昵称，如果找不到则返回传入的标识符
  */
-function getDisplayNameByOriginalName(originalName) {
-    // 1. 检查是不是用户自己
-    if (state.qzoneSettings && originalName === state.qzoneSettings.nickname) {
+function getDisplayNameByOriginalName(nameIdentifier) {
+    // 1. 如果传入的是空值，直接返回
+    if (!nameIdentifier) return '';
+
+    // 2. 检查是不是用户自己
+    if (state.qzoneSettings && nameIdentifier === state.qzoneSettings.nickname) {
         return state.qzoneSettings.nickname;
     }
     
-    // 2. 在所有单聊角色中查找
-    const characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === originalName);
-    
-    // 3. 如果找到了，返回该角色的当前备注名
+    // 3. 【主要查找方式】: 通过“本名” (originalName) 查找。
+    // 这是最标准、最可靠的方式，适用于所有新创建的数据。
+    let characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === nameIdentifier);
     if (characterChat) {
-        return characterChat.name;
+        return characterChat.name; // 如果找到，返回该角色【当前】的备注名
     }
-    
-    // 4. 如果没找到，返回原始的本名作为备用
-    return originalName;
-}
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
 
+    // 4. 【兼容旧数据】: 如果通过“本名”没找到，就尝试把传入的名字当作一个【旧的备注名】去历史记录里查找。
+    characterChat = Object.values(state.chats).find(chat => 
+        !chat.isGroup && 
+        (chat.nameHistory && chat.nameHistory.includes(nameIdentifier))
+    );
+    if (characterChat) {
+        return characterChat.name; // 如果在历史记录里找到了，同样返回该角色【当前】的备注名
+    }
+
+    // 5. 【最终备用方案】: 如果以上方法都找不到，说明这可能是一个非常旧的数据，或者角色已被删除。
+    // 此时，直接返回储存在评论里的那个名字，至少能保证有内容显示。
+    return nameIdentifier;
+}
+// ▲▲▲ 替换结束 ▲▲▲
 // ▼▼▼ 请用这个【全新的、更智能的】函数，完整替换旧的 processMentions 函数 ▼▼▼
 
 /**
