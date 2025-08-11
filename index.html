@@ -9426,7 +9426,7 @@ ${formattedHistory}
 
 if (chat.isGroup) {
 // ▼▼▼ 在 triggerAiResponse 函数的 if (chat.isGroup) 分支中，请用这整块代码替换旧的 systemPrompt 构建逻辑 ▼▼▼
-
+    
     // 【核心新增1】为群聊构建每个成员的“好友列表”
     let membersWithContacts = chat.members.map(member => {
         const memberChat = state.chats[member.id];
@@ -9443,6 +9443,10 @@ if (chat.isGroup) {
     }).join('\n');
     
     const myNickname = chat.settings.myNickname || '我';
+    
+    // ★★★ 核心修复就在这里！★★★
+    // 我们明确地把用户的“本名”也作为一个变量传给AI
+    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
     
     // 后续代码不变...
     let announcementContext = '';
@@ -9471,11 +9475,11 @@ if (chat.isGroup) {
         groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
     }
 
-
+    // ★★★ 核心修复：更新指令，告诉AI用户的“本名”是什么 ★★★
     systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
-    - 用户的身份是【${myNickname}】。
+    - 用户的身份是【${myNickname}】，用户的【本名】是【${myOriginalName}】。当你要发专属红包给用户时，【必须】在 'receiver' 字段中使用这个本名。
     - 在生成JSON时，'name'字段【必须】使用角色的【本名】（例如：${chat.members[0]?.originalName || '角色的本名'}）。
     - **【【【重要】】】在对话内容（'message'或'speech'字段）中互相称呼时，你可以根据你的人设、语气和上下文，【自由选择】使用角色的【群昵称】或【本名】。例如，关系亲密时用昵称，严肃或正式场合用本名。**
     - 你【绝对不能】生成 'name' 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
@@ -9539,8 +9543,6 @@ ${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-
-// ▲▲▲ 新代码粘贴结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -11658,141 +11660,166 @@ async function triggerGroupAiAction(chatId) {
     const myNickname = chat.settings.myNickname || '我';
     const now = new Date();
     
-    const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
-    let timeContextText = "群里已经安静很久了。";
-    if (lastMessage) {
-        const lastTime = new Date(lastMessage.timestamp);
-        const diffMinutes = (now - lastTime) / (1000 * 60);
-        if (diffMinutes > 60) {
-            timeContextText = `群里已经安静了 ${Math.round(diffMinutes / 60)} 小时了。`;
-        }
-    }
-    let recentContextSummary = "你们最近没有有效聊天记录。";
-    const selfMemoryCount = 10;
-    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-selfMemoryCount);
-    if (recentHistory.length > 0) {
-        recentContextSummary = "这是你们最近的对话：\n" + recentHistory.map(msg => {
-            const sender = msg.role === 'user' ? myNickname : getDisplayNameInGroup(chat, msg.senderName);
-            const content = String(msg.content || msg.message || '').substring(0, 50);
-            return `${sender}: ${content}...`;
-        }).join('\n');
-    }
-
-    const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
-    let worldBookContent = '';
-    if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-        const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-            const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-            return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
-        }).filter(Boolean).join('');
-        if (linkedContents) {
-            worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
-        }
-    }
-
-    let linkedMemoryContext = '';
-    const memoryCount = chat.settings.linkedMemoryCount || 10;
-    if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-        const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
-            const linkedChat = state.chats[id];
-            if (!linkedChat) return null;
-            const lastMsg = linkedChat.history.slice(-1)[0];
-            return {
-                chat: linkedChat,
-                latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-            };
-        }).filter(Boolean); 
-
-        linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-        linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
-        for (const item of linkedChatsWithTimestamps) {
-            const linkedChat = item.chat;
-            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-            const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-            const recentHistory = linkedChat.history.slice(-memoryCount);
-            const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-            if (filteredHistory.length > 0) {
-                filteredHistory.forEach(msg => {
-                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                    let contentText = String(msg.content);
-                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                    } else if (msg.type === 'voice_message') {
-                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                    }
-                    linkedMemoryContext += `${sender}: ${contentText}\n`;
-                });
-            } else {
-                linkedMemoryContext += "(暂无有效聊天记录)\n";
-            }
-        }
-    }
-    const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
-    let dynamicContext = "";
+    // ★★★ 核心修复开始 ★★★
+    let systemPrompt;
     
-    const visiblePostsForGroup = new Set();
-    for (const member of chat.members) {
-        const memberChat = state.chats[member.id];
-        if (memberChat) {
-            const visibleForMember = filterVisiblePostsForAI(allRecentPosts, memberChat);
-            visibleForMember.forEach(post => visiblePostsForGroup.add(post));
-        }
-    }
+    // 1. 检查最近的消息，看是否有未领完的红包
+    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5); // 检查最近5条
+    const unclaimedPacket = recentHistory.find(m => m.type === 'red_packet' && !m.isFullyClaimed);
 
-    const groupMemberNames = new Set(chat.members.map(m => m.originalName));
-    const unInteractedPostsForGroup = [...visiblePostsForGroup].filter(post => {
-        const hasBeenLikedByGroup = post.likes && post.likes.some(likerName => groupMemberNames.has(likerName));
-        const hasBeenCommentedByGroup = post.comments && post.comments.some(comment => typeof comment === 'object' && groupMemberNames.has(comment.commenterName));
-        return !hasBeenLikedByGroup && !hasBeenCommentedByGroup;
-    });
-    
-    if (unInteractedPostsForGroup.length > 0) {
-        let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
-        for (const post of unInteractedPostsForGroup) {
-            let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
-            let contentSummary;
-            if (post.type === 'repost') {
-                const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
-                let originalAuthorName = '原作者';
-                const originalAuthorId = post.originalPost.authorId;
-                if (originalAuthorId === 'user') {
-                    originalAuthorName = state.qzoneSettings.nickname;
-                } else if (state.chats[originalAuthorId]) {
-                    originalAuthorName = state.chats[originalAuthorId].name;
-                }
-                let originalContentSummary;
-                const originalPost = post.originalPost;
-                if (originalPost.type === 'text_image') {
-                    originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
-                } else if (originalPost.type === 'image_post') {
-                    originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
-                } else { // 'shuoshuo'
-                    originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
-                }
-                contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
-            } else if (post.type === 'text_image') {
-                contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-            } else if (post.type === 'image_post') {
-                contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-            } else {
-                contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+    // 2. 如果找到了未领完的红包，就生成一个专门的“抢红包”指令
+    if (unclaimedPacket) {
+        const senderDisplayName = getDisplayNameInGroup(chat, unclaimedPacket.senderName);
+        console.log(`检测到群聊 "${chat.name}" 中有未领完的红包，正在生成抢红包指令...`);
+        
+        systemPrompt = `
+# 你的【【【最高优先级任务】】】
+群聊中刚刚出现了一个由“${senderDisplayName}”发送的、尚未领完的红包（时间戳: ${unclaimedPacket.timestamp}）。
+你的任务是：选择【一个或多个】符合人设的角色，让他们【立刻】使用 'open_red_packet' 指令去尝试领取这个红包。
+# 指令格式
+你的回复【必须】是一个JSON数组，格式如下：
+'[{"type": "open_red_packet", "name": "角色本名", "packet_timestamp": ${unclaimedPacket.timestamp}}]'
+
+你可以让多个角色同时尝试，只需在返回的JSON数组中包含多个这样的对象即可。
+现在，请立即执行抢红包操作！
+`;
+    } else {
+        // 3. 如果没有红包事件，才执行原来的通用聊天逻辑
+        const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
+        let timeContextText = "群里已经安静很久了。";
+        if (lastMessage) {
+            const lastTime = new Date(lastMessage.timestamp);
+            const diffMinutes = (now - lastTime) / (1000 * 60);
+            if (diffMinutes > 60) {
+                timeContextText = `群里已经安静了 ${Math.round(diffMinutes / 60)} 小时了。`;
             }
-            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
-            if (post.comments && post.comments.length > 0) {
-                for (const comment of post.comments) {
-                    if (typeof comment === 'object' && comment.commenterName) {
-                        const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
-                        let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
-                        postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+        }
+        let recentContextSummary = "你们最近没有有效聊天记录。";
+        const selfMemoryCount = 10;
+        const recentHistory = chat.history.filter(m => !m.isHidden).slice(-selfMemoryCount);
+        if (recentHistory.length > 0) {
+            recentContextSummary = "这是你们最近的对话：\n" + recentHistory.map(msg => {
+                const sender = msg.role === 'user' ? myNickname : getDisplayNameInGroup(chat, msg.senderName);
+                const content = String(msg.content || msg.message || '').substring(0, 50);
+                return `${sender}: ${content}...`;
+            }).join('\n');
+        }
+
+        const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
+            }).filter(Boolean).join('');
+            if (linkedContents) {
+                worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
+            }
+        }
+
+        let linkedMemoryContext = '';
+        const memoryCount = chat.settings.linkedMemoryCount || 10;
+        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+                const linkedChat = state.chats[id];
+                if (!linkedChat) return null;
+                const lastMsg = linkedChat.history.slice(-1)[0];
+                return {
+                    chat: linkedChat,
+                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                };
+            }).filter(Boolean); 
+
+            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
+            for (const item of linkedChatsWithTimestamps) {
+                const linkedChat = item.chat;
+                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+                const recentHistory = linkedChat.history.slice(-memoryCount);
+                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+                if (filteredHistory.length > 0) {
+                    filteredHistory.forEach(msg => {
+                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                        let contentText = String(msg.content);
+                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                        } else if (msg.type === 'voice_message') {
+                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                        }
+                        linkedMemoryContext += `${sender}: ${contentText}\n`;
+                    });
+                } else {
+                    linkedMemoryContext += "(暂无有效聊天记录)\n";
+                }
+            }
+        }
+        const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
+        let dynamicContext = "";
+        
+        const visiblePostsForGroup = new Set();
+        for (const member of chat.members) {
+            const memberChat = state.chats[member.id];
+            if (memberChat) {
+                const visibleForMember = filterVisiblePostsForAI(allRecentPosts, memberChat);
+                visibleForMember.forEach(post => visiblePostsForGroup.add(post));
+            }
+        }
+
+        const groupMemberNames = new Set(chat.members.map(m => m.originalName));
+        const unInteractedPostsForGroup = [...visiblePostsForGroup].filter(post => {
+            const hasBeenLikedByGroup = post.likes && post.likes.some(likerName => groupMemberNames.has(likerName));
+            const hasBeenCommentedByGroup = post.comments && post.comments.some(comment => typeof comment === 'object' && groupMemberNames.has(comment.commenterName));
+            return !hasBeenLikedByGroup && !hasBeenCommentedByGroup;
+        });
+        
+        if (unInteractedPostsForGroup.length > 0) {
+            let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
+            for (const post of unInteractedPostsForGroup) {
+                let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
+                let contentSummary;
+                if (post.type === 'repost') {
+                    const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                    let originalAuthorName = '原作者';
+                    const originalAuthorId = post.originalPost.authorId;
+                    if (originalAuthorId === 'user') {
+                        originalAuthorName = state.qzoneSettings.nickname;
+                    } else if (state.chats[originalAuthorId]) {
+                        originalAuthorName = state.chats[originalAuthorId].name;
+                    }
+                    let originalContentSummary;
+                    const originalPost = post.originalPost;
+                    if (originalPost.type === 'text_image') {
+                        originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                    } else if (originalPost.type === 'image_post') {
+                        originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                    } else { // 'shuoshuo'
+                        originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                    }
+                    contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+                } else if (post.type === 'text_image') {
+                    contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else if (post.type === 'image_post') {
+                    contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else {
+                    contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                }
+                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+                if (post.comments && post.comments.length > 0) {
+                    for (const comment of post.comments) {
+                        if (typeof comment === 'object' && comment.commenterName) {
+                            const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                            let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                            postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                        }
                     }
                 }
             }
+            dynamicContext = postsContext;
         }
-        dynamicContext = postsContext;
-    }
 
-    const systemPrompt = `
+        systemPrompt = `
 # 你的任务
 你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
@@ -11827,28 +11854,22 @@ ${dynamicContext}
 
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
+    }
+    // ★★★ 核心修复结束 ★★★
 
     try {
-        // ★★★ FIX: Combine systemPrompt with messagesPayload ★★★
-        const messagesPayload = [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
-        ];
-        
+        const messagesPayload = [{ role: 'user', content: systemPrompt }];
         let isGemini = proxyUrl === GEMINI_API_URL;
-        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesPayload); // This prepares data for Gemini
-        
-        const response = isGemini ? 
-            await fetch(geminiConfig.url, geminiConfig.data) : 
-            await fetch(`${proxyUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-                body: JSON.stringify({
-                    model: model,
-                    messages: messagesPayload, // The complete messages array is sent here
-                    temperature: 0.9,
-                })
-            });
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesPayload);
+        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+            body: JSON.stringify({
+                model: model,
+                messages: messagesPayload,
+                temperature: 0.9,
+            })
+        });
 
         if (!response.ok) throw new Error((await response.json()).error.message);
 
@@ -11875,6 +11896,72 @@ ${dynamicContext}
 
             let aiMessage = null;
             const baseMessage = { role: 'assistant', senderName: action.name, timestamp: actionTimestamp++ };
+
+            // ★★★ 核心修复：处理 open_red_packet 指令 ★★★
+            if (action.type === 'open_red_packet') {
+                const packetToOpen = chat.history.find(m => m.timestamp === action.packet_timestamp);
+                // 确保红包存在、没领完、且这个角色还没领过
+                if (packetToOpen && !packetToOpen.isFullyClaimed && !(packetToOpen.claimedBy && packetToOpen.claimedBy[action.name])) {
+                    // (这里的抢红包逻辑和用户抢红包的逻辑是完全一样的)
+                    let claimedAmountAI = 0;
+                    const remainingAmount = packetToOpen.totalAmount - Object.values(packetToOpen.claimedBy || {}).reduce((sum, val) => sum + val, 0);
+                    const remainingCount = packetToOpen.count - Object.keys(packetToOpen.claimedBy || {}).length;
+                    
+                    if (remainingCount > 0) {
+                        if (remainingCount === 1) { claimedAmountAI = remainingAmount; } 
+                        else {
+                            const min = 0.01;
+                            const max = remainingAmount - (remainingCount - 1) * min;
+                            claimedAmountAI = Math.random() * (max - min) + min;
+                        }
+                        claimedAmountAI = parseFloat(claimedAmountAI.toFixed(2));
+                        if (!packetToOpen.claimedBy) packetToOpen.claimedBy = {};
+                        packetToOpen.claimedBy[action.name] = claimedAmountAI;
+
+                        // 创建对用户可见的系统消息
+                        chat.history.push({
+                            role: 'system',
+                            type: 'pat_message',
+                            content: `${senderDisplayName} 领取了 ${getDisplayNameInGroup(chat, packetToOpen.senderName)} 的红包`,
+                            timestamp: Date.now()
+                        });
+                        
+                        // 创建对AI隐藏的、告知结果的消息
+                        let hiddenContentForAI = `[系统提示：你 (${senderDisplayName}) 成功抢到了 ${claimedAmountAI.toFixed(2)} 元。`;
+                        if (Object.keys(packetToOpen.claimedBy).length >= packetToOpen.count) {
+                            packetToOpen.isFullyClaimed = true;
+                            // 告知红包领完了
+                            chat.history.push({
+                                role: 'system',
+                                type: 'pat_message',
+                                content: `${getDisplayNameInGroup(chat, packetToOpen.senderName)} 的红包已被领完`,
+                                timestamp: Date.now() + 1
+                            });
+                            // 找出并告知手气王是谁
+                            let luckyKing = { name: '', amount: -1 };
+                            Object.entries(packetToOpen.claimedBy).forEach(([name, amount]) => {
+                                if (amount > luckyKing.amount) {
+                                    luckyKing = { name, amount };
+                                }
+                            });
+                            if (luckyKing.name) {
+                                 const luckyKingDisplayName = getDisplayNameInGroup(chat, luckyKing.name);
+                                 hiddenContentForAI += ` 红包已被领完，手气王是 ${luckyKingDisplayName}！`;
+                            }
+                        }
+                        hiddenContentForAI += ' 请根据这个结果发表你的评论。]';
+                        chat.history.push({
+                            role: 'system',
+                            content: hiddenContentForAI,
+                            timestamp: Date.now() + 2,
+                            isHidden: true
+                        });
+                    }
+                }
+                hasPerformedMajorAction = true; // 标记有重要行动
+                continue; // 处理完抢红包后，跳过本次循环，等待下一次tick来发表评论
+            }
+            // ★★★ 修复结束 ★★★
 
             switch (action.type) {
                 case 'qzone_post':
@@ -14056,12 +14143,13 @@ async function handlePacketClick(timestamp) {
     state.chats[currentChatId] = freshChat;
     const packet = freshChat.history.find(m => m.timestamp === timestamp);
     if (!packet) return;
-
-    const myNickname = freshChat.settings.myNickname || '我';
-    const hasClaimed = packet.claimedBy && packet.claimedBy[myNickname];
+    
+    // ★★★ 核心修复：在这里，我们获取用户的“本名”而不是“群昵称” ★★★
+    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+    const hasClaimed = packet.claimedBy && packet.claimedBy[myOriginalName];
 
     // 如果是专属红包且不是给我的，或已领完，或已领过，都只显示详情
-    if ((packet.packetType === 'direct' && packet.receiverName !== myNickname) || packet.isFullyClaimed || hasClaimed) {
+    if ((packet.packetType === 'direct' && packet.receiverName !== myOriginalName) || packet.isFullyClaimed || hasClaimed) {
         showRedPacketDetails(packet);
     } else {
         // 核心流程：先尝试打开红包
@@ -16687,7 +16775,7 @@ document.getElementById('selection-delete-btn').addEventListener('click', async 
     if (confirmed) {
         const chat = state.chats[state.activeChatId];
         
-        // 1. 【核心加强】在删除前，检查被删除的消息中是否包含投票
+        // ★★★ 核心修复1：在删除前，检查被删除的消息中是否包含投票 ★★★
         let deletedPollsInfo = [];
         for (const timestamp of selectedMessages) {
             const msg = chat.history.find(m => m.timestamp === timestamp);
@@ -16699,7 +16787,7 @@ document.getElementById('selection-delete-btn').addEventListener('click', async 
         // 2. 更新后端的历史记录
         chat.history = chat.history.filter(msg => !selectedMessages.has(msg.timestamp));
         
-        // 3. 【核心加强】构建更具体的“遗忘指令”
+        // ★★★ 核心修复2：构建更具体的“遗忘指令” ★★★
         let forgetReason = "一些之前的消息已被用户删除。";
         if (deletedPollsInfo.length > 0) {
             forgetReason += ` 其中包括以下投票：${deletedPollsInfo.join('；')}。`;
@@ -16710,7 +16798,7 @@ document.getElementById('selection-delete-btn').addEventListener('click', async 
             role: 'system',
             content: `[系统提示：${forgetReason}]`,
             timestamp: Date.now(),
-            isHidden: true 
+            isHidden: true // 这个标记让这条消息对您不可见，但AI能看到
         };
         chat.history.push(forgetInstruction);
         
