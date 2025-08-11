@@ -11813,18 +11813,26 @@ ${membersList}
 `;
 
     try {
-        const messagesPayload = [{ role: 'user', content: systemPrompt }];
+        // ★★★ FIX: Combine systemPrompt with messagesPayload ★★★
+        const messagesPayload = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
+        ];
+        
         let isGemini = proxyUrl === GEMINI_API_URL;
-        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesPayload);
-        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-            body: JSON.stringify({
-                model: model,
-                messages: messagesPayload,
-                temperature: 0.9,
-            })
-        });
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesPayload); // This prepares data for Gemini
+        
+        const response = isGemini ? 
+            await fetch(geminiConfig.url, geminiConfig.data) : 
+            await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                body: JSON.stringify({
+                    model: model,
+                    messages: messagesPayload, // The complete messages array is sent here
+                    temperature: 0.9,
+                })
+            });
 
         if (!response.ok) throw new Error((await response.json()).error.message);
 
@@ -11849,8 +11857,7 @@ ${membersList}
             const senderDisplayName = getDisplayNameInGroup(chat, action.name);
             let visibleSystemMessage = null;
 
-            // ▼▼▼ 核心修复就在这里！▼▼▼
-            let aiMessage = null; // 先声明一个变量
+            let aiMessage = null;
             const baseMessage = { role: 'assistant', senderName: action.name, timestamp: actionTimestamp++ };
 
             switch (action.type) {
@@ -11886,12 +11893,10 @@ ${membersList}
                     aiMessage = {
                         ...baseMessage,
                         type: 'ai_image',
-                        // 核心修复：将 AI 返回的 description 赋值给 content 字段
                         content: action.description 
                     };
                     break;
                 default:
-                    // 对于其他所有消息类型，保持原样
                     if (action.type === 'poll') {
                          const pollOptions = typeof action.options === 'string' 
                             ? action.options.split('\n').filter(opt => opt.trim()) 
@@ -11914,7 +11919,6 @@ ${membersList}
                     timestamp: actionTimestamp++
                 });
             } 
-            // 如果生成了一条有效的聊天消息，就处理它
             else if (aiMessage) {
                 chat.history.push(aiMessage);
                 if (!notificationSender) {
@@ -11922,7 +11926,6 @@ ${membersList}
                     notificationContent = aiMessage.type === 'ai_image' ? '[图片]' : (aiMessage.content || `[${aiMessage.type}]`);
                 }
             }
-            // ▲▲▲ 修复结束 ▲▲▲
             hasPerformedMajorAction = true;
         }
         
@@ -13788,7 +13791,7 @@ function startAllCountdownTimers() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 请用这个【终极反代兼容版】替换旧的 triggerAiFriendApplication 函数 ▼▼▼
+// ▼▼▼ 【终极反代兼容版】替换旧的 triggerAiFriendApplication 函数 ▼▼▼
 async function triggerAiFriendApplication(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -13809,7 +13812,6 @@ async function triggerAiFriendApplication(chatId) {
         })
         .join('\n');
 
-    // ▼▼▼ 在这里添加下面的代码 ▼▼▼
     let worldBookContent = '';
     if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
         const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -13820,7 +13822,6 @@ async function triggerAiFriendApplication(chatId) {
             worldBookContent = `\n\n# 核心世界观设定 (请参考)\n${linkedContents}\n`;
         }
     }
-    // ▲▲▲ 添加结束 ▲▲▲
 
     const systemPrompt = `
 # 你的任务
@@ -13828,7 +13829,7 @@ async function triggerAiFriendApplication(chatId) {
 现在，你非常希望能够和好，重新和用户聊天。请你仔细分析下面的“被拉黑前的对话摘要”，理解当时发生了什么，然后思考一个真诚的、符合你人设、并且【针对具体事件】的申请理由。
 # 你的角色设定
 ${chat.settings.aiPersona}
-${worldBookContent} // <--【核心】在这里注入世界书内容
+${worldBookContent}
 # 被拉黑前的对话摘要 (这是你被拉黑的关键原因)
 ${contextSummary}
 # 指令格式
@@ -13841,48 +13842,43 @@ ${contextSummary}
 \`\`\`
 `;
 
+    try {
+        // ★★★ FIX: Combine systemPrompt with messagesForApi ★★★
         const messagesForApi = [
-            {role: 'user', content: systemPrompt}
+            {role: 'system', content: systemPrompt},
+            {role: 'user', content: "请根据以上设定开始你的决策。"} // A simple trigger message
         ];
 
-        try {
-            let  isGemini = proxyUrl === GEMINI_API_URL;
-            let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesForApi)
-            const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-                body: JSON.stringify({
-                    model: model,
-                    messages: messagesForApi,
-                    temperature: 0.9,
-                })
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`API 请求失败: ${response.status} - ${errorData.error.message}`);
-            }
+        let  isGemini = proxyUrl === GEMINI_API_URL;
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, messagesForApi);
 
-            const data = await response.json();
+        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+            body: JSON.stringify({
+                model: model,
+                messages: messagesForApi, // Send the combined messages
+                temperature: 0.9,
+            })
+        });
 
-            // --- 【核心修正：在这里净化AI的回复】 ---
-            let rawContent = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
-            // 1. 移除头尾可能存在的 "```json" 和 "```"
-            rawContent = rawContent.replace(/^```json\s*/, '').replace(/```$/, '');
-            // 2. 移除所有换行符和多余的空格，确保是一个干净的JSON字符串
-            const cleanedContent = rawContent.trim();
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API 请求失败: ${response.status} - ${errorData.error.message}`);
+        }
 
-            // 3. 使用净化后的内容进行解析
-            const responseObj = JSON.parse(cleanedContent);
-            // --- 【修正结束】 ---
+        const data = await response.json();
+        let rawContent = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
+        rawContent = rawContent.replace(/^```json\s*/, '').replace(/```$/, '');
+        const cleanedContent = rawContent.trim();
+        const responseObj = JSON.parse(cleanedContent);
 
         if (responseObj.decision === 'apply' && responseObj.reason) {
             chat.relationship.status = 'pending_user_approval';
             chat.relationship.applicationReason = responseObj.reason;
-            
             state.chats[chatId] = chat; 
             renderChatList();
             await showCustomAlert("申请成功！", `“${chat.name}”已向你发送好友申请。请返回聊天列表查看。`);
-
         } else {
             await showCustomAlert("AI决策", `“${chat.name}”思考后决定暂时不发送好友申请，将重置冷静期。`);
             chat.relationship.status = 'blocked_by_user';
