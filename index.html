@@ -9266,7 +9266,74 @@ async function triggerAiResponse() {
             return;
         }
 
+        // ★★★ 核心修复开始 ★★★
+        // 1. 检查最新的一条消息是否是视频通话请求
+        const lastMessage = chat.history.slice(-1)[0];
+        const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
+
+        // 2. 如果是视频通话请求，就进入专门的处理流程
+        if (isVideoCallRequest) {
+            console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
+            
+            let callDecisionPrompt;
+            if (chat.isGroup) {
+                callDecisionPrompt = `
+# 你的任务
+群聊中的用户刚刚发起了群视频通话。请你分别扮演【每一个群成员】，根据他们各自的人设和与用户的关系，来决定是加入(join)还是拒绝(decline)。
+# 核心规则
+- 你的回复【必须】是一个JSON数组，为【每一个AI角色】都包含一个决策对象。
+- 格式: '[{"type": "group_call_response", "name": "角色A的本名", "decision": "join"}, {"type": "group_call_response", "name": "角色B的本名", "decision": "decline"}]'
+# 群成员列表及人设
+${chat.members.map(m => `- ${m.groupNickname} (本名: ${m.originalName}): ${m.persona}`).join('\n')}
+现在，请为所有AI角色做出决策。`;
+            } else {
+                callDecisionPrompt = `
+# 你的任务
+用户刚刚向你发起了视频通话。请根据你的角色设定，决定是“接受”还是“拒绝”。
+# 你的角色设定
+${chat.settings.aiPersona}
+# 核心规则
+你的回复【必须且只能】是以下两种格式之一的JSON数组，绝对不能回复任何其他内容：
+- 接受: '[{"type": "video_call_response", "decision": "accept"}]'
+- 拒绝: '[{"type": "video_call_response", "decision": "reject"}]'
+现在，请立即做出决策。`;
+            }
+
+            const messagesForCallDecision = [{role: 'user', content: callDecisionPrompt}];
+            
+            try {
+                let geminiConfig = toGeminiRequestData(model, apiKey, callDecisionPrompt, messagesForCallDecision);
+                let isGemini = proxyUrl === GEMINI_API_URL;
+                const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                    body: JSON.stringify({model: model, messages: messagesForCallDecision, temperature: 0.7})
+                });
+                
+                if (!response.ok) throw new Error(`API失败: ${(await response.json()).error.message}`);
+                
+                const data = await response.json();
+                const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+                const responseArray = parseAiResponse(aiResponseContent);
+
+                // (处理AI决策的后续逻辑将会在主循环中完成，这里只是获取决策)
+                // 为了统一处理，我们将AI的决策结果也伪装成一个正常的聊天回复数组
+                // 这样就可以复用下面的大循环逻辑了
+                chat.history.push(...responseArray.map(action => ({...action, isTemporary: true})));
+
+            } catch (error) {
+                console.error("处理通话请求时API出错:", error);
+                // 如果出错，默认拒绝
+                const fallbackResponse = chat.isGroup ?
+                    chat.members.map(m => ({type: "group_call_response", name: m.originalName, decision: "decline"})) :
+                    [{type: "video_call_response", decision: "reject"}];
+                chat.history.push(...fallbackResponse.map(action => ({...action, isTemporary: true})));
+            }
+            // ★★★ 核心修复结束 ★★★
+        }
+
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
+             // (您原有的好友申请处理逻辑保持不变，这里省略)
             console.log(`为角色 "${chat.name}" 触发带理由的好友申请决策流程...`);
             const contextSummary = chat.history
                 .filter(m => !m.isHidden)
@@ -9332,6 +9399,7 @@ ${contextSummary || "（无有效对话记录）"}
             return; 
         }
 
+        // (后续构建通用 systemPrompt 和 messagesPayload 的代码保持不变，这里省略...)
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
         let worldBookContent = '';
@@ -9461,9 +9529,7 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
 if (chat.isGroup) {
-// ▼▼▼ 在 triggerAiResponse 函数的 if (chat.isGroup) 分支中，请用这整块代码替换旧的 systemPrompt 构建逻辑 ▼▼▼
-    
-    // 【核心新增1】为群聊构建每个成员的“好友列表”
+// (您的群聊systemPrompt构建逻辑保持不变)
     let membersWithContacts = chat.members.map(member => {
         const memberChat = state.chats[member.id];
         let contactsText = "无共同好友";
@@ -9480,11 +9546,8 @@ if (chat.isGroup) {
     
     const myNickname = chat.settings.myNickname || '我';
     
-    // ★★★ 核心修复就在这里！★★★
-    // 我们明确地把用户的“本名”也作为一个变量传给AI
     const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
     
-    // 后续代码不变...
     let announcementContext = '';
     const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
     if (pinnedAnnouncements.length > 0) {
@@ -9511,7 +9574,6 @@ if (chat.isGroup) {
         groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
     }
 
-    // ★★★ 核心修复：更新指令，告诉AI用户的“本名”是什么 ★★★
     systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
@@ -9579,7 +9641,7 @@ ${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-            
+
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
                 let prefix = `${sender}`;
@@ -9648,20 +9710,17 @@ ${membersWithContacts}
             }).filter(Boolean);
 
         } else {
+// (您的单聊systemPrompt构建逻辑保持不变)
 let nameHistoryContext = '';
 if (chat.nameHistory && chat.nameHistory.length > 0) {
     nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
 }
 
-// ▼▼▼ 在 triggerAiResponse 函数的 else (私聊) 分支中，请用这整块代码替换旧的 systemPrompt 构建逻辑 ▼▼▼
-        
-        // 【核心新增1】构建一个完整的、关于“用户”的身份档案
         let userProfileContext = '';
         const userQzoneNickname = state.qzoneSettings.nickname || '用户';
         userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
 
         const allChats = Object.values(state.chats);
-        // 查找当前AI角色所在的所有群聊
         const commonGroups = allChats.filter(group => 
             group.isGroup && group.members.some(m => m.id === chat.id)
         );
@@ -9669,20 +9728,18 @@ if (chat.nameHistory && chat.nameHistory.length > 0) {
         if (commonGroups.length > 0) {
             userProfileContext += '- 用户在你们共同所在的群聊中的昵称如下：\n';
             commonGroups.forEach(group => {
-                const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; // 如果没设置群昵称，就用QZone昵称
+                const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; 
                 userProfileContext += `  - 在群聊“${group.name}”中，用户的昵称是“${myNicknameInGroup}”。\n`;
             });
         }
         userProfileContext += '当你在任何系统提示、动态评论或挂载的群聊记忆中看到这些名字时，它们都指代的是【你的聊天对象】。';
 
-        // 【核心新增2】构建通讯录 (逻辑不变)
         let contactsList = '';
-        // 筛选出所有与当前AI角色在同一个分组的“好友”
         const friendChats = allChats.filter(c => 
-            !c.isGroup && // 必须是单聊角色
-            c.id !== chat.id && // 不能是自己
-            c.groupId === chat.groupId && // 必须在同一个分组
-            chat.groupId !== null // 当前AI自己也必须有分组
+            !c.isGroup && 
+            c.id !== chat.id && 
+            c.groupId === chat.groupId && 
+            chat.groupId !== null 
         );
 
         if (friendChats.length > 0) {
@@ -9782,8 +9839,7 @@ ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
-// ▲▲▲ 新代码粘贴结束 ▲▲▲
-            
+
             messagesPayload = historySlice.map(msg => {
                 if (msg.isHidden) return null;
                 if (msg.role === 'assistant') {
@@ -9904,8 +9960,7 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                 throw new Error(errorMsg);
             }
             const data = await response.json();
-            const aiResponseContent = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
-            console.log(`AI '${chat.name}' 的原始回复:`, aiResponseContent);
+            const aiResponseContent = getGeminiResponseText(data); 
 
         chat.history = chat.history.filter(msg => !msg.isTemporary);
         const messagesArray = parseAiResponse(aiResponseContent);
