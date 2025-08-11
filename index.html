@@ -17248,6 +17248,30 @@ async function handlePostClick(e) {
     e.stopPropagation();
     const target = e.target;
 
+    // --- 【核心修复】优先处理评论删除按钮的点击 ---
+    const deleteBtn = target.closest('.comment-delete-btn');
+    if (deleteBtn) {
+        const postContainer = deleteBtn.closest('.qzone-post-container');
+        const postId = parseInt(postContainer.dataset.postId);
+        const commentIndex = parseInt(deleteBtn.dataset.commentIndex);
+        if (isNaN(postId) || isNaN(commentIndex)) return;
+
+        const post = qzonePostsCache.find(p => p.id === postId);
+        if (!post || !post.comments || !post.comments[commentIndex]) return;
+        
+        // 【【【这就是您要的修改！】】】
+        // 我已经移除了这里的权限检查，现在您可以删除任何人的评论了。
+        const confirmed = await showCustomConfirm('删除评论', '确定要删除这条评论吗？', { confirmButtonClass: 'btn-danger' });
+        if (confirmed) {
+            post.comments.splice(commentIndex, 1);
+            await db.qzonePosts.update(postId, { comments: post.comments });
+            await updateSinglePostInDOM(postId); // 增量更新UI
+        }
+        
+        return; // 处理完后必须退出，防止触发其他点击事件
+    }
+    // --- 修复结束 ---
+
     // --- 所有弹窗和非DOM更新的逻辑保持不变 ---
     const stickerBtn = target.closest('.comment-sticker-btn');
     if (stickerBtn) { /* ... 您的 sticker 逻辑不变 ... */ 
