@@ -9305,44 +9305,61 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
 if (chat.isGroup) {
-const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
-const myNickname = chat.settings.myNickname || '我';
+// ▼▼▼ 在 triggerAiResponse 函数的 if (chat.isGroup) 分支中，请用这整块代码替换旧的 systemPrompt 构建逻辑 ▼▼▼
 
-let announcementContext = '';
-const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
-if (pinnedAnnouncements.length > 0) {
-    announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
-    pinnedAnnouncements.forEach(anno => {
-        const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
-        if (originalMessage) {
-            let contentText = String(originalMessage.content || '');
-            if (originalMessage.type === 'ai_image') {
-                contentText = `[图片内容: ${contentText}]`;
+    // 【核心新增1】为群聊构建每个成员的“好友列表”
+    let membersWithContacts = chat.members.map(member => {
+        const memberChat = state.chats[member.id];
+        let contactsText = "无共同好友";
+        if (memberChat && memberChat.groupId) {
+            const friendChats = Object.values(state.chats).filter(c => 
+                !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
+            );
+            if (friendChats.length > 0) {
+                contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
             }
-            announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
         }
-    });
-    announcementContext += '---\n';
-}
-const memberNames = chat.members.map(m => m.originalName);
-const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+        return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
+    }).join('\n');
+    
+    const myNickname = chat.settings.myNickname || '我';
+    
+    // 后续代码不变...
+    let announcementContext = '';
+    const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
+    if (pinnedAnnouncements.length > 0) {
+        announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
+        pinnedAnnouncements.forEach(anno => {
+            const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+            if (originalMessage) {
+                let contentText = String(originalMessage.content || '');
+                if (originalMessage.type === 'ai_image') {
+                    contentText = `[图片内容: ${contentText}]`;
+                }
+                announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+            }
+        });
+        announcementContext += '---\n';
+    }
+    const memberNames = chat.members.map(m => m.originalName);
+    const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
 
-let groupAvatarLibraryContext = '# 可用群头像列表\n';
-if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
-    groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
-} else {
-    groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
-}
+    let groupAvatarLibraryContext = '# 可用群头像列表\n';
+    if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
+        groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
+    } else {
+        groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+    }
 
-// ▼▼▼ 请用这个【已包含视频通话铁律】的全新版本，替换旧的群聊 systemPrompt ▼▼▼
-systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+
+    systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
     - 用户的身份是【${myNickname}】。
     - 在生成JSON时，'name'字段【必须】使用角色的【本名】（例如：${chat.members[0]?.originalName || '角色的本名'}）。
     - **【【【重要】】】在对话内容（'message'或'speech'字段）中互相称呼时，你可以根据你的人设、语气和上下文，【自由选择】使用角色的【群昵称】或【本名】。例如，关系亲密时用昵称，严肃或正式场合用本名。**
     - 你【绝对不能】生成 'name' 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
-2. **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
+2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
 3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
 4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
 5.  **情景感知**: 注意当前时间是 ${currentTime}。
@@ -9358,13 +9375,6 @@ systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的�
     - 你也可以随时主动发起投票。
 8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
 9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
-
-# 【【【群视频通话铁律 (最高优先级)】】】
-1.  **发起通话**: 当你扮演的角色想发起群视频时，你【必须且只能】发送一条指令：'{"type": "group_call_request", "name": "发起者角色本名"}'。
-2.  **绝对禁止**: 在发送 'group_call_request' 指令【之前】，你【绝对不能】自己描述任何有关视频画面的内容，比如“xxx出现在画面里”。
-3.  **等待响应**: 发起后，你需要等待。系统会通过 '[系统提示：用户加入了通话...]' 或 '[系统提示：用户拒绝了通话...]' 来告诉你用户的决定。
-4.  **开始描述**: 【只有在】系统提示通话已开始或有人加入后，你才能开始扮演角色在视频中的行为和对话。
-
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
@@ -9403,12 +9413,14 @@ ${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
 
 ${announcementContext}
-# 群成员列表及人设
-${membersList}
+# 群成员列表、人设及社交背景 (至关重要！)
+你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
+${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-// ▲▲▲ 替换结束 ▲▲▲
+
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
