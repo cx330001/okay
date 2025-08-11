@@ -11194,7 +11194,7 @@ function runBackgroundSimulationTick() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 【最终版·已修复通知功能】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -11293,50 +11293,117 @@ ${recentlyPostedSummaries.join('\n')}
         }
     }
     
-        let linkedMemoryContext = '';
-        const memoryCount = chat.settings.linkedMemoryCount || 10;
-        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
-                const linkedChat = state.chats[id];
-                if (!linkedChat) return null;
-                const lastMsg = linkedChat.history.slice(-1)[0];
-                return {
-                    chat: linkedChat,
-                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-                };
-            }).filter(Boolean); 
+    let linkedMemoryContext = '';
+    const memoryCount = chat.settings.linkedMemoryCount || 10;
+    if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+        const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+            const linkedChat = state.chats[id];
+            if (!linkedChat) return null;
+            const lastMsg = linkedChat.history.slice(-1)[0];
+            return {
+                chat: linkedChat,
+                latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+            };
+        }).filter(Boolean); 
 
-            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+        linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
 
-            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
+        linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
 
-            for (const item of linkedChatsWithTimestamps) {
-                const linkedChat = item.chat;
-                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+        for (const item of linkedChatsWithTimestamps) {
+            const linkedChat = item.chat;
+            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+            const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
 
-                const recentHistory = linkedChat.history.slice(-memoryCount);
-                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+            const recentHistory = linkedChat.history.slice(-memoryCount);
+            const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
 
-                if (filteredHistory.length > 0) {
-                    filteredHistory.forEach(msg => {
-                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                        let contentText = String(msg.content);
-                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                        } else if (msg.type === 'voice_message') {
-                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                        }
-                        linkedMemoryContext += `${sender}: ${contentText}\n`;
-                    });
-                } else {
-                    linkedMemoryContext += "(暂无有效聊天记录)\n";
+            if (filteredHistory.length > 0) {
+                filteredHistory.forEach(msg => {
+                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                    let contentText = String(msg.content);
+                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                    } else if (msg.type === 'voice_message') {
+                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                    }
+                    linkedMemoryContext += `${sender}: ${contentText}\n`;
+                });
+            } else {
+                linkedMemoryContext += "(暂无有效聊天记录)\n";
+            }
+        }
+    }
+
+    // ===================================
+    //  ★★★ FIX START ★★★ 
+    // ===================================
+    // The code that defines `dynamicContext` has been moved from the `try` block to here.
+
+    const unInteractedPosts = visiblePosts.filter(post => {
+        const aiName = chat.name;
+        const alreadyLiked = post.likes && post.likes.includes(aiName);
+        const alreadyCommented = post.comments && post.comments.some(c => c.commenterName === chat.name);
+        return !alreadyLiked && !alreadyCommented;
+    });
+
+    let dynamicContext = "";
+    if (unInteractedPosts.length > 0) {
+        let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+        for (const post of unInteractedPosts) {
+            let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
+            let interactionStatus = '';
+            if (post.likes && post.likes.includes(chat.name)) interactionStatus += " [你已点赞]";
+            if (post.comments && post.comments.some(c => c.commenterName === chat.name)) interactionStatus += " [你已评论]";
+            if (post.authorId === chatId) authorName += " (这是你的帖子)";
+
+            let contentSummary;
+            if (post.type === 'repost') {
+                const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                let originalAuthorName = '原作者';
+                const originalAuthorId = post.originalPost.authorId;
+                if (originalAuthorId === 'user') {
+                    originalAuthorName = state.qzoneSettings.nickname;
+                } else if (state.chats[originalAuthorId]) {
+                    originalAuthorName = state.chats[originalAuthorId].name;
+                }
+                let originalContentSummary;
+                const originalPost = post.originalPost;
+                if (originalPost.type === 'text_image') {
+                    originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                } else if (originalPost.type === 'image_post') {
+                    originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                } else { // 'shuoshuo'
+                    originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                }
+                contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+            } else if (post.type === 'text_image') {
+                contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else if (post.type === 'image_post') {
+                contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+            } else {
+                contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+            }
+            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
+
+            if (post.comments && post.comments.length > 0) {
+                for (const comment of post.comments) {
+                    if (typeof comment === 'object' && comment.commenterName) {
+                        const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                        let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                        postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                    }
                 }
             }
         }
+        dynamicContext = postsContext;
+    }
+    // ===================================
+    //  ★★★ FIX END ★★★ 
+    // ===================================
 
-// ▼▼▼ 在 triggerInactiveAiAction 函数中，请用这整块【已修复】的代码替换旧的 systemPrompt ▼▼▼
+
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -11387,71 +11454,9 @@ ${linkedMemoryContext}
 -   **当前时间**: ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}
 -   **对话状态**: ${timeContextText}
 -   **你们最后的对话摘要**: ${recentContextSummary}
-${dynamicContext}`; // 【【【核心修复！！！】】】确保这一行被正确添加到了末尾
-// ▲▲▲ 替换结束 ▲▲▲
-
+${dynamicContext}`;
   
   try {
-        const COMMENT_COOLDOWN_MINUTES = 60;
-       const unInteractedPosts = visiblePosts.filter(post => {
-            const aiName = chat.name;
-            const alreadyLiked = post.likes && post.likes.includes(aiName);
-            const alreadyCommented = post.comments && post.comments.some(c => c.commenterName === chat.name);
-            return !alreadyLiked && !alreadyCommented;
-        });
-
-        let dynamicContext = "";
-        if (unInteractedPosts.length > 0) {
-            let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            for (const post of unInteractedPosts) {
-                let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
-                let interactionStatus = '';
-                if (post.likes && post.likes.includes(chat.name)) interactionStatus += " [你已点赞]";
-                if (post.comments && post.comments.some(c => c.commenterName === chat.name)) interactionStatus += " [你已评论]";
-                if (post.authorId === chatId) authorName += " (这是你的帖子)";
-
-                let contentSummary;
-                if (post.type === 'repost') {
-                    const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
-                    let originalAuthorName = '原作者';
-                    const originalAuthorId = post.originalPost.authorId;
-                    if (originalAuthorId === 'user') {
-                        originalAuthorName = state.qzoneSettings.nickname;
-                    } else if (state.chats[originalAuthorId]) {
-                        originalAuthorName = state.chats[originalAuthorId].name;
-                    }
-                    let originalContentSummary;
-                    const originalPost = post.originalPost;
-                    if (originalPost.type === 'text_image') {
-                        originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
-                    } else if (originalPost.type === 'image_post') {
-                        originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
-                    } else { // 'shuoshuo'
-                        originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
-                    }
-                    contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
-                } else if (post.type === 'text_image') {
-                    contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                } else if (post.type === 'image_post') {
-                    contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                } else {
-                    contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
-                }
-                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
-
-                if (post.comments && post.comments.length > 0) {
-                    for (const comment of post.comments) {
-                        if (typeof comment === 'object' && comment.commenterName) {
-                            const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
-                            let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
-                            postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
-                        }
-                    }
-                }
-            }
-            dynamicContext = postsContext;
-        }
-
         const messagesPayload = [
             { role: 'user', content: `${systemPrompt}\n\n[系统指令：请根据你在上面读到的规则和以下最新信息，开始你的独立行动。]\n${dynamicContext}` }
         ];
@@ -11497,25 +11502,20 @@ ${dynamicContext}`; // 【【【核心修复！！！】】】确保这一行被
             chat.lastActionType = action.type;
             chat.lastActionTimestamp = actionTimestamp;
             
-            // ▼▼▼ 核心修复就在这里！▼▼▼
-            let aiMessage = null; // 先声明一个变量
+            let aiMessage = null;
             const baseMessage = { role: 'assistant', senderName: chat.originalName, timestamp: actionTimestamp++ };
 
             switch (action.type) {
                 case 'text':
                     aiMessage = { ...baseMessage, content: action.content };
                     break;
-                // 【【【最关键的修复】】】
                 case 'ai_image':
                     aiMessage = {
                         ...baseMessage,
                         type: 'ai_image',
-                        // 核心修复：将 AI 返回的 description 赋值给 content 字段
                         content: action.description 
                     };
                     break;
-
-                // 【【【修复结束】】】
                 case 'update_status':
                     chat.status.text = action.status_text;
                     chat.status.isBusy = action.is_busy || false;
@@ -11614,7 +11614,6 @@ ${dynamicContext}`; // 【【【核心修复！！！】】】确保这一行被
                     break;
             }
 
-            // 如果生成了一条有效的消息，就处理它
             if (aiMessage) {
                 chat.history.push(aiMessage);
                 chat.unreadCount = (chat.unreadCount || 0) + 1;
@@ -11624,7 +11623,6 @@ ${dynamicContext}`; // 【【【核心修复！！！】】】确保这一行被
                     hasSentNotification = true;
                 }
             }
-            // ▲▲▲ 修复结束 ▲▲▲
         }
         await db.chats.put(chat);
         
