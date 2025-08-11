@@ -69,29 +69,7 @@ body {
         @keyframes charge-breath { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
         .screen.active { opacity: 1; visibility: visible; z-index: 1; }
-.header {
-    /* --- 核心修复：让它浮动在最上层 --- */
-    position: absolute; /* 从 relative 改为 absolute */
-    top: 0;
-    left: 0;
-    width: 100%;
-    /* --- 修复结束 --- */
-
-    z-index: 15;
-    flex-shrink: 0;
-    padding: 15px 20px;
-    padding-top: 45px;
-    background-color: rgba(247, 247, 247, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 18px;
-    font-weight: 600;
-    box-sizing: border-box; /* (推荐) 加上这个，让内边距计算更精确 */
-}
+.header { position: relative; z-index: 15; flex-shrink: 0; padding: 15px 20px; padding-top: 45px; background-color: rgba(247, 247, 247, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; }
         .header .header-actions { display: flex; align-items: center; gap: 15px; }
         .header .back-btn, .header .action-btn { font-size: 24px; cursor: pointer; width: 30px; text-align: center; color: var(--accent-color); display: flex; align-items: center; justify-content: center; }
 
@@ -162,18 +140,14 @@ body {
 #chat-messages {
     flex-grow: 1;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding: 10px 15px;
-    
-    /* --- 核心修复：为浮动的顶栏留出空间 --- */
-    padding-top: 90px; /* 删掉旧的110px，给一个精确的高度 */
-    margin-top: 0;     /* 删掉旧的 -80px */
-    /* --- 修复结束 --- */
-    
+    overflow-x: hidden; /* 核心修正1: 强制禁止水平滚动/拖动 */
+    padding: 10px 15px; /* 核心修正2: 将左右内边距增加到15px，提供更多呼吸空间 */
+    padding-top: 110px;
+    margin-top: -80px;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    box-sizing: border-box;
+    box-sizing: border-box; /* 确保内边距计算正确 */
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
         #load-more-btn { text-align: center; padding: 10px; color: var(--accent-color); font-size: 14px; cursor: pointer; background-color: transparent; border: none; width: 100%; }
@@ -4912,6 +4886,92 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
+/* ▼▼▼ 【终极修复】请用这一整块代码，替换掉你上一次粘贴的代码 ▼▼▼ */
+
+/* === 聊天界面头部浮动与层级终极修复 === */
+
+/* 
+  这次的修复有两个关键点：
+  1. 依然使用 absolute 定位让头部浮动起来。
+  2. 额外给它一个非常高的 z-index 并用 !important 标记，
+     赋予它“至高无上”的权力，强制它压制页面上任何其他元素。
+*/
+
+/* 1. 强制聊天界面的头部变为绝对定位，并赋予一个极高的层级 */
+#chat-interface-screen > .header {
+    position: absolute !important; /* 核心修正1: 脱离文档流，浮动起来 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 100 !important; /* 核心修正2: 赋予一个非常高的 z-index，压制一切 */
+}
+
+/* 2. 修正聊天内容区的布局，移除不再需要的负外边距，让为头部预留的 padding 生效 */
+#chat-interface-screen #chat-messages {
+    margin-top: 0 !important; /* 核心修正3: 移除用于“上拉”的负外边距 */
+}
+
+/* ▲▲▲ 修复代码粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【最终解决方案】请用这一整块代码，替换掉所有旧的修复代码 ▼▼▼ */
+
+/* === 聊天界面布局与层级终极修复 === */
+
+/* 
+  第一部分：修复音乐播放器被遮挡的问题
+  我们给播放器一个比头部更高的 z-index，让它能正确地覆盖所有内容。
+*/
+#music-player-overlay {
+    z-index: 200 !important;
+}
+
+/* 
+  第二部分：彻底重构聊天页面的布局，解决宽度和遮挡问题
+  我们将采用最稳定、最现代的布局方式：
+  - 头部和输入框都使用绝对定位，分别“钉”在屏幕的顶部和底部。
+  - 聊天内容区则占据整个屏幕的高度，并通过内边距（padding）为头部和输入框留出空间。
+  这样可以完美实现内容在透明顶/底部之下滚动的美观效果，且不会再出现宽度计算错误。
+*/
+
+/* 1. 确保聊天界面容器是一个可靠的定位锚点 (这步主要是为了保险) */
+#chat-interface-screen {
+    position: relative !important;
+}
+
+/* 2. 强制头部绝对定位，并撑满宽度，赋予高层级 */
+#chat-interface-screen > .header {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0; /* 使用 left:0 和 right:0 来确保它撑满宽度 */
+    width: auto !important; /* 让 left/right 决定宽度，而不是固定的 100% */
+    z-index: 100 !important;
+}
+
+/* 3. 强制输入框区域也绝对定位，钉在底部，并撑满宽度 */
+#chat-interface-screen #chat-input-area {
+    position: absolute !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto !important;
+    z-index: 100 !important;
+}
+
+/* 4. 【核心】重新定义聊天内容区的布局 */
+#chat-interface-screen #chat-messages {
+    width: 100% !important; /* 强制宽度为100% */
+    height: 100% !important; /* 强制高度为100%，以填满整个屏幕 */
+    box-sizing: border-box !important; /* 确保 padding 不会撑破容器 */
+    margin-top: 0 !important; /* 移除所有可能干扰布局的 margin */
+
+    /* 为绝对定位的头部和输入框留出空间 */
+    /* 你的头部比较高，我们保留110px的上边距 */
+    padding-top: 110px !important;
+    /* 为底部的输入框和安全区留出大约 100px 的空间 */
+    padding-bottom: 100px !important; 
+}
+
+/* ▲▲▲ 修复代码粘贴结束 ▲▲▲ */
 
     </style>
 </head>
@@ -18704,6 +18764,20 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
                 // (可选) 如果希望点击重置后立刻看到效果，可以加上下面这行
                 // applyGlobalCss('');
             });
+// ▼▼▼ 【这是修复代码】请将这段代码粘贴到 init() 函数的事件监听器区域末尾 ▼▼▼
+document.getElementById('add-countdown-btn').addEventListener('click', () => {
+    // 清空输入框
+    document.getElementById('countdown-title-input').value = '';
+    document.getElementById('countdown-date-input').value = '';
+    // 显示新建约定弹窗
+    document.getElementById('create-countdown-modal').classList.add('visible');
+});
+
+// 为新建约定弹窗的“取消”按钮也绑定事件
+document.getElementById('cancel-create-countdown-btn').addEventListener('click', () => {
+    document.getElementById('create-countdown-modal').classList.remove('visible');
+});
+// ▲▲▲ 修复代码粘贴结束 ▲▲▲
             // ▲▲▲ 新代码粘贴结束 ▲▲▲
             showScreen('home-screen');
         }
