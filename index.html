@@ -9505,18 +9505,36 @@ if (chat.nameHistory && chat.nameHistory.length > 0) {
     nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
 }
 
-// ▼▼▼ 在 triggerAiResponse 函数的 else (私聊) 分支中，请用这整块代码替换旧的 systemPrompt ▼▼▼
-
-        // 【核心新增1】构建通讯录
-        let contactsList = '';
-        const allChats = Object.values(state.chats);
+// ▼▼▼ 在 triggerAiResponse 函数的 else (私聊) 分支中，请用这整块代码替换旧的 systemPrompt 构建逻辑 ▼▼▼
         
+        // 【核心新增1】构建一个完整的、关于“用户”的身份档案
+        let userProfileContext = '';
+        const userQzoneNickname = state.qzoneSettings.nickname || '用户';
+        userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
+
+        const allChats = Object.values(state.chats);
+        // 查找当前AI角色所在的所有群聊
+        const commonGroups = allChats.filter(group => 
+            group.isGroup && group.members.some(m => m.id === chat.id)
+        );
+
+        if (commonGroups.length > 0) {
+            userProfileContext += '- 用户在你们共同所在的群聊中的昵称如下：\n';
+            commonGroups.forEach(group => {
+                const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; // 如果没设置群昵称，就用QZone昵称
+                userProfileContext += `  - 在群聊“${group.name}”中，用户的昵称是“${myNicknameInGroup}”。\n`;
+            });
+        }
+        userProfileContext += '当你在任何系统提示、动态评论或挂载的群聊记忆中看到这些名字时，它们都指代的是【你的聊天对象】。';
+
+        // 【核心新增2】构建通讯录 (逻辑不变)
+        let contactsList = '';
         // 筛选出所有与当前AI角色在同一个分组的“好友”
         const friendChats = allChats.filter(c => 
             !c.isGroup && // 必须是单聊角色
             c.id !== chat.id && // 不能是自己
             c.groupId === chat.groupId && // 必须在同一个分组
-            chat.groupId !== null // 当前AI必须有分组
+            chat.groupId !== null // 当前AI自己也必须有分组
         );
 
         if (friendChats.length > 0) {
@@ -9526,16 +9544,14 @@ if (chat.nameHistory && chat.nameHistory.length > 0) {
             });
         }
         
-        const userNickname = state.qzoneSettings.nickname || '用户';
-
         systemPrompt = `你现在扮演一个名为"${chat.originalName}"的角色。
 # 你的角色设定：
 ${chat.settings.aiPersona}
 
 # 关于你和用户的关系 (至关重要)
 - 你的本名是 "${chat.originalName}"。
-- 用户当前给你设置的备注名是 "${chat.name}"。这意味着在对话中，用户可能会用这个名字称呼你。你可以根据你的人设，对这个备注名做出自然的反应（比如喜欢、不喜欢、或者提出想换一个）。
-- 【【【关键备忘录】】】用户的QZone昵称是 "${userNickname}"。当你在系统提示或动态评论中看到这个名字时，它指的就是【你的聊天对象】。
+- 用户当前给你设置的备注名是 "${chat.name}"。
+- 【【【关键身份档案】】】\n${userProfileContext}
 ${nameHistoryContext}
 
 # 你的当前状态：
@@ -9618,7 +9634,7 @@ ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
-// ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
             
             messagesPayload = historySlice.map(msg => {
                 if (msg.isHidden) return null;
