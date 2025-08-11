@@ -6623,30 +6623,40 @@ function getDisplayNameByOriginalName(originalName) {
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
-// ▼▼▼ 【全新】请将这个函数粘贴到 getDisplayNameByOriginalName 函数的后面 ▼▼▼
+// ▼▼▼ 请用这个【全新的、更智能的】函数，完整替换旧的 processMentions 函数 ▼▼▼
+
 /**
- * 【全新】处理AI生成的评论文本，将特殊的@占位符替换为正确的显示名称
+ * 【全新】处理AI生成的文本，将特殊的@占位符替换为正确的显示名称
  * @param {string} text - AI生成的、可能包含 @[[本名]] 占位符的原始文本
+ * @param {object|null} chat - 当前的聊天对象 (如果是群聊，则用于查找群昵称)
  * @returns {string} - 处理完成后，对用户友好的显示文本
  */
 function processMentions(text, chat = null) {
+    // 如果文本无效或不包含@标记，直接返回以提高性能
     if (!text || typeof text !== 'string' || !text.includes('@[[')) {
         return text; 
     }
+    
+    // 使用正则表达式的全局匹配，一次性处理所有@提及
     return text.replace(/@\[\[([^\]]+)\]\]/g, (match, originalName) => {
         const trimmedOriginalName = originalName.trim();
         let displayName;
         
+        // 【核心逻辑】如果提供了聊天对象，并且是群聊
         if (chat && chat.isGroup) {
+            // 就调用我们现有的、强大的 getDisplayNameInGroup 函数
+            // 这个函数会自动优先查找群昵称，找不到再用本名
             displayName = getDisplayNameInGroup(chat, trimmedOriginalName);
         } else {
+            // 如果是私聊或没有提供聊天对象，就使用全局查找函数
             displayName = getDisplayNameByOriginalName(trimmedOriginalName);
         }
         
+        // 返回转换后的、带@的正确昵称
         return `@${displayName}`;
     });
 }
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 请用这个【修正后】的完整函数，替换掉您现有的 showCustomConfirm 函数 ▼▼▼
 
@@ -18628,4 +18638,3 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
 </div>
 </body>
 </html>
-
