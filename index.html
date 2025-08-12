@@ -8704,10 +8704,12 @@ if (msg.type === 'recalled_message') {
         const wrapper = document.createElement('div');
         wrapper.className = 'message-wrapper system-pat'; 
         const bubble = document.createElement('div');
+        // 【核心修正】为“拍一拍”消息的气泡也添加上 data-timestamp 属性
         bubble.className = 'message-bubble system-bubble'; 
         bubble.dataset.timestamp = msg.timestamp;
         bubble.textContent = msg.content;
         wrapper.appendChild(bubble);
+        // 【核心修正】为“拍一拍”消息也绑定长按和点击事件
         addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
         wrapper.addEventListener('click', () => { if (isSelectionMode) toggleMessageSelection(msg.timestamp); });
         return wrapper;
@@ -9127,7 +9129,7 @@ else if (msg.type === 'waimai_request') {
 
     return wrapper;
 }
-// ▼▼▼ 替换结束
+// ▲▲▲ 替换结束
         function prependMessage(msg, chat) { const messagesContainer = document.getElementById('chat-messages'); const messageEl = createMessageElement(msg, chat); 
 
     if (!messageEl) return; // <--- 新增这行，同样的处理
@@ -9578,7 +9580,7 @@ if (chat.isGroup) {
     } else {
         groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
     }
-
+// ▼▼▼ 在 triggerAiResponse 函数内，找到 if (chat.isGroup) {...}，并用下面这整块替换旧的 systemPrompt 定义 ▼▼▼
     systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
@@ -9602,6 +9604,10 @@ if (chat.isGroup) {
     - 你也可以随时主动发起投票。
 8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
 9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
+# 【【【全新音乐互动铁律】】】
+-   当你在对话历史中看到形如“[系统提示：用户 (我) ...]”的音乐相关消息时，这表示是【用户】刚刚执行了该操作。
+-   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
+-   【【【绝对禁止】】】将用户切换歌曲的行为，错误地归因于群内的任何其他AI成员。不要说“XX切歌了”或“怎么换这首了？”这类话。
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
@@ -9646,6 +9652,7 @@ ${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+// ▲▲▲ 替换结束 ▲▲▲
 
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -10911,7 +10918,7 @@ function updatePlaylistUI() {
 
 // ▼▼▼ 您代码里应该有这段，这就是要找的第二个函数 ▼▼▼
 
-function playSong(index) {
+async function playSong(index) {
     if (index < 0 || index >= musicState.playlist.length) return;
     
     // This pause call is the source of the error, but we'll keep it 
@@ -10920,6 +10927,9 @@ function playSong(index) {
 
     musicState.currentIndex = index;
     const track = musicState.playlist[index];
+// ▼▼▼ 在 playSong 函数内，获取 track 之后，添加这行代码 ▼▼▼
+await addMusicActionSystemMessage(`将歌曲切换为了《${track.name}》`);
+// ▲▲▲ 添加结束 ▲▲▲
     musicState.parsedLyrics = parseLRC(track.lrcContent || "");
     renderLyrics();
     if (track.isLocal && track.src instanceof Blob) {
@@ -10954,7 +10964,7 @@ function playSong(index) {
 
 // ▲▲▲ 您要找的函数到此结束 ▲▲▲
 
-        function togglePlayPause() { if (audioPlayer.paused) { if (musicState.currentIndex === -1 && musicState.playlist.length > 0) { playSong(0); } else if (musicState.currentIndex > -1) { audioPlayer.play(); } } else { audioPlayer.pause(); } }
+        async function togglePlayPause() { if (audioPlayer.paused) { if (musicState.currentIndex === -1 && musicState.playlist.length > 0) { playSong(0); } else if (musicState.currentIndex > -1) { audioPlayer.play();await addMusicActionSystemMessage('播放了音乐'); } } else { audioPlayer.pause();await addMusicActionSystemMessage('暂停了音乐'); } }
 
         function playNext() { if (musicState.playlist.length === 0) return; let nextIndex; switch(musicState.playMode) { case 'random': nextIndex = Math.floor(Math.random() * musicState.playlist.length); break; case 'single': playSong(musicState.currentIndex); return; case 'order': default: nextIndex = (musicState.currentIndex + 1) % musicState.playlist.length; break; } playSong(nextIndex); }
 
@@ -13707,7 +13717,7 @@ async function handleWaimaiResponse(originalTimestamp, choice) {
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
-// ▼▼▼ 用这个【新版本】替换旧的 handleUserPat 函数 ▼▼▼
+// ▼▼▼ 【最终修复版】用这个【新版本】替换旧的 handleUserPat 函数 ▼▼▼
 /**
  * 【全新】处理用户点击头像发起的“拍一-拍”，带有自定义后缀功能
  * @param {string} chatId - 发生“拍一-拍”的聊天ID
@@ -13717,8 +13727,7 @@ async function handleUserPat(chatId, characterOriginalName) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    // --- 【【【核心修复就在这里！】】】 ---
-    // 1. 智能判断应该在UI上显示哪个名字
+    // --- 1. 智能判断应该在UI上显示哪个名字 ---
     let displayNameForUI;
     if (chat.isGroup) {
         // 如果是群聊，就通过本名找到正确的群昵称
@@ -13727,14 +13736,13 @@ async function handleUserPat(chatId, characterOriginalName) {
         // 如果是单聊，直接使用用户设置的备注名
         displayNameForUI = chat.name;
     }
-    // --- 【【【修复结束】】】 ---
 
     const phoneScreen = document.getElementById('phone-screen');
     phoneScreen.classList.remove('pat-animation');
     void phoneScreen.offsetWidth;
     phoneScreen.classList.add('pat-animation');
 
-    // 2. 使用我们刚刚获取到的、正确的显示名称来创建弹窗
+    // 2. 使用正确的显示名称来创建弹窗
     const suffix = await showCustomPrompt(
         `你拍了拍 “${displayNameForUI}”`, 
         "（可选）输入后缀",
@@ -13744,7 +13752,10 @@ async function handleUserPat(chatId, characterOriginalName) {
 
     if (suffix === null) return;
 
-    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+    // ★★★★★ 这就是唯一的、核心的修改！ ★★★★★
+    // 我们现在使用 getDisplayNameInGroup 来获取您自己在群里的昵称
+    const myNickname = getDisplayNameInGroup(chat, state.qzoneSettings.nickname);
+    // ★★★★★ 修改结束 ★★★★★
     
     // 3. 创建对用户可见的系统消息时，也使用正确的显示名称
     const visibleMessageContent = `${myNickname} 拍了拍 “${displayNameForUI}” ${suffix.trim()}`;
@@ -16217,6 +16228,34 @@ function applyGlobalCss(cssString) {
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
+// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
+/**
+ * 向当前聊天的历史记录中添加一条关于音乐操作的、对用户隐藏的系统消息
+ * @param {string} actionText - 描述用户操作的文本，例如 "暂停了音乐"
+ */
+async function addMusicActionSystemMessage(actionText) {
+    // 1. 检查音乐功能是否激活，以及是否在某个聊天中
+    if (!musicState.isActive || !musicState.activeChatId) return;
+    const chat = state.chats[musicState.activeChatId];
+    if (!chat) return;
+
+    // 2. 获取用户在当前聊天中的昵称
+    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+    const fullMessage = `[系统提示：用户 (${myNickname}) ${actionText}]`;
+
+    // 3. 创建这条特殊的、隐藏的系统消息
+    const systemMessage = {
+        role: 'system',
+        content: fullMessage,
+        timestamp: Date.now(),
+        isHidden: true // 这个标记让消息对用户不可见，但AI能读到
+    };
+
+    // 4. 将消息存入历史记录并更新数据库
+    chat.history.push(systemMessage);
+    await db.chats.put(chat);
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
         // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
