@@ -11449,7 +11449,7 @@ async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    const ACTION_COOLDOWN_MINUTES = 6; 
+    const ACTION_COOLDOWN_MINUTES = 10; 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
@@ -11954,7 +11954,7 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    const GROUP_ACTION_COOLDOWN_MINUTES = 6;
+    const GROUP_ACTION_COOLDOWN_MINUTES = 10;
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
         if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
@@ -19318,4 +19318,5 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 </div>
 </body>
 </html>
+
 
