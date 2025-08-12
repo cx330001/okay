@@ -9444,7 +9444,9 @@ ${contextSummary || "（无有效对话记录）"}
                 worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
             }
         }
+// ▼▼▼ 在 triggerAiResponse 函数中，找到 let musicContext = ''; 并用下面这整块替换 ▼▼▼
         let musicContext = '';
+        // 【核心修复】移除 !chat.isGroup 的判断，让音乐上下文在群聊中也生效
         if (musicState.isActive && musicState.activeChatId === chatId) {
             const currentTrack = musicState.currentIndex > -1 ? musicState.playlist[musicState.currentIndex] : null;
             const playlistInfo = musicState.playlist.map(t => `"${t.name}"`).join(', ');
@@ -9458,12 +9460,13 @@ ${contextSummary || "（无有效对话记录）"}
                 }
             }
             musicContext = `\n\n# 当前音乐情景
--   **当前状态**: 你正在和用户一起听歌。
+-   **当前状态**: 你们正在和用户一起听歌。
 -   **正在播放**: ${currentTrack ? `《${currentTrack.name}》 - ${currentTrack.artist}` : '无'}
 -   **可用播放列表**: [${playlistInfo}]
 -   **你的任务**: 你可以根据对话内容和氛围，使用 "change_music" 指令切换到播放列表中的任何一首歌，以增强互动体验。
 `;
         }
+// ▲▲▲ 替换结束 ▲▲▲
         let systemPrompt, messagesPayload;
         const maxMemory = parseInt(chat.settings.maxMemory) || 10;
         const historySlice = chat.history.slice(-maxMemory);
@@ -9632,10 +9635,12 @@ if (chat.isGroup) {
 # 【【【全新音乐互动铁律】】】
 -   当你在对话历史中看到形如“[系统提示：用户 (我) ...]”的音乐相关消息时，这表示是【用户】刚刚执行了该操作。
 -   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
+-   你也可以根据对话内容或群聊氛围，主动使用 "change_music" 指令来切换到播放列表中的另一首歌。
 -   【【【绝对禁止】】】将用户切换歌曲的行为，错误地归因于群内的任何其他AI成员。不要说“XX切歌了”或“怎么换这首了？”这类话。
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
+-   **【【【全新】】】切换歌曲**: '{"type": "change_music", "name": "你的角色本名", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
 - 发送表情: '{"type": "sticker", "name": "角色本名", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
 -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "图片的详细文字描述"}'
 -   **发送语音**: '{"type": "voice_message", "name": "角色本名", "content": "语音的文字内容"}'
