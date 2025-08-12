@@ -4972,7 +4972,24 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复代码粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】“动态已删除”提示样式 ▼▼▼ */
+.post-deleted-placeholder {
+    align-self: center;
+    padding: 4px 12px;
+    margin: 5px 0;
+    background-color: rgba(0, 0, 0, 0.1);
+    color: var(--text-secondary);
+    font-size: 12px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 80%;
+    cursor: pointer; /* 关键：让它看起来可以点击 */
+}
 
+#phone-screen.dark-mode .post-deleted-placeholder {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+/* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -7465,11 +7482,12 @@ async function renderQzonePosts() {
     if (!postsListEl) return;
 
     // --- 1. 从数据库加载初始数据并缓存 ---
-    const [posts, favorites] = await Promise.all([
-        db.qzonePosts.orderBy('timestamp').reverse().toArray(),
+    const [postsFromDb, favorites] = await Promise.all([
+        // 【核心修改】在这里增加一个 filter，不再获取 isDeleted 为 true 的帖子
+        db.qzonePosts.orderBy('timestamp').reverse().filter(post => !post.isDeleted).toArray(),
         db.favorites.where('type').equals('qzone_post').toArray()
     ]);
-    qzonePostsCache = posts; // 更新全局缓存
+    qzonePostsCache = postsFromDb; // 更新全局缓存
     state.favoritedPostIds = new Set(favorites.map(fav => fav.content.id)); // 更新收藏状态
 
     // --- 2. 清空并渲染列表 ---
@@ -8735,7 +8753,31 @@ if (msg.type === 'recalled_message') {
     
     return wrapper;
 }
+// ▼▼▼ 在 recalled_message 的 } 后面，粘贴下面这段全新的代码 ▼▼▼
+else if (msg.type === 'post_deleted_notice') {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message-wrapper system-pat';
+    wrapper.dataset.timestamp = msg.timestamp; 
 
+    const bubble = document.createElement('div');
+    // 我们给它一个新 class，方便加样式和绑定事件
+    bubble.className = 'message-bubble post-deleted-placeholder'; 
+    bubble.dataset.postId = msg.postId; // 把 postId 存到元素上
+    bubble.textContent = msg.content;
+    
+    wrapper.appendChild(bubble);
+    
+    // 同样给它加上长按和多选功能
+    addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
+    wrapper.addEventListener('click', () => { 
+        if (isSelectionMode) {
+            toggleMessageSelection(msg.timestamp);
+        }
+    });
+    
+    return wrapper;
+}
+// ▲▲▲ 粘贴结束 ▲▲▲
     if (msg.isHidden) {
         return null;
     }
@@ -10092,32 +10134,45 @@ ${contextSummaryForApproval}
 
             switch (msgData.type) {
                 // ▼▼▼ 【核心新增4】在这里添加新的 case 来处理删除指令 ▼▼▼
-                case 'qzone_delete_post': {
-                    const postIdToDelete = parseInt(msgData.postId);
-                    const postToDelete = await db.qzonePosts.get(postIdToDelete);
-                    if (postToDelete && postToDelete.authorId === chatId) {
-                        await db.qzonePosts.delete(postIdToDelete);
-                        // 创建对用户可见的系统消息
-                        const systemMessage = {
-                            role: 'system',
-                            type: 'pat_message',
-                            content: `[${chat.name} 删除了自己的一条动态]`,
-                            timestamp: messageTimestamp++
-                        };
-                        chat.history.push(systemMessage);
-                        // 如果用户正在看这个聊天，就直接显示
-                        if (isViewingThisChat) {
-                            appendMessage(systemMessage, chat);
-                        } else {
-                            // 否则发通知
-                            chat.unreadCount = (chat.unreadCount || 0) + 1;
-                            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
-                            notificationShown = true;
-                        }
-                    }
-                    continue; // 处理完跳过，不创建普通聊天消息
-                }
-                // ▲▲▲ 新增结束 ▲▲▲
+                // ▼▼▼ 【核心新增】用这个新 case 替换 triggerAiResponse 和 triggerInactiveAiAction 中旧的 qzone_delete_post case ▼▼▼
+case 'qzone_delete_post': {
+    const postIdToDelete = parseInt(msgData.postId);
+    const postToDelete = await db.qzonePosts.get(postIdToDelete);
+    // 安全检查：确保帖子存在，且确实是这个AI发的
+    if (postToDelete && postToDelete.authorId === chatId) {
+        // 【核心修改】不再是删除，而是更新一个 isDeleted 标记
+        await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
+        
+        // 如果用户正在看动态页，就刷新一下
+        if (document.getElementById('qzone-screen').classList.contains('active')) {
+            renderQzonePosts();
+        }
+
+        // 创建一条对用户可见的、可点击的系统消息
+        const systemMessage = {
+            role: 'system',
+            type: 'post_deleted_notice', // 使用一个全新的类型
+            content: `[${chat.name} 删除了自己的一条动态]`,
+            postId: postIdToDelete, // 把被删除的帖子ID存起来！
+            timestamp: messageTimestamp++
+        };
+        chat.history.push(systemMessage);
+        
+        // 如果用户恰好在看这个聊天，就直接显示出来
+        if (isViewingThisChat) {
+            appendMessage(systemMessage, chat);
+        } else {
+            // 否则发通知
+            chat.unreadCount = (chat.unreadCount || 0) + 1;
+            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
+            notificationShown = true;
+        }
+    } else {
+        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
+    }
+    continue; // 处理完后跳过，不创建普通聊天消息
+}
+// ▲▲▲ 替换结束 ▲▲▲
                 case 'waimai_response':
                     const requestMessageIndex = chat.history.findIndex(m => m.timestamp === msgData.for_timestamp);
                     if (requestMessageIndex > -1) {
@@ -11717,37 +11772,45 @@ ${dynamicContext}`;
             switch (action.type) {
                 // ... (其他case保持不变) ...
 // ▼▼▼ 【核心新增3】在这里添加新的 case 来处理删除指令 ▼▼▼
-                case 'qzone_delete_post': {
-                    const postIdToDelete = parseInt(action.postId);
-                    const postToDelete = await db.qzonePosts.get(postIdToDelete);
-                    // 安全检查：确保帖子存在，且确实是这个AI发的
-                    if (postToDelete && postToDelete.authorId === chatId) {
-                        await db.qzonePosts.delete(postIdToDelete);
-                        updateUnreadIndicator(unreadPostsCount + 1); // 动态有变化，通知用户
-                        console.log(`后台活动: 角色 "${chat.name}" 删除了自己的动态 #${postIdToDelete}`);
-                        
-                        // 创建一条对用户可见的系统消息
-                        const systemMessage = {
-                            role: 'system',
-                            type: 'pat_message',
-                            content: `[${chat.name} 删除了自己的一条动态]`,
-                            timestamp: actionTimestamp++
-                        };
-                        chat.history.push(systemMessage);
-                        // 如果用户恰好在看这个聊天，就直接显示出来
-                        if (state.activeChatId === chatId) {
-                            appendMessage(systemMessage, chat);
-                        } else {
-                            // 否则就发通知
-                            chat.unreadCount = (chat.unreadCount || 0) + 1;
-                            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
-                            hasSentNotification = true;
-                        }
-                    } else {
-                        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${action.postId})`);
-                    }
-                    continue; // 处理完后跳过，不创建普通聊天消息
-                }
+                // ▼▼▼ 【核心新增】用这个新 case 替换 triggerAiResponse 和 triggerInactiveAiAction 中旧的 qzone_delete_post case ▼▼▼
+case 'qzone_delete_post': {
+    const postIdToDelete = parseInt(msgData.postId);
+    const postToDelete = await db.qzonePosts.get(postIdToDelete);
+    // 安全检查：确保帖子存在，且确实是这个AI发的
+    if (postToDelete && postToDelete.authorId === chatId) {
+        // 【核心修改】不再是删除，而是更新一个 isDeleted 标记
+        await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
+        
+        // 如果用户正在看动态页，就刷新一下
+        if (document.getElementById('qzone-screen').classList.contains('active')) {
+            renderQzonePosts();
+        }
+
+        // 创建一条对用户可见的、可点击的系统消息
+        const systemMessage = {
+            role: 'system',
+            type: 'post_deleted_notice', // 使用一个全新的类型
+            content: `[${chat.name} 删除了自己的一条动态]`,
+            postId: postIdToDelete, // 把被删除的帖子ID存起来！
+            timestamp: messageTimestamp++
+        };
+        chat.history.push(systemMessage);
+        
+        // 如果用户恰好在看这个聊天，就直接显示出来
+        if (isViewingThisChat) {
+            appendMessage(systemMessage, chat);
+        } else {
+            // 否则发通知
+            chat.unreadCount = (chat.unreadCount || 0) + 1;
+            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
+            notificationShown = true;
+        }
+    } else {
+        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
+    }
+    continue; // 处理完后跳过，不创建普通聊天消息
+}
+// ▲▲▲ 替换结束 ▲▲▲
 // ▲▲▲ 新增结束 ▲▲▲
                 case 'text':
                     aiMessage = { ...baseMessage, content: action.content };
@@ -16689,7 +16752,49 @@ alert('API设置已保存!'); });
         // ▲▲▲ 修改结束 ▲▲▲
 
 await db.worldBooks.put(book); document.getElementById('world-book-editor-title').textContent = newName; editingWorldBookId = null; renderWorldBookScreen(); showScreen('world-book-screen'); } });
-            document.getElementById('chat-messages').addEventListener('click', (e) => { const aiImage = e.target.closest('.ai-generated-image'); if (aiImage) { const description = aiImage.dataset.description; if (description) showCustomAlert('照片描述', description); return; }  });
+// ▼▼▼ 【最终版】请用这个已合并的版本替换旧的监听器 ▼▼▼
+document.getElementById('chat-messages').addEventListener('click', async (e) => { // 注意：这里加上了 async
+    // 【这是新增的代码】处理“动态已删除”提示的点击
+    const deletedPostPlaceholder = e.target.closest('.post-deleted-placeholder');
+    if (deletedPostPlaceholder) {
+        const postId = parseInt(deletedPostPlaceholder.dataset.postId);
+        if (!isNaN(postId)) {
+            // 查找被“删除”的动态
+            const post = await db.qzonePosts.get(postId);
+            if (post) {
+                // 格式化内容用于显示
+                let originalContent = '';
+                const authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '未知作者');
+                
+                if(post.type === 'shuoshuo'){
+                    originalContent = post.content;
+                } else {
+                    originalContent = post.publicText || '';
+                    if(post.imageUrl) originalContent += `\n[图片]`;
+                    if(post.hiddenContent) originalContent += `\n[文字图内容: ${post.hiddenContent}]`;
+                }
+                
+                showCustomAlert(
+                    `来自 ${authorName} 的已删除动态`, 
+                    originalContent.replace(/\n/g, '<br>') // 换行符转为HTML换行
+                );
+            } else {
+                showCustomAlert('提示', '这条动态的原始数据已被彻底清除。');
+            }
+        }
+        return; // 处理完后直接退出，避免触发其他事件
+    }
+    // 【新增代码结束】
+
+
+    // 【这是您原来已有的代码】处理点击图片看描述
+    const aiImage = e.target.closest('.ai-generated-image');
+    if (aiImage) {
+        const description = aiImage.dataset.description;
+        if (description) showCustomAlert('照片描述', description);
+        return;
+    }
+});
             
             const chatSettingsModal = document.getElementById('chat-settings-modal');
             const worldBookSelectBox = document.querySelector('.custom-multiselect .select-box');
