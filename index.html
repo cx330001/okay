@@ -6433,7 +6433,7 @@ function getGeminiResponseText(data) {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 【最终反代兼容版】请用这个全新的、兼容性更强的函数替换旧的 toGeminiRequestData ▼▼▼
+// ▼▼▼ 【最终修复方案】请用这个全新的、兼容性更强的函数替换旧的 toGeminiRequestData ▼▼▼
 function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
     const roleType = {
         user: 'user',
@@ -19171,3 +19171,4 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 </div>
 </body>
 </html>
+
