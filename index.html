@@ -9355,12 +9355,9 @@ async function triggerAiResponse() {
             return;
         }
 
-        // ★★★ 核心修复开始 ★★★
-        // 1. 检查最新的一条消息是否是视频通话请求
         const lastMessage = chat.history.slice(-1)[0];
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
 
-        // 2. 如果是视频通话请求，就进入专门的处理流程
         if (isVideoCallRequest) {
             console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
             
@@ -9833,7 +9830,6 @@ ${membersWithContacts}
                 });
             }
             
-            // ▼▼▼ 【核心新增1】在这里获取AI自己的动态列表 ▼▼▼
             const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
             const myOwnPosts = allRecentPosts.filter(post => post.authorId === chatId);
             let myPostsContext = "";
@@ -9844,8 +9840,7 @@ ${membersWithContacts}
                     myPostsContext += `- (ID: ${post.id}) 内容: "${contentSummary}"\n`;
                 });
             }
-            // ▲▲▲ 新增结束 ▲▲▲
-
+            
             systemPrompt = `你现在扮演一个名为"${chat.originalName}"的角色。
 # 你的角色设定：
 ${chat.settings.aiPersona}
@@ -10042,26 +10037,40 @@ ${contextSummaryForApproval}
         }
             let  isGemini = proxyUrl === GEMINI_API_URL;
             let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
-            const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{role: 'system', content: systemPrompt}, ...messagesPayload],
-                    temperature: 0.8,
-                    stream: false
-                })
-            });
+            
+            let response;
+            try {
+                 response = isGemini 
+                    ? await fetch(geminiConfig.url, geminiConfig.data) 
+                    : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                        body: JSON.stringify({
+                            model: model,
+                            messages: [{role: 'system', content: systemPrompt}, ...messagesPayload],
+                            temperature: 0.8,
+                            stream: false
+                        })
+                    });
+            } catch (networkError) {
+                throw new Error(`网络请求失败: ${networkError.message}`);
+            }
+
             if (!response.ok) {
-                let errorMsg = `API Error: ${response.status}`;
+                let errorMsg = `API 返回错误: ${response.status} ${response.statusText}`;
                 try {
                     const errorData = await response.json();
-                    errorMsg += ` - ${errorData?.error?.message || JSON.stringify(errorData)}`;
+                    if (errorData.error && errorData.error.message) {
+                         errorMsg += ` - ${errorData.error.message}`;
+                    } else {
+                         errorMsg += ` - ${JSON.stringify(errorData)}`;
+                    }
                 } catch (jsonError) {
-                    errorMsg += ` - ${await response.text()}`;
+                    errorMsg += ` - 响应内容: ${await response.text()}`;
                 }
                 throw new Error(errorMsg);
             }
+            
             const data = await response.json();
             const aiResponseContent = getGeminiResponseText(data); 
 
@@ -10133,36 +10142,27 @@ ${contextSummaryForApproval}
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
 
             switch (msgData.type) {
-                // ▼▼▼ 【核心新增4】在这里添加新的 case 来处理删除指令 ▼▼▼
-                // ▼▼▼ 【核心新增】用这个新 case 替换 triggerAiResponse 和 triggerInactiveAiAction 中旧的 qzone_delete_post case ▼▼▼
-case 'qzone_delete_post': {
+                case 'qzone_delete_post': {
     const postIdToDelete = parseInt(msgData.postId);
     const postToDelete = await db.qzonePosts.get(postIdToDelete);
-    // 安全检查：确保帖子存在，且确实是这个AI发的
     if (postToDelete && postToDelete.authorId === chatId) {
-        // 【核心修改】不再是删除，而是更新一个 isDeleted 标记
         await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
         
-        // 如果用户正在看动态页，就刷新一下
         if (document.getElementById('qzone-screen').classList.contains('active')) {
             renderQzonePosts();
         }
-
-        // 创建一条对用户可见的、可点击的系统消息
         const systemMessage = {
             role: 'system',
-            type: 'post_deleted_notice', // 使用一个全新的类型
+            type: 'post_deleted_notice',
             content: `[${chat.name} 删除了自己的一条动态]`,
-            postId: postIdToDelete, // 把被删除的帖子ID存起来！
+            postId: postIdToDelete,
             timestamp: messageTimestamp++
         };
         chat.history.push(systemMessage);
         
-        // 如果用户恰好在看这个聊天，就直接显示出来
         if (isViewingThisChat) {
             appendMessage(systemMessage, chat);
         } else {
-            // 否则发通知
             chat.unreadCount = (chat.unreadCount || 0) + 1;
             showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
             notificationShown = true;
@@ -10170,9 +10170,8 @@ case 'qzone_delete_post': {
     } else {
         console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
     }
-    continue; // 处理完后跳过，不创建普通聊天消息
+    continue;
 }
-// ▲▲▲ 替换结束 ▲▲▲
                 case 'waimai_response':
                     const requestMessageIndex = chat.history.findIndex(m => m.timestamp === msgData.for_timestamp);
                     if (requestMessageIndex > -1) {
