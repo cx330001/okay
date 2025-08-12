@@ -6385,15 +6385,15 @@ let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器
     }
 
 
-// ▼▼▼ 【全新】请将这个函数粘贴到 toGeminiRequestData 函数的后面 ▼▼▼
+// ▼▼▼ 【最终诊断增强版】请用这个全新的函数，完整替换您现有的 getGeminiResponseText ▼▼▼
 /**
- * 【全新 | 健壮版】从Gemini或兼容OpenAI的API响应中安全地提取文本内容
+ * 【V3.0 | 诊断增强版】从Gemini或兼容OpenAI的API响应中安全地提取文本内容
  * @param {object} data - 从 response.json() 解析后的数据对象
  * @returns {string} - 提取到的文本内容
  * @throws {Error} - 如果响应格式不正确或被屏蔽，则抛出一个带有详细原因的错误
  */
 function getGeminiResponseText(data) {
-    // 1. 检查是否是兼容OpenAI的响应格式 (这是您截图中显示的格式)
+    // 1. 检查是否是兼容OpenAI的响应格式
     if (data.choices && Array.isArray(data.choices) && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
         return data.choices[0].message.content;
     }
@@ -6403,26 +6403,35 @@ function getGeminiResponseText(data) {
         return data.candidates[0].content.parts[0].text;
     }
 
-    // 3. 如果都不是，就诊断错误原因
+    // --- 【【【核心升级：全面的错误诊断】】】 ---
     console.error("Gemini API返回了非预期的格式:", data);
     let errorReason = "AI返回了空内容或未知格式。";
 
-    // 3a. 检查是否是因为安全策略被屏蔽 (Gemini specific)
-    if (data.promptFeedback?.blockReason) {
+    // 3a. 诊断是否是因为内容安全策略被屏蔽 (Gemini官方API最常见的问题)
+    // 这种情况data.candidates是存在的，但里面没有content
+    if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0 && data.candidates[0].finishReason === 'SAFETY') {
+        const safetyRatings = data.candidates[0].safetyRatings;
+        const blockedCategories = safetyRatings
+            .filter(r => r.probability !== 'NEGLIGIBLE' && r.probability !== 'LOW')
+            .map(r => `${r.category} (概率: ${r.probability})`)
+            .join(', ');
+        errorReason = `内容因安全策略被屏蔽。触发类别: ${blockedCategories || '未知'}`;
+    }
+    // 3b. 诊断另一种内容安全屏蔽格式 (promptFeedback)
+    else if (data.promptFeedback?.blockReason) {
         const reason = data.promptFeedback.blockReason;
-        // (可选) 获取更详细的安全评分信息
         const details = data.promptFeedback.safetyRatings?.map(r => `${r.category}: ${r.probability}`).join(', ');
-        errorReason = `内容因安全策略被屏蔽 (原因: ${reason})。详情: ${details}`;
+        errorReason = `内容因安全策略被屏蔽 (原因: ${reason})。详情: ${details || '无'}`;
     } 
-    // 3b. 检查是否是其他类型的API错误
+    // 3c. 诊断是否是其他类型的API错误
     else if (data.error) {
         errorReason = `API错误: ${data.error.message}`;
     }
     
-    // 4. 抛出一个带有详细信息的错误，让调用它的函数能够捕获并处理
+    // 4. 抛出一个带有详细信息的错误
     throw new Error(errorReason);
 }
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【最终修复方案】请用这个全新的、兼容性更强的函数替换旧的 toGeminiRequestData ▼▼▼
 function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
