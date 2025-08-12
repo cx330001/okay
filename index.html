@@ -7293,12 +7293,15 @@ function createOrUpdatePostElement(post) {
         likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
     }
 
+// ▼▼▼ 在 createOrUpdatePostElement 函数中，找到 let commentsHtml = ''; 并用下面这整块替换 ▼▼▼
     let commentsHtml = '';
     if (post.comments && post.comments.length > 0) {
         commentsHtml = '<div class="post-comments-container">';
         post.comments.forEach((comment, index) => {
+            // 【核心修复1】检查是否是新的、包含 commenterName 的对象格式
             if (typeof comment === 'object' && comment !== null && comment.commenterName) {
                 const commenterOriginalName = comment.commenterName;
+                // 【核心修复2】使用我们全新的函数来实时查找最新的显示名称！
                 const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
                 
                 let innerCommentContent;
@@ -7309,6 +7312,7 @@ function createOrUpdatePostElement(post) {
                 }
 
                 let commentLineHtml = '';
+                // 【核心修复3】回复的目标也使用新函数来查找名字
                 if (comment.replyTo) {
                     const repliedToDisplayName = getDisplayNameByOriginalName(comment.replyTo);
                     commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span> 回复 <span class="commenter-name">${repliedToDisplayName}</span>: ${innerCommentContent}`;
@@ -7322,6 +7326,7 @@ function createOrUpdatePostElement(post) {
                                  </div>`;
 
             } else {
+                // 【兼容旧数据】如果还是旧的字符串格式，就原样显示
                 commentsHtml += `<div class="legacy-comment-item">
                                     <span class="comment-text">${String(comment)}</span>
                                  </div>`;
@@ -7329,6 +7334,7 @@ function createOrUpdatePostElement(post) {
         });
         commentsHtml += '</div>';
     }
+// ▲▲▲ 替换结束 ▲▲▲
 
     const userOriginalName = state.qzoneSettings.nickname;
     const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
@@ -16254,6 +16260,30 @@ async function addMusicActionSystemMessage(actionText) {
     // 4. 将消息存入历史记录并更新数据库
     chat.history.push(systemMessage);
     await db.chats.put(chat);
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
+/**
+ * 【全新】根据角色的本名，在整个应用中查找其正确的显示名称
+ * @param {string} originalName - 角色的本名 (e.g., "李星辰")
+ * @returns {string} - 该角色的备注名/群昵称/用户昵称，如果找不到则返回其本名
+ */
+function getDisplayNameByOriginalName(originalName) {
+    // 1. 检查是不是用户自己
+    if (state.qzoneSettings && originalName === state.qzoneSettings.nickname) {
+        return state.qzoneSettings.nickname;
+    }
+    
+    // 2. 在所有单聊角色中查找
+    const characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === originalName);
+    
+    // 3. 如果找到了，返回该角色的当前备注名
+    if (characterChat) {
+        return characterChat.name;
+    }
+    
+    // 4. 如果没找到，返回原始的本名作为备用
+    return originalName;
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
         // ===================================================================
