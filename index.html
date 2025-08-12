@@ -6381,34 +6381,39 @@ let heartRateTimers = {}; // 用于统一管理每个聊天的“恢复计时器
 
 // ▼▼▼ 【全新】请将这个函数粘贴到 toGeminiRequestData 函数的后面 ▼▼▼
 /**
- * 【全新 | 健壮版】从Gemini API的响应中安全地提取文本内容
+ * 【全新 | 健壮版】从Gemini或兼容OpenAI的API响应中安全地提取文本内容
  * @param {object} data - 从 response.json() 解析后的数据对象
  * @returns {string} - 提取到的文本内容
  * @throws {Error} - 如果响应格式不正确或被屏蔽，则抛出一个带有详细原因的错误
  */
 function getGeminiResponseText(data) {
-    // 1. 检查是否是成功的、标准的响应格式
+    // 1. 检查是否是兼容OpenAI的响应格式 (这是您截图中显示的格式)
+    if (data.choices && Array.isArray(data.choices) && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
+        return data.choices[0].message.content;
+    }
+
+    // 2. 检查是否是成功的、标准的原生Gemini响应格式
     if (data.candidates && Array.isArray(data.candidates) && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
         return data.candidates[0].content.parts[0].text;
     }
 
-    // 2. 如果不是标准格式，就诊断错误原因
+    // 3. 如果都不是，就诊断错误原因
     console.error("Gemini API返回了非预期的格式:", data);
     let errorReason = "AI返回了空内容或未知格式。";
 
-    // 2a. 检查是否是因为安全策略被屏蔽
+    // 3a. 检查是否是因为安全策略被屏蔽 (Gemini specific)
     if (data.promptFeedback?.blockReason) {
         const reason = data.promptFeedback.blockReason;
         // (可选) 获取更详细的安全评分信息
         const details = data.promptFeedback.safetyRatings?.map(r => `${r.category}: ${r.probability}`).join(', ');
         errorReason = `内容因安全策略被屏蔽 (原因: ${reason})。详情: ${details}`;
     } 
-    // 2b. 检查是否是其他类型的API错误
+    // 3b. 检查是否是其他类型的API错误
     else if (data.error) {
         errorReason = `API错误: ${data.error.message}`;
     }
     
-    // 3. 抛出一个带有详细信息的错误，让调用它的函数能够捕获并处理
+    // 4. 抛出一个带有详细信息的错误，让调用它的函数能够捕获并处理
     throw new Error(errorReason);
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
@@ -6738,43 +6743,31 @@ function getDisplayNameInGroup(groupChat, originalName) {
 }
 
 // ▲▲▲ 函数结束 ▲▲▲
-// ▼▼▼ 请用这个【全新、更智能】的函数，完整替换旧的 getDisplayNameByOriginalName 函数 ▼▼▼
-
+// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
 /**
- * 【全新】根据角色的本名或曾用名，在整个应用中查找其正确的【当前显示名称】
- * @param {string} nameIdentifier - 角色的本名 或 储存在旧数据中的曾用名
- * @returns {string} - 该角色的【当前】备注名/群昵称/用户昵称，如果找不到则返回传入的标识符
+ * 【全新】根据角色的本名，在整个应用中查找其正确的显示名称
+ * @param {string} originalName - 角色的本名 (e.g., "李星辰")
+ * @returns {string} - 该角色的备注名/群昵称/用户昵称，如果找不到则返回其本名
  */
-function getDisplayNameByOriginalName(nameIdentifier) {
-    // 1. 如果传入的是空值，直接返回
-    if (!nameIdentifier) return '';
-
-    // 2. 检查是不是用户自己
-    if (state.qzoneSettings && nameIdentifier === state.qzoneSettings.nickname) {
+function getDisplayNameByOriginalName(originalName) {
+    // 1. 检查是不是用户自己
+    if (state.qzoneSettings && originalName === state.qzoneSettings.nickname) {
         return state.qzoneSettings.nickname;
     }
     
-    // 3. 【主要查找方式】: 通过“本名” (originalName) 查找。
-    // 这是最标准、最可靠的方式，适用于所有新创建的数据。
-    let characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === nameIdentifier);
+    // 2. 在所有单聊角色中查找
+    const characterChat = Object.values(state.chats).find(chat => !chat.isGroup && chat.originalName === originalName);
+    
+    // 3. 如果找到了，返回该角色的当前备注名
     if (characterChat) {
-        return characterChat.name; // 如果找到，返回该角色【当前】的备注名
+        return characterChat.name;
     }
-
-    // 4. 【兼容旧数据】: 如果通过“本名”没找到，就尝试把传入的名字当作一个【旧的备注名】去历史记录里查找。
-    characterChat = Object.values(state.chats).find(chat => 
-        !chat.isGroup && 
-        (chat.nameHistory && chat.nameHistory.includes(nameIdentifier))
-    );
-    if (characterChat) {
-        return characterChat.name; // 如果在历史记录里找到了，同样返回该角色【当前】的备注名
-    }
-
-    // 5. 【最终备用方案】: 如果以上方法都找不到，说明这可能是一个非常旧的数据，或者角色已被删除。
-    // 此时，直接返回储存在评论里的那个名字，至少能保证有内容显示。
-    return nameIdentifier;
+    
+    // 4. 如果没找到，返回原始的本名作为备用
+    return originalName;
 }
-// ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
 // ▼▼▼ 请用这个【全新的、更智能的】函数，完整替换旧的 processMentions 函数 ▼▼▼
 
 /**
@@ -9808,7 +9801,11 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 - **发布说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
 - **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
 - **发布文字图**: '[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]'
-- **评论动态**: '{"type": "qzone_comment", "postId": 123, "commentText": "@作者名 这太有趣了！"}'
+-   **【【【评论动态的四种方式】】】**:
+    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
+    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
+    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
 - **点赞动态**: '{"type": "qzone_like", "postId": 456}'
 -   **拍一拍用户**: '{"type": "pat_user", "suffix": "(可选)你想加的后缀，如“的脑袋”"}'
 -   **【新增】拉黑用户**: '{"type": "block_user"}'
@@ -10070,18 +10067,49 @@ if (visiblePosts.length > 0 && !chat.isGroup) {
                     }
                     continue;
 
-                case 'qzone_comment':
+// ▼▼▼ 在 triggerAiResponse 函数中，找到 case 'qzone_comment': 并用下面这整块替换 ▼▼▼
+                case 'qzone_comment': { // 使用花括号创建一个新的作用域
                     const postToComment = await db.qzonePosts.get(parseInt(msgData.postId));
                     if (postToComment) {
                         if (!postToComment.comments) postToComment.comments = [];
-                        postToComment.comments.push({ commenterName: chat.name, text: msgData.commentText, timestamp: Date.now() });
+                        
+                        // 【核心修正】使用正确的变量名 msgData
+                        const commenterName = msgData.name || chat.originalName;
+
+                        const createCommentObject = (text, meaning = null, replyTo = null) => ({
+                            commenterName,
+                            text: processMentions(text, chat),
+                            meaning,
+                            replyTo,
+                            timestamp: Date.now()
+                        });
+
+                        // 【核心修正】在这里判断AI发来的是哪种评论，并使用正确的变量名 msgData
+                        if (msgData.stickerUrl && msgData.stickerMeaning) {
+                            postToComment.comments.push(createCommentObject(msgData.stickerUrl, msgData.stickerMeaning, msgData.replyTo || null));
+                        } else if (Array.isArray(msgData.comments)) {
+                            msgData.comments.forEach(commentText => {
+                                if (typeof commentText === 'string' && commentText.trim()) {
+                                    postToComment.comments.push(createCommentObject(commentText, null, msgData.replyTo || null));
+                                }
+                            });
+                        } else {
+                            const textContent = msgData.commentText || msgData.content;
+                            if (typeof textContent === 'string' && textContent.trim()) {
+                                postToComment.comments.push(createCommentObject(textContent, null, msgData.replyTo || null));
+                            }
+                        }
+                        
                         await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
                         updateUnreadIndicator(unreadPostsCount + 1);
-                        if (isViewingThisChat && document.getElementById('qzone-screen').classList.contains('active')) {
+                        
+                        if (document.getElementById('qzone-screen').classList.contains('active')) {
                            await renderQzonePosts();
                         }
                     }
-                    continue;
+                    continue; // 处理完后跳过，不创建聊天消息
+                }
+// ▲▲▲ 替换结束 ▲▲▲
 
                 case 'qzone_like':
                    const postToLike = await db.qzonePosts.get(parseInt(msgData.postId));
@@ -11539,16 +11567,22 @@ ${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久�
     -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
 6.  你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。
 
+# 【【【表情评论指南 (全新)】】】
+你现在拥有了评论表情的能力，你应该更频繁地使用它！这能让你的角色更加生动、富有个性。
+-   **表达情绪时**: 当你感到开心、惊讶、疑惑或有趣时，优先考虑使用表情评论。
+-   **混合使用**: 不要总是只发文字。尝试将你的评论行为混合起来，大约有 30-40% 的评论应该是表情。
+-   **无话可说时**: 如果你觉得一条动态很有趣但又不知道该说什么文字，发送一个相关的表情是最好的互动方式。
+
 # 你的可选行动指令:
 -   **发消息+更新状态**: '[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]'
 -   **发说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
 -   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
 -   **发布文字图**: '[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]'
 -   **【【【评论动态的四种方式】】】**:
-    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
-    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
-    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
-    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
+    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "commentText": "这太有趣了！"}]'
+    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
+    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
 -   **点赞**: '[{"type": "qzone_like", "postId": 456}]'
 -   **打视频**: '[{"type": "video_call_request"}]'
 ${contentTabooPrompt}
@@ -11672,39 +11706,51 @@ ${dynamicContext}`;
                         }
                     }
                     break;
+// ▼▼▼ 在 triggerInactiveAiAction 函数中，找到 case 'qzone_comment': 并用下面这整块替换 ▼▼▼
                 case 'qzone_comment':
                     const postToComment = await db.qzonePosts.get(parseInt(action.postId));
                     if (postToComment) {
                         if (!postToComment.comments) postToComment.comments = [];
+                        
+                        // 获取评论者的本名，作为后备
                         const commenterName = action.name || chat.originalName;
+
+                        // 创建一个统一的评论对象生成函数，以处理不同类型的评论
                         const createCommentObject = (text, meaning = null, replyTo = null) => ({
                             commenterName,
-                            text: processMentions(text, chat),
-                            meaning,
-                            replyTo,
+                            text: processMentions(text, chat), // 在回复时处理@提及
+                            meaning, // 保存表情的含义
+                            replyTo, // 保存回复的目标
                             timestamp: Date.now()
                         });
 
+                        // 【核心修复】在这里判断AI发来的是哪种评论
                         if (action.stickerUrl && action.stickerMeaning) {
+                            // 1. 如果是表情评论，使用 stickerUrl 作为 text，并保存 meaning
                             postToComment.comments.push(createCommentObject(action.stickerUrl, action.stickerMeaning, action.replyTo || null));
                         } else if (Array.isArray(action.comments)) {
+                            // 2. 如果是多条文字评论
                             action.comments.forEach(commentText => {
                                 if (typeof commentText === 'string' && commentText.trim()) {
                                     postToComment.comments.push(createCommentObject(commentText, null, action.replyTo || null));
                                 }
                             });
                         } else if (typeof action.commentText === 'string' && action.commentText.trim()) {
+                            // 3. 如果是单条文字评论
                             postToComment.comments.push(createCommentObject(action.commentText, null, action.replyTo || null));
                         }
                         
+                        // 保存更新后的评论到数据库
                         await db.qzonePosts.update(postToComment.id, { comments: postToComment.comments });
                         updateUnreadIndicator(unreadPostsCount + 1);
                         console.log(`后台活动: 角色 "${chat.name}" 评论了动态 #${action.postId}`);
 
+                        // 添加评论冷却，防止AI在短时间内对同一帖子反复评论
                         if (!chat.commentCooldowns) chat.commentCooldowns = {};
                         chat.commentCooldowns[action.postId] = Date.now();
                     }
                     break;
+// ▲▲▲ 替换结束 ▲▲▲
                 case 'video_call_request':
                     if (!videoCallState.isActive && !videoCallState.isAwaitingResponse) {
                         videoCallState.isAwaitingResponse = true;
