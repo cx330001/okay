@@ -82,11 +82,53 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-        #home-screen { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 20px; padding-top: 80px; padding-bottom: 50px; box-sizing: border-box; background-size: cover; background-position: center; }
-        #clock-container { text-align: center; color: white; margin-bottom: 20px; flex-shrink: 0; }
-        #main-time { 
-    font-size: 90px; 
-    font-weight: 700; /* 苹果风格的粗体时间 */
+/* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+
+/* 1. 让首页容器铺满整个屏幕 */
+#home-screen {
+    /* 原有布局样式保持不变 */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    box-sizing: border-box;
+    background-size: cover;
+    background-position: center;
+    
+    /* 核心修正：
+       - padding: 20px; 被拆分，顶部padding单独处理。
+       - padding-top: calc(60px + ...); 被彻底移除！
+    */
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: 50px;
+    
+    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
+       这样，背景就能正确地填充到屏幕最顶端了！ */
+    padding-top: env(safe-area-inset-top);
+}
+
+/* 2. 把时钟单独往下推 */
+#clock-container {
+    /* 原有样式保持不变 */
+    text-align: center;
+    color: white;
+    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    
+    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
+       这个 60px 就是您之前在 padding-top 里写的值。 */
+    margin-top: 60px;
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
+#main-time {
+    font-size: 88px; /* 推荐：稍微调大一点点，更接近iOS锁屏的感觉 */
+    font-weight: 600; /* 核心修改1：将字体从“纤细(200)”改为“粗体(600)”，这是最关键的一步 */
+    letter-spacing: -2px; /* 推荐：稍微收紧字间距，让数字看起来更紧凑 */
+    /* 核心修改2：指定字体，优先使用苹果系统字体 */
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
 }
 #main-date { 
     font-size: 22px; /* 稍微放大一点更协调 */
@@ -8196,21 +8238,8 @@ function showNotification(chatId, messageContent) {
     }, 4000);
 }
 
-        function updateClock() { 
-    const now = new Date(); 
-    const timeString = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }); 
+        function updateClock() { const now = new Date(); const timeString = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }); const dateString = now.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' }); document.getElementById('main-time').textContent = timeString; document.getElementById('status-bar-time').textContent = timeString; document.getElementById('main-date').textContent = dateString; }
 
-    // --- 核心修改在这里 ---
-    const month = now.getMonth() + 1;
-    const day = now.getDate();
-    const weekday = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()];
-    const dateString = `${month}月${day}日 ${weekday}`;
-    // --- 修改结束 ---
-
-    document.getElementById('main-time').textContent = timeString; 
-    document.getElementById('status-bar-time').textContent = timeString; 
-    document.getElementById('main-date').textContent = dateString; 
-}
 
 /**
  * 【终极健壮版】解析AI返回的、可能格式不规范的响应内容
