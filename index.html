@@ -58,7 +58,7 @@ body {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
-        #status-bar { position: absolute; top: 0; left: 0; width: 100%; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; color: white; z-index: 10; font-size: 14px; box-sizing: border-box; pointer-events: none; }
+       #status-bar { display: none; }
         #status-bar-time { font-weight: 600; }
         .battery-container { display: flex; align-items: center; gap: 5px; }
         .battery-icon { width: 25px; height: 12px; border: 1px solid white; border-radius: 3px; position: relative; padding: 1px; }
@@ -80,9 +80,15 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-        #home-screen { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 20px; padding-top: 80px; padding-bottom: 50px; box-sizing: border-box; background-size: cover; background-position: center; }
+        #home-screen { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 20px; padding-top: calc(60px + env(safe-area-inset-top)); padding-bottom: 50px; box-sizing: border-box; background-size: cover; background-position: center; }
         #clock-container { text-align: center; color: white; text-shadow: 0 3px 8px rgba(0,0,0,0.4); margin-bottom: 20px; flex-shrink: 0; }
-        #main-time { font-size: 80px; font-weight: 200; }
+        #main-time {
+    font-size: 88px; /* 推荐：稍微调大一点点，更接近iOS锁屏的感觉 */
+    font-weight: 600; /* 核心修改1：将字体从“纤细(200)”改为“粗体(600)”，这是最关键的一步 */
+    letter-spacing: -2px; /* 推荐：稍微收紧字间距，让数字看起来更紧凑 */
+    /* 核心修改2：指定字体，优先使用苹果系统字体 */
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+}
         #main-date { font-size: 18px; font-weight: 500; }
         #app-grid { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; padding: 20px; }
         .app-row { display: flex; justify-content: center; gap: 25px; width: 100%; }
