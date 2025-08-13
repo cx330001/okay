@@ -79,8 +79,8 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-       #home-screen {
-    /* 保持原有布局不变 */
+#home-screen {
+    /* 原有布局样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -89,25 +89,30 @@ body {
     background-size: cover;
     background-position: center;
     
-    /* 核心修正：只保留左右和底部的内边距 */
+    /* 核心修正：
+       - padding: 20px; 被拆分，顶部padding单独处理。
+       - padding-top: calc(60px + ...); 被彻底移除！
+    */
     padding-left: 20px;
     padding-right: 20px;
     padding-bottom: 50px;
-
-    /* 关键一步：让容器的顶部内边距自动等于“刘海”的高度 */
-    /* 这样，背景就能正确填充到屏幕最顶端了 */
+    
+    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
+       这样，背景就能正确地填充到屏幕最顶端了！ */
     padding-top: env(safe-area-inset-top);
 }
 
+/* 2. 把时钟单独往下推 */
 #clock-container {
-    /* 保持原有样式不变 */
+    /* 原有样式保持不变 */
     text-align: center;
     color: white;
     text-shadow: 0 3px 8px rgba(0,0,0,0.4);
     margin-bottom: 20px;
     flex-shrink: 0;
     
-    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置 */
+    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
+       这个 60px 就是您之前在 padding-top 里写的值。 */
     margin-top: 60px;
 }
 
@@ -19353,5 +19358,4 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 </div>
 </body>
 </html>
-
 
