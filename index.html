@@ -15,29 +15,27 @@ html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
-/* 2. 重置 body，使其成为一个干净的画布 */
+/* ▼▼▼ 请用这【一整块】代码，替换掉你现有的 body 和 #phone-screen 样式 ▼▼▼ */
+
+/* 1. 让 body 成为最终的黑色背景板 */
 body {
-    margin: 0; /* 保留 margin 重置 */
+    margin: 0;
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
-    background-color: #f0f2f5; /* 保留一个柔和的背景色 */
-    /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
+    background-color: #000; /* 核心修正1：把黑色背景移到 body 上 */
 }
 
-/* ▼▼▼ Safari工具栏适配 (最终版)：请用这块新样式替换旧的 #phone-screen 样式 ▼▼▼ */
-
+/* 2. 让 phone-screen 成为一个透明的容器 */
 #phone-screen {
     width: 100%;
-    /* 为不支持 dvh 的旧浏览器提供一个后备方案 */
     height: 100vh; 
-    /* 核心修正：使用动态视口高度，它会随工具栏的显隐而自动变化 */
-    height: 100dvh; 
-
-    position: relative; /* 保持您原有的 position 以免破坏其他布局 */
+    height: 100dvh; /* 使用动态视口高度，兼容性更好 */
+    position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #000;
+    /* 核心修正2：移除这里的黑色背景，让它变透明！ */
+    /* background-color: #000;  <-- 已删除 */
 }
 
 
@@ -19355,6 +19353,5 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 </div>
 </body>
 </html>
-
 
 
