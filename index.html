@@ -27,19 +27,22 @@ body {
 
 /* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
 #phone-screen {
-    width: 100%;
-    /* 为不支持 dvh 的旧浏览器提供一个后备方案 */
-    height: 100vh; 
-    /* 核心修正：使用动态视口高度，它会随工具栏的显隐而自动变化 */
-    height: 100dvh; 
+    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
+    position: fixed;
+    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 
-    position: relative; /* 保持您原有的 position 以免破坏其他布局 */
+    /* 核心修改3：移除所有 height 和 width 属性，因为上面的 top/left/right/bottom 已经定义了尺寸 */
+
+    /* 其他布局属性保持不变 */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff; /* <--- 修改在这里！ */
+    background-color: #ffffff; /* 您想要的白色背景 */
 }
-
 /* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
