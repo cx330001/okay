@@ -30,14 +30,14 @@ body {
     width: 100%;
     /* 为不支持 dvh 的旧浏览器提供一个后备方案 */
     height: 100vh; 
-    /* 核心修正：使用动态视口高度(dvh)，它会随工具栏的显隐而自动变化 */
+    /* 核心修正：使用动态视口高度，它会随工具栏的显隐而自动变化 */
     height: 100dvh; 
 
-    position: relative;
+    position: relative; /* 保持您原有的 position 以免破坏其他布局 */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #000;
+    background-color: #ffffff; /* <--- 修改在这里！ */
 }
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
