@@ -5021,7 +5021,7 @@ input:checked + .slider:before {
 
     /* 为绝对定位的头部和输入框留出空间 */
     /* 你的头部比较高，我们保留110px的上边距 */
-    padding-top: 110px !important;
+    padding-top: 140px !important;
     /* 为底部的输入框和安全区留出大约 100px 的空间 */
     padding-bottom: 150px !important; 
 }
@@ -16467,7 +16467,7 @@ async function addMusicActionSystemMessage(actionText) {
 // ▼▼▼ 【最终修复版本】请用这个全新的函数，完整替换旧的 handleLongScreenshot ▼▼▼
 
 /**
- * 【V2.0 | Safari 兼容修复版】处理长截图功能
+ * 【V3.0 | 布局修复版】处理长截图功能
  */
 async function handleLongScreenshot() {
     if (selectedMessages.size === 0) return;
@@ -16504,19 +16504,33 @@ async function handleLongScreenshot() {
     document.head.appendChild(tempStyle);
 
     try {
-        // 2. 组装截图元素（这部分不变）
+        // 2. 组装截图元素（头部和输入框部分不变）
         const header = chatScreen.querySelector('.header').cloneNode(true);
         header.classList.add('cloned-header');
+        
+        // ★★★★★ 这就是本次修复的核心！ ★★★★★
+        // 我们不再使用 getComputedStyle，而是创建一个干净的容器并手动应用关键样式。
         const messagesContainer = document.createElement('div');
         const originalMessagesContainer = document.getElementById('chat-messages');
-        messagesContainer.style.cssText = window.getComputedStyle(originalMessagesContainer).cssText;
-        messagesContainer.style.height = 'auto';
-        messagesContainer.style.overflow = 'visible';
-        messagesContainer.style.paddingBottom = '20px';
+
+        // 手动设置最关键的布局样式，确保消息能正确排列
+        messagesContainer.style.display = 'flex';
+        messagesContainer.style.flexDirection = 'column';
+        messagesContainer.style.gap = '20px'; // 这是消息之间的垂直间距
+        messagesContainer.style.padding = '10px 15px 20px 15px'; // 上、左右、下内边距，底部多留一点
+        messagesContainer.style.width = '100%';
+        messagesContainer.style.boxSizing = 'border-box';
+
+        // 继承主题和字体大小，这对于气泡颜色和文字大小至关重要
+        messagesContainer.dataset.theme = originalMessagesContainer.dataset.theme;
+        messagesContainer.style.setProperty('--chat-font-size', originalMessagesContainer.style.getPropertyValue('--chat-font-size'));
+        // ★★★★★ 修复结束 ★★★★★
+
         const inputArea = chatScreen.querySelector('#chat-input-area').cloneNode(true);
 
         const sortedTimestamps = [...selectedMessages].sort((a, b) => a - b);
         sortedTimestamps.forEach(timestamp => {
+            // 注意：我们这里依然需要从原始DOM中克隆，因为它们已经应用了所有复杂的CSS
             const originalBubble = document.querySelector(`.message-bubble[data-timestamp="${timestamp}"]`);
             if (originalBubble) {
                 const originalWrapper = originalBubble.closest('.message-wrapper');
@@ -16531,51 +16545,39 @@ async function handleLongScreenshot() {
         screenshotContainer.appendChild(inputArea);
         document.body.appendChild(screenshotContainer);
         
-        // ★★★ 核心修复1：预加载所有图片，解决空白问题 ★★★
+        // 图片预加载逻辑（保持不变）
         const images = Array.from(screenshotContainer.getElementsByTagName('img'));
         const imageLoadPromises = images.map(img => new Promise((resolve, reject) => {
-            // 如果图片已经是 Base64 格式，则无需加载
             if (img.src.startsWith('data:')) {
                 resolve();
                 return;
             }
-            // 对于网络图片，我们创建一个新的 Image 对象来加载它
             const newImg = new Image();
-            newImg.crossOrigin = 'anonymous'; // 关键！请求 CORS 权限
+            newImg.crossOrigin = 'anonymous';
             newImg.onload = resolve;
-            newImg.onerror = resolve; // 即使某张图片加载失败，也继续截图，避免整个流程卡住
+            newImg.onerror = resolve; 
             newImg.src = img.src;
         }));
         
-        // 等待所有图片都加载完成后再进行截图
         await Promise.all(imageLoadPromises);
 
-
-        // 3. 调用 html2canvas，现在图片不会是空白了
+        // 3. 调用 html2canvas（保持不变）
         const canvas = await html2canvas(screenshotContainer, {
             allowTaint: true,
-            useCORS: true, // 再次确认开启CORS
+            useCORS: true,
             backgroundColor: null,
-            // 提高分辨率，让截图更清晰
             scale: window.devicePixelRatio || 2,
         });
 
-        // ★★★ 核心修复2：使用 Blob 对象下载，解决 .png.txt 问题 ★★★
+        // 4. 使用 Blob 对象下载（保持不变）
         canvas.toBlob(function(blob) {
-            // 创建一个指向 Blob 对象的 URL
             const url = URL.createObjectURL(blob);
-            
-            // 创建一个隐藏的下载链接
             const link = document.createElement('a');
             link.download = `EPhone-长截图-${chat.name}-${Date.now()}.png`;
             link.href = url;
-            
-            // 触发点击以下载文件
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            
-            // 【重要】释放 Blob URL 占用的内存
             URL.revokeObjectURL(url);
         }, 'image/png');
 
@@ -16583,7 +16585,7 @@ async function handleLongScreenshot() {
         console.error('长截图生成失败:', error);
         await showCustomAlert('生成失败', '生成截图时发生错误，请检查控制台获取详情。');
     } finally {
-        // 4. 清理工作（这部分不变）
+        // 5. 清理工作（保持不变）
         document.body.removeChild(screenshotContainer);
         document.head.removeChild(tempStyle);
         screenshotBtn.textContent = originalBtnText;
