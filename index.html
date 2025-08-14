@@ -16464,65 +16464,57 @@ async function addMusicActionSystemMessage(actionText) {
     await db.chats.put(chat);
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
-// ▼▼▼ 【全新】长截图功能核心代码 ▼▼▼
+// ▼▼▼ 【最终修复版本】请用这个全新的函数，完整替换旧的 handleLongScreenshot ▼▼▼
 
 /**
- * 【全新】处理长截图功能
+ * 【V2.0 | Safari 兼容修复版】处理长截图功能
  */
 async function handleLongScreenshot() {
     if (selectedMessages.size === 0) return;
     const chat = state.chats[state.activeChatId];
     if (!chat) return;
 
-    // 0. 显示“生成中”状态，防止用户重复点击
+    // 0. 显示“生成中”状态
     const screenshotBtn = document.getElementById('selection-screenshot-btn');
     const originalBtnText = screenshotBtn.textContent;
     screenshotBtn.textContent = '生成中...';
     screenshotBtn.disabled = true;
 
-    // 1. 创建一个临时的、屏幕外的容器用于渲染截图内容
+    // 1. 创建临时的截图容器和样式（这部分不变）
     const screenshotContainer = document.createElement('div');
     const phoneScreen = document.getElementById('phone-screen');
     screenshotContainer.style.width = phoneScreen.offsetWidth + 'px';
     screenshotContainer.style.position = 'absolute';
-    screenshotContainer.style.top = '-9999px'; // 把它扔到屏幕外
+    screenshotContainer.style.top = '-9999px';
     screenshotContainer.style.left = '-9999px';
     screenshotContainer.style.display = 'flex';
     screenshotContainer.style.flexDirection = 'column';
-    screenshotContainer.style.height = 'auto'; // 高度由内容决定
-
-    // 继承聊天背景
+    screenshotContainer.style.height = 'auto';
+    
     const chatScreen = document.getElementById('chat-interface-screen');
     screenshotContainer.style.backgroundImage = chatScreen.style.backgroundImage;
     screenshotContainer.style.backgroundColor = chatScreen.style.backgroundColor || (document.getElementById('phone-screen').classList.contains('dark-mode') ? '#000000' : '#f0f2f5');
 
-    // 2. 创建一个临时的 <style> 标签，用于在截图时隐藏不想显示的内容
     const tempStyle = document.createElement('style');
     tempStyle.innerHTML = `
-        /* 隐藏选中时的对号 */
         .message-bubble.selected::after { display: none !important; }
-        
-        /* 强制克隆出来的头部显示默认控件，隐藏多选控件 */
         .cloned-header .default-controls { display: flex !important; justify-content: space-between; align-items: center; width: 100%; }
         .cloned-header .selection-controls { display: none !important; }
     `;
     document.head.appendChild(tempStyle);
 
     try {
-        // 3. 克隆并组装截图所需的所有元素
+        // 2. 组装截图元素（这部分不变）
         const header = chatScreen.querySelector('.header').cloneNode(true);
-        header.classList.add('cloned-header'); // 添加一个特殊类名以便样式能正确应用
-
+        header.classList.add('cloned-header');
         const messagesContainer = document.createElement('div');
         const originalMessagesContainer = document.getElementById('chat-messages');
         messagesContainer.style.cssText = window.getComputedStyle(originalMessagesContainer).cssText;
-        messagesContainer.style.height = 'auto'; // 覆盖固定高度
-        messagesContainer.style.overflow = 'visible'; // 覆盖滚动
-        messagesContainer.style.paddingBottom = '20px'; // 底部留出一些空白，更美观
-
+        messagesContainer.style.height = 'auto';
+        messagesContainer.style.overflow = 'visible';
+        messagesContainer.style.paddingBottom = '20px';
         const inputArea = chatScreen.querySelector('#chat-input-area').cloneNode(true);
 
-        // 4. 按时间顺序筛选并克隆被选中的消息
         const sortedTimestamps = [...selectedMessages].sort((a, b) => a - b);
         sortedTimestamps.forEach(timestamp => {
             const originalBubble = document.querySelector(`.message-bubble[data-timestamp="${timestamp}"]`);
@@ -16538,35 +16530,69 @@ async function handleLongScreenshot() {
         screenshotContainer.appendChild(messagesContainer);
         screenshotContainer.appendChild(inputArea);
         document.body.appendChild(screenshotContainer);
+        
+        // ★★★ 核心修复1：预加载所有图片，解决空白问题 ★★★
+        const images = Array.from(screenshotContainer.getElementsByTagName('img'));
+        const imageLoadPromises = images.map(img => new Promise((resolve, reject) => {
+            // 如果图片已经是 Base64 格式，则无需加载
+            if (img.src.startsWith('data:')) {
+                resolve();
+                return;
+            }
+            // 对于网络图片，我们创建一个新的 Image 对象来加载它
+            const newImg = new Image();
+            newImg.crossOrigin = 'anonymous'; // 关键！请求 CORS 权限
+            newImg.onload = resolve;
+            newImg.onerror = resolve; // 即使某张图片加载失败，也继续截图，避免整个流程卡住
+            newImg.src = img.src;
+        }));
+        
+        // 等待所有图片都加载完成后再进行截图
+        await Promise.all(imageLoadPromises);
 
-        // 5. 调用 html2canvas 核心库来生成截图
+
+        // 3. 调用 html2canvas，现在图片不会是空白了
         const canvas = await html2canvas(screenshotContainer, {
             allowTaint: true,
-            useCORS: true,
-            backgroundColor: null, // 使用容器自身的背景
+            useCORS: true, // 再次确认开启CORS
+            backgroundColor: null,
+            // 提高分辨率，让截图更清晰
+            scale: window.devicePixelRatio || 2,
         });
 
-        // 6. 创建一个链接并自动点击，以下载生成的图片
-        const link = document.createElement('a');
-        link.download = `EPhone-长截图-${chat.name}-${Date.now()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        // ★★★ 核心修复2：使用 Blob 对象下载，解决 .png.txt 问题 ★★★
+        canvas.toBlob(function(blob) {
+            // 创建一个指向 Blob 对象的 URL
+            const url = URL.createObjectURL(blob);
+            
+            // 创建一个隐藏的下载链接
+            const link = document.createElement('a');
+            link.download = `EPhone-长截图-${chat.name}-${Date.now()}.png`;
+            link.href = url;
+            
+            // 触发点击以下载文件
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // 【重要】释放 Blob URL 占用的内存
+            URL.revokeObjectURL(url);
+        }, 'image/png');
 
     } catch (error) {
         console.error('长截图生成失败:', error);
         await showCustomAlert('生成失败', '生成截图时发生错误，请检查控制台获取详情。');
     } finally {
-        // 7. 【重要】无论成功与否，都清理掉临时创建的元素
+        // 4. 清理工作（这部分不变）
         document.body.removeChild(screenshotContainer);
         document.head.removeChild(tempStyle);
         screenshotBtn.textContent = originalBtnText;
         screenshotBtn.disabled = false;
-        
-        // 截图完成后自动退出多选模式
         exitSelectionMode(); 
     }
 }
 // ▲▲▲ 全新JS函数粘贴结束 ▲▲▲
+
 
         // ===================================================================
         // 4. 初始化函数 init()
