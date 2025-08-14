@@ -9890,16 +9890,70 @@ ${membersWithContacts}
             }
             
             const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
-            const myOwnPosts = allRecentPosts.filter(post => post.authorId === chatId);
-            let myPostsContext = "";
-            if (myOwnPosts.length > 0) {
-                myPostsContext = "\n# 你的动态历史 (你可以根据用户的指令，选择删除它们):\n";
-                myOwnPosts.forEach(post => {
-                    let contentSummary = (post.publicText || post.content || "一条动态").substring(0, 40) + '...';
-                    myPostsContext += `- (ID: ${post.id}) 内容: "${contentSummary}"\n`;
-                });
+            const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
+
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            //  这就是本次修复的核心，与 triggerInactiveAiAction 中的修复逻辑完全相同
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            let postsContext = "";
+            if (visiblePosts.length > 0) {
+                postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+                const aiOriginalName = chat.originalName; // 【修复】使用本名进行判断
+                for (const post of visiblePosts) {
+                    let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
+                    if (post.authorId === chatId) authorName += " (这是你的帖子)";
+
+                    let contentSummary;
+                    if (post.type === 'repost') {
+                        const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                        let originalAuthorName = '原作者';
+                        const originalAuthorId = post.originalPost.authorId;
+                        if (originalAuthorId === 'user') {
+                            originalAuthorName = state.qzoneSettings.nickname;
+                        } else if (state.chats[originalAuthorId]) {
+                            originalAuthorName = state.chats[originalAuthorId].name;
+                        }
+                        let originalContentSummary;
+                        const originalPost = post.originalPost;
+                        if (originalPost.type === 'text_image') {
+                            originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                        } else if (originalPost.type === 'image_post') {
+                            originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                        } else { // 'shuoshuo'
+                            originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                        }
+                        contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+                    } else if (post.type === 'text_image') {
+                        contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                    } else if (post.type === 'image_post') {
+                        contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                    } else {
+                        contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                    }
+                    postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+
+                    // 【【【核心修复逻辑】】】
+                    if (post.comments && post.comments.length > 0) {
+                        for (const comment of post.comments) {
+                            if (typeof comment === 'object' && comment.commenterName) {
+                                const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                                let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                                
+                                // 判断评论者是否是AI自己 (使用本名判断)
+                                if (comment.commenterName === aiOriginalName) {
+                                    postsContext += `  - 你评论说: ${commentText}\n`;
+                                } else {
+                                    postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            //  修复结束
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
             systemPrompt = `你现在扮演一个名为"${chat.originalName}"的角色。
 # 你的角色设定：
 ${chat.settings.aiPersona}
@@ -9987,7 +10041,7 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 # 对话者的角色设定：
 ${chat.settings.myPersona}
 ${contactsList} 
-${myPostsContext}
+${postsContext}
 # 当前情景:
 ${timeContext}
 # 当前音乐情景:
@@ -10068,32 +10122,6 @@ ${contextSummaryForApproval}
             }            
         }           
     
-        const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
-        const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
-
-        if (visiblePosts.length > 0 && !chat.isGroup) {
-            let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-            const aiName = chat.name;
-            for (const post of visiblePosts) {
-                let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
-                let interactionStatus = '';
-                if (post.likes && post.likes.includes(aiName)) interactionStatus += " [你已点赞]";
-                if (post.comments && post.comments.some(c => c.commenterName === aiName)) interactionStatus += " [你已评论]";
-                if (post.authorId === chatId) authorName += " (这是你的帖子)";
-
-                let contentSummary;
-                if (post.type === 'text_image') {
-                    contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                } else if (post.type === 'image_post') {
-                    contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                } else {
-                    contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
-                }
-
-                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
-            }
-            messagesPayload.push({ role: 'system', content: postsContext });
-        }
             let  isGemini = proxyUrl === GEMINI_API_URL;
             let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
             
@@ -10949,6 +10977,7 @@ ${contextSummaryForApproval}
     }
 }
 // ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 
 
 
@@ -11502,7 +11531,10 @@ function runBackgroundSimulationTick() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 【全新升级版】请用这个函数完整替换旧的 triggerInactiveAiAction ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerInactiveAiAction ▼▼▼
+/**
+ * 【V3.0 | 记忆增强版】AI在非活跃状态下的独立行动决策
+ */
 async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
@@ -11565,8 +11597,7 @@ async function triggerInactiveAiAction(chatId) {
     
     const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
     const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
-
-    // ▼▼▼ 【核心新增1】在这里筛选出AI自己的帖子 ▼▼▼
+    
     const myOwnPosts = visiblePosts.filter(post => post.authorId === chatId);
     let myPostsContext = "";
     if (myOwnPosts.length > 0) {
@@ -11576,7 +11607,6 @@ async function triggerInactiveAiAction(chatId) {
             myPostsContext += `- (ID: ${post.id}) 内容: "${contentSummary}"\n`;
         });
     }
-    // ▲▲▲ 新增结束 ▲▲▲
 
     let recentlyPostedSummaries = [];
     if (visiblePosts.length > 0) {
@@ -11656,24 +11686,18 @@ ${recentlyPostedSummaries.join('\n')}
         }
     }
 
-    const unInteractedPosts = visiblePosts.filter(post => {
-        const aiName = chat.name;
-        const alreadyLiked = post.likes && post.likes.includes(aiName);
-        const alreadyCommented = post.comments && post.comments.some(c => c.commenterName === chat.name);
-        return !alreadyLiked && !alreadyCommented;
-    });
-
+    // ★★★★★★★★★★★★★★★★★★★
+    //  这就是本次修复的核心所在！
+    // ★★★★★★★★★★★★★★★★★★★
     let dynamicContext = "";
-    if (unInteractedPosts.length > 0) {
+    if (visiblePosts.length > 0) {
         let postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-        for (const post of unInteractedPosts) {
+        for (const post of visiblePosts) {
             let authorName = post.authorId === 'user' ? userNickname : (state.chats[post.authorId]?.name || '一位朋友');
-            let interactionStatus = '';
-            if (post.likes && post.likes.includes(chat.name)) interactionStatus += " [你已点赞]";
-            if (post.comments && post.comments.some(c => c.commenterName === chat.name)) interactionStatus += " [你已评论]";
             if (post.authorId === chatId) authorName += " (这是你的帖子)";
 
             let contentSummary;
+            // ... (这部分内容摘要的逻辑不变) ...
             if (post.type === 'repost') {
                 const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
                 let originalAuthorName = '原作者';
@@ -11700,22 +11724,33 @@ ${recentlyPostedSummaries.join('\n')}
             } else {
                 contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
             }
-            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"${interactionStatus}\n`;
 
+            postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+
+            // 【【【核心修复逻辑】】】
             if (post.comments && post.comments.length > 0) {
                 for (const comment of post.comments) {
                     if (typeof comment === 'object' && comment.commenterName) {
                         const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
                         let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
-                        postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                        
+                        // 在这里，我们判断评论者是不是AI自己
+                        if (comment.commenterName === chat.originalName) {
+                            // 如果是AI自己，就明确告诉它：“你评论说：...”
+                            postsContext += `  - 你评论说: ${commentText}\n`;
+                        } else {
+                            // 如果是别人，就正常显示
+                            postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                        }
                     }
                 }
             }
+             // 【【【修复结束】】】
         }
         dynamicContext = postsContext;
     }
 
-    // ▼▼▼ 【核心新增2】将新的指令和上下文添加到主提示中 ▼▼▼
+
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
@@ -11776,7 +11811,6 @@ ${linkedMemoryContext}
 -   **对话状态**: ${timeContextText}
 -   **你们最后的对话摘要**: ${recentContextSummary}
 ${dynamicContext}`;
-// ▲▲▲ 新增结束 ▲▲▲
   
   try {
         const messagesPayload = [
@@ -11828,48 +11862,36 @@ ${dynamicContext}`;
             const baseMessage = { role: 'assistant', senderName: chat.originalName, timestamp: actionTimestamp++ };
 
             switch (action.type) {
-                // ... (其他case保持不变) ...
-// ▼▼▼ 【核心新增3】在这里添加新的 case 来处理删除指令 ▼▼▼
-                // ▼▼▼ 【核心新增】用这个新 case 替换 triggerAiResponse 和 triggerInactiveAiAction 中旧的 qzone_delete_post case ▼▼▼
-case 'qzone_delete_post': {
-    const postIdToDelete = parseInt(msgData.postId);
+                case 'qzone_delete_post': {
+    const postIdToDelete = parseInt(action.postId);
     const postToDelete = await db.qzonePosts.get(postIdToDelete);
-    // 安全检查：确保帖子存在，且确实是这个AI发的
     if (postToDelete && postToDelete.authorId === chatId) {
-        // 【核心修改】不再是删除，而是更新一个 isDeleted 标记
         await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
         
-        // 如果用户正在看动态页，就刷新一下
         if (document.getElementById('qzone-screen').classList.contains('active')) {
             renderQzonePosts();
         }
-
-        // 创建一条对用户可见的、可点击的系统消息
         const systemMessage = {
             role: 'system',
-            type: 'post_deleted_notice', // 使用一个全新的类型
+            type: 'post_deleted_notice',
             content: `[${chat.name} 删除了自己的一条动态]`,
-            postId: postIdToDelete, // 把被删除的帖子ID存起来！
-            timestamp: messageTimestamp++
+            postId: postIdToDelete,
+            timestamp: actionTimestamp++
         };
         chat.history.push(systemMessage);
         
-        // 如果用户恰好在看这个聊天，就直接显示出来
         if (isViewingThisChat) {
             appendMessage(systemMessage, chat);
         } else {
-            // 否则发通知
             chat.unreadCount = (chat.unreadCount || 0) + 1;
             showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
-            notificationShown = true;
+            hasSentNotification = true;
         }
     } else {
-        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
+        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${action.postId})`);
     }
-    continue; // 处理完后跳过，不创建普通聊天消息
+    continue;
 }
-// ▲▲▲ 替换结束 ▲▲▲
-// ▲▲▲ 新增结束 ▲▲▲
                 case 'text':
                     aiMessage = { ...baseMessage, content: action.content };
                     break;
@@ -11997,12 +12019,12 @@ case 'qzone_delete_post': {
     } finally {
         setAvatarActingState(chatId, false);
         renderChatList();
-        // 如果用户正好在看动态页，就刷新一下
         if (document.getElementById('qzone-screen').classList.contains('active')) {
             renderQzonePosts();
         }
     }
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 
 
@@ -15792,22 +15814,49 @@ function formatMusicTime(seconds) {
     return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
+// ▼▼▼ 【性能优化方案】请用这个全新的函数，替换旧的 updateMusicProgressBar ▼▼▼
+let lastTimeUpdate = 0; // 用于节流时间文本的更新
+let animationFrameId; // 用于管理动画帧
+
 function updateMusicProgressBar() {
-    const currentTimeEl = document.getElementById('music-current-time');
-    const totalTimeEl = document.getElementById('music-total-time');
-    const progressFillEl = document.getElementById('music-progress-fill');
-    if (!audioPlayer.duration) {
-        currentTimeEl.textContent = "0:00";
-        totalTimeEl.textContent = "0:00";
-        progressFillEl.style.width = '0%';
-        return;
+    // 取消上一个动画帧，避免重复渲染
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
     }
-    const progressPercent = (audioPlayer.currentTime / audioPlayer.duration) * 100;
-    progressFillEl.style.width = `${progressPercent}%`;
-    currentTimeEl.textContent = formatMusicTime(audioPlayer.currentTime);
-    totalTimeEl.textContent = formatMusicTime(audioPlayer.duration);
-    updateActiveLyric(audioPlayer.currentTime);
+
+    function step() {
+        if (!musicState.isPlaying || !audioPlayer.duration) {
+            return; // 如果音乐暂停了或没准备好，就停止动画
+        }
+        
+        const now = performance.now();
+        const currentTime = audioPlayer.currentTime;
+        const duration = audioPlayer.duration;
+
+        // --- 核心优化1：使用 requestAnimationFrame ---
+        // 进度条的宽度更新交由浏览器来决定最佳时机，更平滑，性能更好
+        const progressPercent = (currentTime / duration) * 100;
+        document.getElementById('music-progress-fill').style.width = `${progressPercent}%`;
+
+        // --- 核心优化2：节流 (Throttle) ---
+        // 时间数字每秒最多只更新一次，大大减少DOM操作
+        if (now - lastTimeUpdate > 1000) {
+            document.getElementById('music-current-time').textContent = formatMusicTime(currentTime);
+            document.getElementById('music-total-time').textContent = formatMusicTime(duration);
+            lastTimeUpdate = now;
+        }
+
+        // 只有当歌词需要滚动时才去操作DOM
+        updateActiveLyric(currentTime);
+
+        // 请求下一帧动画
+        animationFrameId = requestAnimationFrame(step);
+    }
+
+    // 启动动画循环
+    animationFrameId = requestAnimationFrame(step);
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 /**
  * 【全新】处理用户点击“撤回”按钮的入口函数
@@ -17944,22 +17993,15 @@ async function handlePostClick(e) {
 // ▲▲▲ 替换结束 ▲▲▲
 
 
-// ▼▼▼ 【最终修复方案】请用这一整块代码，替换所有旧的滑动与点击处理函数 ▼▼▼
+// ▼▼▼ 【性能优化方案】请用这一整块全新的代码，替换所有旧的滑动处理函数和事件监听器 ▼▼▼
 
 // --- 1. 全新的、更智能的滑动开始函数 ---
 const handleSwipeStart = (e) => {
     const target = e.target;
-
-    // 【核心修复】在开始滑动之前，检查点击目标是否是交互区域。如果是，则直接退出，不启动滑动状态。
-    if (target.closest('.post-footer') ||           // 评论输入区
-        target.closest('.post-feedback-icons') ||    // 点赞/转发/收藏区
-        target.closest('.post-actions-btn') ||       // “...”菜单按钮
-        target.closest('.post-comments-container') ||// 整个评论列表（包括删除按钮）
-        target.closest('.reposted-content-wrapper')  // 转发的原始内容区域
-       ) {
-        return; // 在这些区域点击，不触发滑动
+    // 检查点击目标是否是交互区域，如果是，则不启动滑动
+    if (target.closest('.post-footer, .post-feedback-icons, .post-actions-btn, .post-comments-container, .reposted-content-wrapper')) {
+        return;
     }
-
     const targetContainer = e.target.closest('.qzone-post-container');
     if (!targetContainer) return;
 
@@ -17971,9 +18013,15 @@ const handleSwipeStart = (e) => {
     swipeState.startX = e.type.includes('mouse') ? e.pageX : e.touches[0].pageX;
     swipeState.startY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
     swipeState.activeContainer.querySelector('.qzone-post-item').style.transition = 'none';
+
+    // 【核心优化】只在滑动开始时，才动态绑定移动和结束的监听器
+    document.addEventListener('mousemove', handleSwipeMove);
+    document.addEventListener('mouseup', handleSwipeEnd);
+    document.addEventListener('touchmove', handleSwipeMove, { passive: false });
+    document.addEventListener('touchend', handleSwipeEnd);
 };
 
-// --- 2. 滑动移动函数（保持不变，但为了完整性一并提供） ---
+// --- 2. 滑动移动函数（微调） ---
 const handleSwipeMove = (e) => {
     if (!swipeState.isDragging || !swipeState.activeContainer) return;
 
@@ -17981,88 +18029,72 @@ const handleSwipeMove = (e) => {
     const currentY = e.type.includes('mouse') ? e.pageY : e.touches[0].pageY;
     const diffX = currentX - swipeState.startX;
     const diffY = currentY - swipeState.startY;
-    const absDiffX = Math.abs(diffX);
-    const absDiffY = Math.abs(diffY);
-    const clickThreshold = 5;
-
-    if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
+    
+    if (swipeState.isClick && (Math.abs(diffX) > 5 || Math.abs(diffY) > 5)) {
         swipeState.isClick = false;
     }
 
-    if (swipeState.swipeDirection === null) {
-        if (absDiffX > clickThreshold || absDiffY > clickThreshold) {
-            if (absDiffX > absDiffY) {
-                swipeState.swipeDirection = 'horizontal';
-            } else {
-                swipeState.swipeDirection = 'vertical';
-            }
+    if (!swipeState.swipeDirection) {
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            swipeState.swipeDirection = 'horizontal';
+        } else {
+            swipeState.swipeDirection = 'vertical';
         }
     }
-    if (swipeState.swipeDirection === 'vertical') {
-        // 如果判定为垂直滑动，我们就不再处理，让页面可以正常滚动
-        return;
-    }
+    
     if (swipeState.swipeDirection === 'horizontal') {
-        // 如果是水平滑动，阻止页面默认的滚动行为
-        e.preventDefault();
+        e.preventDefault(); // 只在确定是水平滑动时才阻止默认行为
         swipeState.currentX = currentX;
-        let translation = diffX;
-        if (translation > 0) translation = 0; // 不允许向右滑
-        if (translation < -90) translation = -90; // 最多滑90px
+        let translation = Math.min(0, Math.max(-90, diffX)); // 限制滑动范围
         swipeState.activeContainer.querySelector('.qzone-post-item').style.transform = `translateX(${translation}px)`;
     }
 };
 
-// --- 3. 滑动结束函数（逻辑微调，更清晰） ---
+// --- 3. 滑动结束函数（重构） ---
 const handleSwipeEnd = (e) => {
+    // 【核心优化】无论如何，都在滑动结束后移除监听器
+    document.removeEventListener('mousemove', handleSwipeMove);
+    document.removeEventListener('mouseup', handleSwipeEnd);
+    document.removeEventListener('touchmove', handleSwipeMove);
+    document.removeEventListener('touchend', handleSwipeEnd);
+
     if (!swipeState.isDragging || !swipeState.activeContainer) return;
-
+    
     const postItem = swipeState.activeContainer.querySelector('.qzone-post-item');
-    postItem.style.transition = 'transform 0.3s ease'; 
+    postItem.style.transition = 'transform 0.3s ease';
 
-    if (swipeState.isClick) {
-        // 如果是点击，什么都不做，让独立的 'click' 事件去处理
-        postItem.style.transform = ''; 
-    } else {
-        // 如果是滑动
+    if (swipeState.swipeDirection === 'horizontal' && !swipeState.isClick) {
         const finalX = e.type.includes('touchend') ? e.changedTouches[0].pageX : e.pageX;
         const diffX = finalX - swipeState.startX;
-        const swipeThreshold = -40; // 滑动超过40像素就触发
-
-        if (swipeState.swipeDirection === 'horizontal' && diffX < swipeThreshold) {
+        if (diffX < -40) { // 滑动超过40像素就触发
             postItem.classList.add('swiped');
         } else {
             postItem.classList.remove('swiped');
         }
-        postItem.style.transform = '';
     }
+    
+    postItem.style.transform = ''; // 恢复原位，让CSS class接管
     
     // 重置状态
     swipeState.isDragging = false;
     swipeState.activeContainer = null;
     swipeState.swipeDirection = null;
-    swipeState.isClick = true; 
+    swipeState.isClick = true;
 };
 
-
-// --- 4. 独立的点击处理函数（也请确保您用的是这个最新版本） ---
-postsList.addEventListener('click', (e) => {
-    // 这个函数现在只负责处理真正的“点击”事件，不再与滑动逻辑混淆
-    handlePostClick(e);
-});
+// --- 4. 在 init() 函数中绑定事件 ---
+// postsList.addEventListener('click', handlePostClick); // 这行您应该已经有了
+// postsList.addEventListener('mousedown', handleSwipeStart); // 绑定鼠标按下
+// postsList.addEventListener('touchstart', handleSwipeStart, { passive: true }); // 绑定触摸开始
 
 // ▲▲▲ 替换结束 ▲▲▲
 
 
 
-// --- 绑定所有滑动事件 ---
+// 【最终版】动态列表事件绑定
+postsList.addEventListener('click', handlePostClick);
 postsList.addEventListener('mousedown', handleSwipeStart);
-document.addEventListener('mousemove', handleSwipeMove);
-document.addEventListener('mouseup', handleSwipeEnd);
-postsList.addEventListener('touchstart', handleSwipeStart, { passive: false });
-postsList.addEventListener('touchmove', handleSwipeMove, { passive: false });
-postsList.addEventListener('touchend', handleSwipeEnd);
-
+postsList.addEventListener('touchstart', handleSwipeStart, { passive: true }); // 使用 passive 提升滚动性能
 // --- 绑定所有点击事件 ---
 
 
