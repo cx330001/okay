@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EPhone</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @font-face { font-family: 'bulangni'; src: url('') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
@@ -5387,15 +5388,18 @@ input:checked + .slider:before {
                 <span class="action-btn" id="chat-settings-btn" title="聊天设置"><img src="https://i.postimg.cc/bvPq64cv/CCA834-BA-5-A90-408-D-94-FA-7-EE156-B6-A765.png" alt="设置"></span>
             </div>
         </div>
-        <div class="selection-controls">
-            <span id="selection-cancel-btn">取消</span>
-            <span id="selection-count"></span>
-            <div class="header-actions">
-               <span id="selection-favorite-btn" class="action-btn">收藏</span>
-               <span id="selection-share-btn" class="action-btn">分享</span> 
-               <span id="selection-delete-btn" class="action-btn" style="color: #ff3b30;">删除</span>
-            </div>
-        </div>
+<!-- ▼▼▼ 请用这整块代码替换你原来的 .selection-controls div ▼▼▼ -->
+<div class="selection-controls">
+    <span id="selection-cancel-btn">取消</span>
+    <span id="selection-count"></span>
+    <div class="header-actions">
+       <span id="selection-screenshot-btn" class="action-btn">长截图</span>
+       <span id="selection-favorite-btn" class="action-btn">收藏</span>
+       <span id="selection-share-btn" class="action-btn">分享</span> 
+       <span id="selection-delete-btn" class="action-btn" style="color: #ff3b30;">删除</span>
+    </div>
+</div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
     </div>
     
     <div id="chat-messages"><div id="typing-indicator">对方正在输入...</div></div>
@@ -16460,6 +16464,109 @@ async function addMusicActionSystemMessage(actionText) {
     await db.chats.put(chat);
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】长截图功能核心代码 ▼▼▼
+
+/**
+ * 【全新】处理长截图功能
+ */
+async function handleLongScreenshot() {
+    if (selectedMessages.size === 0) return;
+    const chat = state.chats[state.activeChatId];
+    if (!chat) return;
+
+    // 0. 显示“生成中”状态，防止用户重复点击
+    const screenshotBtn = document.getElementById('selection-screenshot-btn');
+    const originalBtnText = screenshotBtn.textContent;
+    screenshotBtn.textContent = '生成中...';
+    screenshotBtn.disabled = true;
+
+    // 1. 创建一个临时的、屏幕外的容器用于渲染截图内容
+    const screenshotContainer = document.createElement('div');
+    const phoneScreen = document.getElementById('phone-screen');
+    screenshotContainer.style.width = phoneScreen.offsetWidth + 'px';
+    screenshotContainer.style.position = 'absolute';
+    screenshotContainer.style.top = '-9999px'; // 把它扔到屏幕外
+    screenshotContainer.style.left = '-9999px';
+    screenshotContainer.style.display = 'flex';
+    screenshotContainer.style.flexDirection = 'column';
+    screenshotContainer.style.height = 'auto'; // 高度由内容决定
+
+    // 继承聊天背景
+    const chatScreen = document.getElementById('chat-interface-screen');
+    screenshotContainer.style.backgroundImage = chatScreen.style.backgroundImage;
+    screenshotContainer.style.backgroundColor = chatScreen.style.backgroundColor || (document.getElementById('phone-screen').classList.contains('dark-mode') ? '#000000' : '#f0f2f5');
+
+    // 2. 创建一个临时的 <style> 标签，用于在截图时隐藏不想显示的内容
+    const tempStyle = document.createElement('style');
+    tempStyle.innerHTML = `
+        /* 隐藏选中时的对号 */
+        .message-bubble.selected::after { display: none !important; }
+        
+        /* 强制克隆出来的头部显示默认控件，隐藏多选控件 */
+        .cloned-header .default-controls { display: flex !important; justify-content: space-between; align-items: center; width: 100%; }
+        .cloned-header .selection-controls { display: none !important; }
+    `;
+    document.head.appendChild(tempStyle);
+
+    try {
+        // 3. 克隆并组装截图所需的所有元素
+        const header = chatScreen.querySelector('.header').cloneNode(true);
+        header.classList.add('cloned-header'); // 添加一个特殊类名以便样式能正确应用
+
+        const messagesContainer = document.createElement('div');
+        const originalMessagesContainer = document.getElementById('chat-messages');
+        messagesContainer.style.cssText = window.getComputedStyle(originalMessagesContainer).cssText;
+        messagesContainer.style.height = 'auto'; // 覆盖固定高度
+        messagesContainer.style.overflow = 'visible'; // 覆盖滚动
+        messagesContainer.style.paddingBottom = '20px'; // 底部留出一些空白，更美观
+
+        const inputArea = chatScreen.querySelector('#chat-input-area').cloneNode(true);
+
+        // 4. 按时间顺序筛选并克隆被选中的消息
+        const sortedTimestamps = [...selectedMessages].sort((a, b) => a - b);
+        sortedTimestamps.forEach(timestamp => {
+            const originalBubble = document.querySelector(`.message-bubble[data-timestamp="${timestamp}"]`);
+            if (originalBubble) {
+                const originalWrapper = originalBubble.closest('.message-wrapper');
+                if (originalWrapper) {
+                    messagesContainer.appendChild(originalWrapper.cloneNode(true));
+                }
+            }
+        });
+
+        screenshotContainer.appendChild(header);
+        screenshotContainer.appendChild(messagesContainer);
+        screenshotContainer.appendChild(inputArea);
+        document.body.appendChild(screenshotContainer);
+
+        // 5. 调用 html2canvas 核心库来生成截图
+        const canvas = await html2canvas(screenshotContainer, {
+            allowTaint: true,
+            useCORS: true,
+            backgroundColor: null, // 使用容器自身的背景
+        });
+
+        // 6. 创建一个链接并自动点击，以下载生成的图片
+        const link = document.createElement('a');
+        link.download = `EPhone-长截图-${chat.name}-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+
+    } catch (error) {
+        console.error('长截图生成失败:', error);
+        await showCustomAlert('生成失败', '生成截图时发生错误，请检查控制台获取详情。');
+    } finally {
+        // 7. 【重要】无论成功与否，都清理掉临时创建的元素
+        document.body.removeChild(screenshotContainer);
+        document.head.removeChild(tempStyle);
+        screenshotBtn.textContent = originalBtnText;
+        screenshotBtn.disabled = false;
+        
+        // 截图完成后自动退出多选模式
+        exitSelectionMode(); 
+    }
+}
+// ▲▲▲ 全新JS函数粘贴结束 ▲▲▲
 
         // ===================================================================
         // 4. 初始化函数 init()
@@ -18933,7 +19040,7 @@ document.getElementById('selection-share-btn').addEventListener('click', () => {
         openShareTargetPicker(); // 打开我们即将创建的目标选择器
     }
 });
-
+document.getElementById('selection-screenshot-btn').addEventListener('click', handleLongScreenshot);
 // 在 init() 的事件监听器区域添加
 document.getElementById('confirm-share-target-btn').addEventListener('click', async () => {
     const sourceChat = state.chats[state.activeChatId];
