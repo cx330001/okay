@@ -5045,6 +5045,22 @@ input:checked + .slider:before {
     background-color: rgba(255, 255, 255, 0.15);
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】为涂黑（剧透）功能添加的样式 ▼▼▼ */
+.spoiler {
+    background-color: #333; /* 涂黑的背景色 */
+    color: #333;           /* 涂黑的文字颜色，使其与背景融为一体 */
+    padding: 0 4px;         /* 轻微的左右内边距，使其更美观 */
+    border-radius: 4px;     /* 圆角 */
+    cursor: pointer;        /* 鼠标悬停时显示为可点击的手型 */
+    transition: all 0.2s ease-in-out; /* 让显示/隐藏效果更平滑 */
+}
+
+/* 鼠标悬停或点击时，恢复背景和文字颜色以显示内容 */
+.spoiler:hover, .spoiler:active {
+    background-color: #e0e0e0; /* 显示时给一个淡淡的背景色 */
+    color: inherit;           /* 恢复为正常的文字颜色 */
+}
+/* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -7399,10 +7415,10 @@ function createOrUpdatePostElement(post) {
 
     function renderOriginalPostContent(targetPost) {
         let innerContentHtml = '';
-        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${targetPost.publicText.replace(/\n/g, '<br>')}</div>` : '';
+        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
 
         if (targetPost.type === 'shuoshuo') {
-            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${targetPost.content.replace(/\n/g, '<br>')}</div>`;
+            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
         } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
             innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
         } else if (targetPost.type === 'text_image') {
@@ -7461,7 +7477,7 @@ function createOrUpdatePostElement(post) {
                 if (STICKER_REGEX.test(comment.text)) {
                     innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
                 } else {
-                    innerCommentContent = comment.text;
+                    innerCommentContent = parseMarkdown(comment.text);
                 }
                 let commentLineHtml = '';
                 if (comment.replyTo) {
@@ -7585,7 +7601,7 @@ function formatTimeAgo(timestamp) {
 // ▼▼▼ 【全新】请将这两个函数粘贴到JS功能函数定义区 ▼▼▼
 
 /**
- * 【全新 | 性能核心】根据帖子数据，创建或更新单个帖子的HTML元素
+ * 【全新 | 性能核心 | 已集成Markdown】根据帖子数据，创建或更新单个帖子的HTML元素
  * @param {object} post - 单个帖子的数据对象
  * @returns {HTMLElement} - 创建或更新后的帖子容器DOM元素
  */
@@ -7593,15 +7609,12 @@ function createOrUpdatePostElement(post) {
     const existingPostContainer = document.querySelector(`.qzone-post-container[data-post-id="${post.id}"]`);
     const isUpdating = !!existingPostContainer;
     
-    // 如果是更新，就直接用旧的容器；如果是新建，就创建一个新的
     const postContainer = isUpdating ? existingPostContainer : document.createElement('div');
     if (!isUpdating) {
         postContainer.className = 'qzone-post-container';
         postContainer.dataset.postId = post.id;
     }
 
-    // --- 后续的HTML构建逻辑与您旧的 renderQzonePosts 函数完全相同 ---
-    // (我们只是把它从一个大循环里抽离出来，变成一个独立的、可复用的函数)
     const postEl = isUpdating ? postContainer.querySelector('.qzone-post-item') : document.createElement('div');
     if (!isUpdating) {
         postEl.className = 'qzone-post-item';
@@ -7623,10 +7636,12 @@ function createOrUpdatePostElement(post) {
 
     function renderOriginalPostContent(targetPost) {
         let innerContentHtml = '';
-        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${targetPost.publicText.replace(/\n/g, '<br>')}</div>` : '';
+        // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
 
         if (targetPost.type === 'shuoshuo') {
-            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${targetPost.content.replace(/\n/g, '<br>')}</div>`;
+            // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
         } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
             innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
         } else if (targetPost.type === 'text_image') {
@@ -7638,7 +7653,8 @@ function createOrUpdatePostElement(post) {
     let mainContentHtml;
 
     if (post.type === 'repost') {
-        const repostCommentHtml = post.repostComment ? `<div class="post-content">${post.repostComment.replace(/\n/g, '<br>')}</div>` : '';
+        // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+        const repostCommentHtml = post.repostComment ? `<div class="post-content">${parseMarkdown(post.repostComment).replace(/\n/g, '<br>')}</div>` : '';
         let originalAuthorAvatar = defaultAvatar;
         let originalAuthorNickname = '原作者';
         if (post.originalPost.authorId === 'user') {
@@ -7674,26 +7690,23 @@ function createOrUpdatePostElement(post) {
         likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
     }
 
-// ▼▼▼ 在 createOrUpdatePostElement 函数中，找到 let commentsHtml = ''; 并用下面这整块替换 ▼▼▼
     let commentsHtml = '';
     if (post.comments && post.comments.length > 0) {
         commentsHtml = '<div class="post-comments-container">';
         post.comments.forEach((comment, index) => {
-            // 【核心修复1】检查是否是新的、包含 commenterName 的对象格式
             if (typeof comment === 'object' && comment !== null && comment.commenterName) {
                 const commenterOriginalName = comment.commenterName;
-                // 【核心修复2】使用我们全新的函数来实时查找最新的显示名称！
                 const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
                 
                 let innerCommentContent;
                 if (STICKER_REGEX.test(comment.text)) {
                     innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
                 } else {
-                    innerCommentContent = comment.text;
+                    // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+                    innerCommentContent = parseMarkdown(comment.text);
                 }
 
                 let commentLineHtml = '';
-                // 【核心修复3】回复的目标也使用新函数来查找名字
                 if (comment.replyTo) {
                     const repliedToDisplayName = getDisplayNameByOriginalName(comment.replyTo);
                     commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span> 回复 <span class="commenter-name">${repliedToDisplayName}</span>: ${innerCommentContent}`;
@@ -7707,19 +7720,18 @@ function createOrUpdatePostElement(post) {
                                  </div>`;
 
             } else {
-                // 【兼容旧数据】如果还是旧的字符串格式，就原样显示
+                // ▼▼▼ 已为旧格式评论添加 Markdown 解析 ▼▼▼
                 commentsHtml += `<div class="legacy-comment-item">
-                                    <span class="comment-text">${String(comment)}</span>
+                                    <span class="comment-text">${parseMarkdown(String(comment))}</span>
                                  </div>`;
             }
         });
         commentsHtml += '</div>';
     }
-// ▲▲▲ 替换结束 ▲▲▲
 
     const userOriginalName = state.qzoneSettings.nickname;
     const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
-    const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id); // 从 state 读取
+    const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id);
 
     let repostIconHtml = '';
     if (post.type !== 'repost') {
@@ -9515,7 +9527,10 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        const processedText = processMentions(String(msg.content || ''), chat);
+        let processedText = processMentions(String(msg.content || ''), chat);
+        // ▼▼▼ 在这里添加新的一行代码 ▼▼▼
+        processedText = parseMarkdown(processedText); // 调用Markdown解析器
+        // ▲▲▲ 添加结束 ▲▲▲
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
@@ -14383,9 +14398,8 @@ async function renderMemoriesScreen() {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 【最终版】请用这个【已简化】的完整函数，完整替换旧的 createMemoryCard 函数 ▼▼▼
 /**
- * 创建普通回忆卡片DOM元素
+ * 【已集成Markdown】创建普通回忆卡片DOM元素
  */
 function createMemoryCard(memory) {
     const card = document.createElement('div');
@@ -14397,28 +14411,24 @@ function createMemoryCard(memory) {
 
     if (memory.type === 'countdown' && memory.targetDate) {
         titleHtml = `[约定达成] ${memory.description}`;
-        contentHtml = `在 ${new Date(memory.targetDate).toLocaleString()}，我们一起见证了这个约定。`;
+        // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+        contentHtml = parseMarkdown(`在 ${new Date(memory.targetDate).toLocaleString()}，我们一起见证了这个约定。`).replace(/\n/g, '<br>');
     } else {
-        // ▼▼▼ 核心逻辑修改：现在我们只认 authorId ▼▼▼
-        let authorDisplayName = '我们的回忆'; // 默认值
-        
-        // 检查是否存在 authorId
+        let authorDisplayName = '我们的回忆';
         if (memory.authorId) {
             const authorChat = state.chats[memory.authorId];
             if (authorChat) {
-                authorDisplayName = authorChat.name; // 从 state 实时获取最新的备注名
+                authorDisplayName = authorChat.name; 
             } else {
-                // 如果找不到角色（可能已被删除），就优雅地显示旧名字（如果有的话）
                 authorDisplayName = memory.authorName || '一位朋友'; 
             }
         } else if (memory.authorName) {
-            // 这是为了兼容那些因为某些原因迁移失败的极少数旧数据
             authorDisplayName = memory.authorName; 
         }
 
         titleHtml = `${authorDisplayName} 的日记`;
-        // ▲▲▲ 逻辑修改结束 ▲▲▲
-        contentHtml = memory.description;
+        // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
+        contentHtml = parseMarkdown(memory.description).replace(/\n/g, '<br>');
     }
 
     card.innerHTML = `
@@ -16867,8 +16877,35 @@ async function handleLongScreenshot() {
         exitSelectionMode(); 
     }
 }
-// ▲▲▲ 全新JS函数粘贴结束 ▲▲▲
+/**
+ * 【增强版】一个简单的 Markdown 解析器
+ * @param {string} text - 包含 Markdown 语法的原始文本
+ * @returns {string} - 转换成 HTML 后的文本
+ */
+function parseMarkdown(text) {
+    if (!text) return '';
 
+    // 顺序很重要，先处理最具体的（两个字符的）
+    // 转换 **粗体** 为 <strong>粗体</strong>
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // 转换 ~~删除线~~ 为 <s>删除线</s>
+    text = text.replace(/\~\~(.*?)\~\~/g, '<s>$1</s>');
+    
+    // ▼▼▼ 新增规则 ▼▼▼
+    // 转换 ==高亮== 为 <mark>高亮</mark>
+    text = text.replace(/==(.*?)==/g, '<mark>$1</mark>');
+
+    // 转换 ||涂黑|| 为 <span class="spoiler">涂黑</span>
+    text = text.replace(/\|\|(.*?)\|\|/g, '<span class="spoiler">$1</span>');
+    // ▲▲▲ 新增结束 ▲▲▲
+
+    // 最后处理单个字符的，避免与两个字符的冲突
+    // 转换 *斜体* 为 <em>斜体</em>
+    text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    return text;
+}
 
         // ===================================================================
         // 4. 初始化函数 init()
