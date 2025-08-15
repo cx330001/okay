@@ -5730,7 +5730,25 @@ input:checked + .slider:before {
     <!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 
 <div class="form-group" id="my-group-nickname-group"><label for="my-group-nickname-input">我的群昵称</label><input type="text" id="my-group-nickname-input"></div>
+<div class="form-group" id="ai-cooldown-group">
+    <label for="ai-action-cooldown-input">
+        独立行动冷却 (分钟)
+        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+            AI在后台主动发消息或动态的最小间隔。
+        </p>
+    </label>
+    <input type="number" id="ai-action-cooldown-input" min="1" value="10" style="width: 80px; text-align: center;">
+</div>
 
+<div class="form-group" id="group-cooldown-group">
+    <label for="group-action-cooldown-input">
+        群聊行动冷却 (分钟)
+        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+            AI在后台主动在群内行动的最小间隔。
+        </p>
+    </label>
+    <input type="number" id="group-action-cooldown-input" min="1" value="10" style="width: 80px; text-align: center;">
+</div>
 <div class="form-group" id="group-avatar-group">
     <label>群头像</label>
     <div class="avatar-upload">
@@ -6663,6 +6681,7 @@ const avatarFrames = [ { id: 'none', url: '', name: '无' }, { id: 'frame_cat_ea
         // --- 已修正 ---
         let state = { chats: {}, activeChatId: null, globalSettings: {}, apiConfig: {}, userStickers: [], worldBooks: [], personaPresets: [], qzoneSettings: {}, activeAlbumId: null };
         // --- 修正结束 ---
+
 // ▼▼▼ 在JS顶部，变量定义区，添加这个新变量 ▼▼▼
 let qzonePostsCache = []; // 用于缓存已加载的动态帖子数据
 // ▲▲▲ 添加结束 ▲▲▲
@@ -7295,6 +7314,214 @@ db.version(23).stores({
             }
         }
 
+// ▼▼▼ 【全新】请将这三个函数粘贴到JS功能函数定义区 ▼▼▼
+
+/**
+ * 【全新 | 性能核心】根据帖子数据，创建或更新单个帖子的HTML元素
+ * @param {object} post - 单个帖子的数据对象
+ * @returns {HTMLElement} - 创建或更新后的帖子容器DOM元素
+ */
+function createOrUpdatePostElement(post) {
+    const existingPostContainer = document.querySelector(`.qzone-post-container[data-post-id="${post.id}"]`);
+    const isUpdating = !!existingPostContainer;
+    
+    // 如果是更新，就直接用旧的容器；如果是新建，就创建一个新的
+    const postContainer = isUpdating ? existingPostContainer : document.createElement('div');
+    if (!isUpdating) {
+        postContainer.className = 'qzone-post-container';
+        postContainer.dataset.postId = post.id;
+    }
+
+    // --- 后续的HTML构建逻辑与您旧的 renderQzonePosts 函数完全相同 ---
+    const postEl = isUpdating ? postContainer.querySelector('.qzone-post-item') : document.createElement('div');
+    if (!isUpdating) {
+        postEl.className = 'qzone-post-item';
+    }
+
+    let authorAvatar = '', authorNickname = '', commentAvatar = state.qzoneSettings.avatar; 
+
+    if (post.authorId === 'user') {
+        authorAvatar = state.qzoneSettings.avatar;
+        authorNickname = state.qzoneSettings.nickname;
+    } else if (state.chats[post.authorId]) {
+        const authorChat = state.chats[post.authorId];
+        authorAvatar = authorChat.settings.aiAvatar || defaultAvatar;
+        authorNickname = authorChat.name;
+    } else {
+        authorNickname = getDisplayNameByOriginalName(post.authorOriginalName);
+        authorAvatar = defaultAvatar;
+    }
+
+    function renderOriginalPostContent(targetPost) {
+        let innerContentHtml = '';
+        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${targetPost.publicText.replace(/\n/g, '<br>')}</div>` : '';
+
+        if (targetPost.type === 'shuoshuo') {
+            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${targetPost.content.replace(/\n/g, '<br>')}</div>`;
+        } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
+            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
+        } else if (targetPost.type === 'text_image') {
+            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
+        }
+        return innerContentHtml;
+    }
+
+    let mainContentHtml;
+
+    if (post.type === 'repost') {
+        const repostCommentHtml = post.repostComment ? `<div class="post-content">${post.repostComment.replace(/\n/g, '<br>')}</div>` : '';
+        let originalAuthorAvatar = defaultAvatar;
+        let originalAuthorNickname = '原作者';
+        if (post.originalPost.authorId === 'user') {
+            originalAuthorAvatar = state.qzoneSettings.avatar;
+            originalAuthorNickname = state.qzoneSettings.nickname;
+        } else {
+            const originalAuthorChat = state.chats[post.originalPost.authorId];
+            if (originalAuthorChat) {
+                originalAuthorAvatar = originalAuthorChat.settings.aiAvatar || defaultAvatar;
+            }
+            originalAuthorNickname = getDisplayNameByOriginalName(post.originalPost.authorOriginalName);
+        }
+        mainContentHtml = `
+            ${repostCommentHtml}
+            <div class="reposted-content-wrapper">
+                <div class="post-header">
+                    <img src="${originalAuthorAvatar}" class="post-avatar">
+                    <div class="post-info">
+                        <span class="post-nickname">@${originalAuthorNickname}</span>
+                        <span class="post-timestamp">${formatPostTimestamp(post.originalPost.timestamp)}</span>
+                    </div>
+                </div>
+                <div class="post-main-content">${renderOriginalPostContent(post.originalPost)}</div>
+            </div>
+        `;
+    } else {
+        mainContentHtml = `<div class="post-main-content">${renderOriginalPostContent(post)}</div>`;
+    }
+
+    let likesHtml = '';
+    if (post.likes && post.likes.length > 0) {
+        const displayLikes = post.likes.map(name => getDisplayNameByOriginalName(name)).join('、');
+        likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
+    }
+
+    let commentsHtml = '';
+    if (post.comments && post.comments.length > 0) {
+        commentsHtml = '<div class="post-comments-container">';
+        post.comments.forEach((comment, index) => {
+            if (typeof comment === 'object' && comment !== null && comment.commenterName) {
+                const commenterOriginalName = comment.commenterName;
+                const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
+                let innerCommentContent;
+                if (STICKER_REGEX.test(comment.text)) {
+                    innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
+                } else {
+                    innerCommentContent = comment.text;
+                }
+                let commentLineHtml = '';
+                if (comment.replyTo) {
+                    const repliedToDisplayName = getDisplayNameByOriginalName(comment.replyTo);
+                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span> 回复 <span class="commenter-name">${repliedToDisplayName}</span>: ${innerCommentContent}`;
+                } else {
+                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span>: ${innerCommentContent}`;
+                }
+                commentsHtml += `<div class="comment-item" data-post-id="${post.id}" data-commenter-original-name="${commenterOriginalName}" data-commenter-display-name="${commenterDisplayName}">
+                                    <div class="comment-text">${commentLineHtml}</div>
+                                    <span class="comment-delete-btn" data-comment-index="${index}">×</span>
+                                 </div>`;
+            } else {
+                commentsHtml += `<div class="legacy-comment-item">
+                                    <span class="comment-text">${String(comment)}</span>
+                                 </div>`;
+            }
+        });
+        commentsHtml += '</div>';
+    }
+
+    const userOriginalName = state.qzoneSettings.nickname;
+    const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
+    const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id);
+
+    let repostIconHtml = '';
+    if (post.type !== 'repost') {
+        repostIconHtml = `
+            <span class="action-icon repost">
+                <svg viewBox="0 0 24 24"><path d="M17 2.1l4 4-4 4 M3 11.5v-3a4 4 0 0 1 4-4h13 M7 21.9l-4-4 4-4 M21 12.5v3a4 4 0 0 1-4 4H4"></path></svg>
+            </span>`;
+    }
+    
+    postEl.innerHTML = `
+        <div class="post-header">
+            <img src="${authorAvatar}" class="post-avatar" data-author-id="${post.authorId}">
+            <div class="post-info">
+                <span class="post-nickname">${authorNickname}</span>
+                <span class="post-timestamp">${formatPostTimestamp(post.timestamp)}</span>
+            </div>
+            <div class="post-actions-btn">…</div>
+        </div>
+        ${mainContentHtml}
+        <div class="post-feedback-icons">
+            ${repostIconHtml}
+            <span class="action-icon like ${isLikedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></span>
+            <span class="action-icon favorite ${isFavoritedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></span>
+        </div>
+        ${likesHtml}
+        ${commentsHtml}
+        <div class="post-footer">
+            <div class="comment-section">
+                <img src="${commentAvatar}" class="comment-avatar">
+                <input type="text" class="comment-input" placeholder="友善的评论是交流的起点">
+                <button class="comment-sticker-btn">
+<svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M8 14 Q 12 16 16 14"></path>
+    <line x1="9" y1="9" x2="9.01" y2="9"></line>
+    <line x1="15" y1="9" x2="15.01" y2="9"></line>
+</svg>
+</button>
+                <div class="at-mention-popup"></div>
+            </div>
+            <button class="comment-send-btn">发送</button>
+        </div>
+    `;
+
+    if (!isUpdating) {
+        const deleteAction = document.createElement('div');
+        deleteAction.className = 'qzone-post-delete-action';
+        deleteAction.innerHTML = '<span>删除</span>';
+        postContainer.appendChild(postEl);
+        postContainer.appendChild(deleteAction);
+    }
+    
+    return postContainer;
+}
+
+/**
+ * 【全新 | 增量更新函数】只更新单个帖子，而不是重绘整个列表
+ * @param {number} postId - 需要更新的帖子的ID
+ */
+async function updateSinglePostInDOM(postId) {
+    const postData = await db.qzonePosts.get(postId);
+    if (!postData) {
+        // 如果帖子被删了，就从DOM中移除
+        const postContainer = document.querySelector(`.qzone-post-container[data-post-id="${postId}"]`);
+        if (postContainer) postContainer.remove();
+        return;
+    }
+
+    // 更新缓存
+    const cacheIndex = qzonePostsCache.findIndex(p => p.id === postId);
+    if (cacheIndex > -1) qzonePostsCache[cacheIndex] = postData;
+    
+    // 更新收藏状态
+    const favorites = await db.favorites.where('type').equals('qzone_post').toArray();
+    state.favoritedPostIds = new Set(favorites.map(fav => fav.content.id));
+
+    // 调用核心函数来更新DOM
+    createOrUpdatePostElement(postData);
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
 // ▼▼▼ 【全新】请将这个函数粘贴到 formatPostTimestamp 函数的后面 ▼▼▼
 function formatTimeAgo(timestamp) {
     const now = Date.now();
@@ -7541,7 +7768,6 @@ async function renderQzonePosts() {
 
     // --- 1. 从数据库加载初始数据并缓存 ---
     const [postsFromDb, favorites] = await Promise.all([
-        // 【核心修改】在这里增加一个 filter，不再获取 isDeleted 为 true 的帖子
         db.qzonePosts.orderBy('timestamp').reverse().filter(post => !post.isDeleted).toArray(),
         db.favorites.where('type').equals('qzone_post').toArray()
     ]);
@@ -8122,6 +8348,12 @@ async function loadAllDataFromDB() {
                     delete member.name;
                 }
             });
+        }
+        
+        // 【【【核心修改：在这里添加默认值】】】
+        if (!chat.settings) chat.settings = {}; // 确保 settings 对象存在
+        if (typeof chat.settings.actionCooldownMinutes === 'undefined') {
+            chat.settings.actionCooldownMinutes = 10; // 赋予默认值10分钟
         }
         if (!chat.isGroup && !chat.status) chat.status = { text: '在线', lastUpdate: Date.now(), isBusy: false };
         if (!chat.isGroup && !chat.relationship) chat.relationship = { status: 'friend', blockedTimestamp: null, applicationReason: '' };
@@ -11539,15 +11771,17 @@ async function triggerInactiveAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
 
-    const ACTION_COOLDOWN_MINUTES = 10; 
+    // 【【【核心修改1：从聊天设置中读取冷却时间】】】
+    const actionCooldownMinutes = chat.settings.actionCooldownMinutes || 10; 
+
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
-        if (minutesSinceLastAction < ACTION_COOLDOWN_MINUTES) {
-            console.log(`角色 "${chat.name}" 处于行动冷却中 (还剩 ${Math.round(ACTION_COOLDOWN_MINUTES - minutesSinceLastAction)} 分钟)，本次独立行动跳过。`);
+        // 【【【核心修改2：使用新的变量进行判断】】】
+        if (minutesSinceLastAction < actionCooldownMinutes) {
+            console.log(`角色 "${chat.name}" 处于行动冷却中 (还剩 ${Math.round(actionCooldownMinutes - minutesSinceLastAction)} 分钟)，本次独立行动跳过。`);
             return;
         }
     }
-    
     setAvatarActingState(chatId, true);
 
     const { proxyUrl, apiKey, model } = state.apiConfig;
@@ -12034,14 +12268,18 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    const GROUP_ACTION_COOLDOWN_MINUTES = 10;
+    // 【【【核心修改1：从群聊设置中读取冷却时间】】】
+    const groupActionCooldownMinutes = chat.settings.actionCooldownMinutes || 10;
+
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
-        if (minutesSinceLastAction < GROUP_ACTION_COOLDOWN_MINUTES) {
+        // 【【【核心修改2：使用新的变量进行判断】】】
+        if (minutesSinceLastAction < groupActionCooldownMinutes) {
             console.log(`群聊 "${chat.name}" 处于行动冷却中，本次独立行动跳过。`);
             return;
         }
     }
+    
     
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
@@ -17042,7 +17280,7 @@ function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheck
             worldBookSelectBox.addEventListener('click', (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); });
             document.getElementById('world-book-checkboxes-container').addEventListener('change', updateWorldBookSelectionDisplay);
             window.addEventListener('click', (e) => { if (!document.querySelector('.custom-multiselect').contains(e.target)) { worldBookCheckboxesContainer.classList.remove('visible'); worldBookSelectBox.classList.remove('expanded'); } });
-// ▼▼▼ 请用这个【新版本】的事件监听器，完整替换旧的 chat-settings-btn 监听器 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 chat-settings-btn 事件监听器 ▼▼▼
 document.getElementById('chat-settings-btn').addEventListener('click', async () => {
     if (!state.activeChatId) return;
     const chat = state.chats[state.activeChatId];
@@ -17058,12 +17296,14 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
-    // 【核心修改】控制“本名”输入框的显示
     document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
-
+    
+    // 【【【核心修改：控制冷却时间输入框的显示】】】
+    document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
 
     // --- 加载表单数据 ---
-    document.getElementById('chat-name-input').value = chat.name; // 备注名
+    document.getElementById('chat-name-input').value = chat.name;
     document.getElementById('my-persona').value = chat.settings.myPersona;
     document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
     document.getElementById('max-memory').value = chat.settings.maxMemory;
@@ -17081,11 +17321,15 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     if (isGroup) {
         document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
         document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
+        // 【【【核心修改：加载群聊冷却时间】】】
+        document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
         renderGroupMemberSettings(chat.members);
     } else {
-        document.getElementById('ai-original-name-input').value = chat.originalName; // 【核心修改】加载本名
+        document.getElementById('ai-original-name-input').value = chat.originalName;
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
+        // 【【【核心修改：加载单聊冷却时间】】】
+        document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
         const select = document.getElementById('assign-group-select');
         select.innerHTML = '<option value="">未分组</option>';
         const groups = await db.qzoneGroups.toArray();
@@ -17178,7 +17422,7 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
             document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
             document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
 
-// ▼▼▼ 用这个【修正后】的版本，完整替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
 document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
     if (!state.activeChatId) return;
     const chat = state.chats[state.activeChatId];
@@ -17186,17 +17430,10 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     const newName = document.getElementById('chat-name-input').value.trim();
     if (!newName) return alert('备注名/群名不能为空！');
 
-    // 【核心修改2】当用户手动改名时，也记录曾用名
     if (!chat.isGroup && newName !== chat.name) {
-        if (!chat.nameHistory) {
-            chat.nameHistory = [];
-        }
-        if (!chat.nameHistory.includes(chat.name)) {
-            chat.nameHistory.push(chat.name);
-        }
+        if (!chat.nameHistory) chat.nameHistory = [];
+        if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
     }
-    // 【修改结束】
-
     chat.name = newName;
 
     const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
@@ -17211,12 +17448,16 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     if (chat.isGroup) {
         chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
         chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
+        // 【【【核心修改：保存群聊冷却时间】】】
+        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
     } else {
         const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
         if (!newOriginalName) return alert('对方本名不能为空！');
-        chat.originalName = newOriginalName; // 保存本名
+        chat.originalName = newOriginalName;
         chat.settings.aiPersona = document.getElementById('ai-persona').value;
         chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+        // 【【【核心修改：保存单聊冷却时间】】】
+        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
         chat.settings.aiHeartRate = {
             enabled: document.getElementById('ai-heart-rate-toggle').checked,
             personality: document.getElementById('ai-heart-rate-personality').value,
@@ -17238,9 +17479,7 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     
     await db.chats.put(chat);
 
-    if (!chat.isGroup) {
-        await syncCharacterNameInGroups(chat);
-    }
+    if (!chat.isGroup) await syncCharacterNameInGroups(chat);
 
     applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
     document.getElementById('chat-settings-modal').classList.remove('visible');
@@ -17776,7 +18015,7 @@ async function handlePostClick(e) {
     e.stopPropagation();
     const target = e.target;
 
-    // --- 【核心修复】优先处理评论删除按钮的点击 ---
+    // --- 优先处理评论删除按钮的点击 ---
     const deleteBtn = target.closest('.comment-delete-btn');
     if (deleteBtn) {
         const postContainer = deleteBtn.closest('.qzone-post-container');
@@ -17787,77 +18026,57 @@ async function handlePostClick(e) {
         const post = qzonePostsCache.find(p => p.id === postId);
         if (!post || !post.comments || !post.comments[commentIndex]) return;
         
-        // 【【【这就是您要的修改！】】】
-        // 我已经移除了这里的权限检查，现在您可以删除任何人的评论了。
         const confirmed = await showCustomConfirm('删除评论', '确定要删除这条评论吗？', { confirmButtonClass: 'btn-danger' });
         if (confirmed) {
             post.comments.splice(commentIndex, 1);
             await db.qzonePosts.update(postId, { comments: post.comments });
-            await updateSinglePostInDOM(postId); // 增量更新UI
+            await updateSinglePostInDOM(postId); // 【性能优化】调用增量更新
         }
         
-        return; // 处理完后必须退出，防止触发其他点击事件
+        return; // 处理完后必须退出
     }
-    // --- 修复结束 ---
-
+    
     // --- 所有弹窗和非DOM更新的逻辑保持不变 ---
     const stickerBtn = target.closest('.comment-sticker-btn');
-    if (stickerBtn) { /* ... 您的 sticker 逻辑不变 ... */ 
+    if (stickerBtn) {
         const postContainer = stickerBtn.closest('.qzone-post-container');
         if (!postContainer) return;
         const postId = parseInt(postContainer.dataset.postId);
-
         if (qzoneStickerPanelState.isOpen && qzoneStickerPanelState.activePostId === postId) {
             closeQzoneStickerPanel();
-        } 
-        else {
+        } else {
             openQzoneStickerPanel(postId, stickerBtn);
         }
         return; 
     }
     const commentItem = target.closest('.comment-item');
-    if (commentItem) { /* ... 您的回复评论逻辑不变 ... */ 
+    if (commentItem) {
         const postId = parseInt(commentItem.dataset.postId);
         const commenterOriginalName = commentItem.dataset.commenterOriginalName;
         const commenterDisplayName = commentItem.dataset.commenterDisplayName;
 
-        if (!commenterOriginalName || !commenterDisplayName) {
-            console.error("评论元素缺少必要的data属性，操作中断。");
-            return;
-        }
-
-        if (commenterOriginalName === state.qzoneSettings.nickname) {
+        if (!commenterOriginalName || !commenterDisplayName || commenterOriginalName === state.qzoneSettings.nickname) {
             clearQzoneReplyContext(commentItem.closest('.qzone-post-container'));
             return;
         }
-
-        currentQzoneReplyContext = {
-            postId: postId,
-            replyToName: commenterOriginalName,
-            replyToDisplayName: commenterDisplayName
-        };
-        
+        currentQzoneReplyContext = { postId, replyToName: commenterOriginalName, replyToDisplayName: commenterDisplayName };
         const postContainer = commentItem.closest('.qzone-post-container');
         const commentInput = postContainer.querySelector('.comment-input');
         commentInput.placeholder = `回复 ${commenterDisplayName}:`;
         commentInput.focus();
         return; 
     }
-    if (target.classList.contains('post-actions-btn')) { /* ... 您的 “...” 菜单逻辑不变 ... */ 
+    if (target.classList.contains('post-actions-btn')) {
         const container = target.closest('.qzone-post-container');
-        if (container && container.dataset.postId) {
-            showPostActions(parseInt(container.dataset.postId));
-        }
+        if (container && container.dataset.postId) showPostActions(parseInt(container.dataset.postId));
         return;
     }
-    if (target.tagName === 'IMG' && target.dataset.hiddenText) { /* ... 您的文字图弹窗逻辑不变 ... */ 
-        const hiddenText = target.dataset.hiddenText;
-        showCustomAlert("图片内容", hiddenText.replace(/<br>/g, '\n'));
+    if (target.tagName === 'IMG' && target.dataset.hiddenText) {
+        showCustomAlert("图片内容", target.dataset.hiddenText.replace(/<br>/g, '\n'));
         return;
     }
 
     // --- 【核心性能优化】开始，处理所有会更新DOM的事件 ---
-
     const postContainer = target.closest('.qzone-post-container');
     if (!postContainer) return;
     const postId = parseInt(postContainer.dataset.postId);
@@ -17887,9 +18106,7 @@ async function handlePostClick(e) {
 
     const icon = target.closest('.action-icon');
     if (icon) {
-        if (icon.classList.contains('repost')) {
-            openRepostModal(postId); return;
-        }
+        if (icon.classList.contains('repost')) { openRepostModal(postId); return; }
         if (icon.classList.contains('like')) {
             const post = qzonePostsCache.find(p => p.id === postId);
             if (!post) return;
@@ -17938,41 +18155,27 @@ async function handlePostClick(e) {
             commenterName: state.qzoneSettings.nickname,
             text: commentText,
             timestamp: Date.now(),
-            replyTo: null 
+            replyTo: (currentQzoneReplyContext && currentQzoneReplyContext.postId === postId) ? currentQzoneReplyContext.replyToName : null
         };
-        if (currentQzoneReplyContext && currentQzoneReplyContext.postId === postId) {
-            newComment.replyTo = currentQzoneReplyContext.replyToName;
-        }
         
         post.comments.push(newComment);
         await db.qzonePosts.update(postId, { comments: post.comments });
         
-        // ... (您的AI通知逻辑保持不变) ...
         let postSummary = (post.publicText || post.content || '').substring(0, 30);
         const userNickname = state.qzoneSettings.nickname;
         const notifiedAiIds = new Set();
-        if (post.authorId !== 'user') {
-            notifiedAiIds.add(post.authorId);
-        }
+        if (post.authorId !== 'user') notifiedAiIds.add(post.authorId);
         if (newComment.replyTo && newComment.replyTo !== userNickname) {
             const repliedToChat = Object.values(state.chats).find(c => c.originalName === newComment.replyTo);
-            if (repliedToChat) {
-                notifiedAiIds.add(repliedToChat.id);
-            }
+            if (repliedToChat) notifiedAiIds.add(repliedToChat.id);
         }
         for (const aiId of notifiedAiIds) {
             const chat = state.chats[aiId];
             if (chat && !chat.isGroup) {
                 const stickerMatch = state.userStickers.find(s => s.url === commentText);
-                let notificationText;
-                if (stickerMatch) {
-                    notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，发送了一个表情评论，意思是：“${stickerMatch.name}”。`;
-                } else if (newComment.replyTo) {
-                    const repliedToDisplayName = currentQzoneReplyContext.replyToDisplayName;
-                    notificationText = `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${repliedToDisplayName}'的评论，内容是：“${commentText}”。`;
-                } else {
-                    notificationText = `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
-                }
+                let notificationText = stickerMatch ? `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，发送了一个表情评论，意思是：“${stickerMatch.name}”。`
+                    : newComment.replyTo ? `用户'${userNickname}'刚刚在你的动态“${postSummary}”下，回复了'${currentQzoneReplyContext.replyToDisplayName}'的评论，内容是：“${commentText}”。`
+                    : `用户'${userNickname}'刚刚评论了你的动态“${postSummary}”，内容是：“${commentText}”。`;
                 const historyMessage = { 
                     role: 'system', 
                     content: `[系统提示：${notificationText}请你对此作出回应。]`, 
