@@ -5831,14 +5831,7 @@ input:checked + .slider:before {
     <label for="ai-original-name-input">对方本名 (AI识别用)</label>
     <input type="text" id="ai-original-name-input">
 </div>
-<!-- ▲▲▲ 新增 HTML 结束 ▲▲▲ --><div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div>
-<div class="form-group" id="ai-affinity-group">
-    <label for="ai-affinity-slider">
-        与对方的好感度 <span id="ai-affinity-value">50</span> / 100
-    </label>
-    <input type="range" id="ai-affinity-slider" min="0" max="100" value="50" style="width: 100%; margin-top: 8px;">
-</div>
-<div class="form-group" id="ai-avatar-group"><label>对方头像</label><div class="avatar-upload"><img id="ai-avatar-preview"><button onclick="document.getElementById('ai-avatar-input').click()">上传对方头像</button><button id="manage-ai-avatar-library-btn">管理头像库</button><button class="change-frame-btn" data-type="ai">更换头像框</button>
+<!-- ▲▲▲ 新增 HTML 结束 ▲▲▲ --><div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div><div class="form-group" id="ai-avatar-group"><label>对方头像</label><div class="avatar-upload"><img id="ai-avatar-preview"><button onclick="document.getElementById('ai-avatar-input').click()">上传对方头像</button><button id="manage-ai-avatar-library-btn">管理头像库</button><button class="change-frame-btn" data-type="ai">更换头像框</button>
 <input type="file" id="ai-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group"><label>我的头像</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">上传我的头像</button><button class="change-frame-btn" data-type="my">更换头像框</button><button id="open-persona-library-btn">预设</button><input type="file" id="my-avatar-input" accept="image/*"></div></div><div class="form-group" id="group-members-group"><label>群成员人设</label><div id="group-members-settings"></div>
 
     <!-- 【新增】管理成员按钮 -->
@@ -6985,44 +6978,6 @@ function showCustomConfirm(title, message, options = {}) {
     });
 }
 // ▲▲▲ 替换结束 ▲▲▲
-// ▼▼▼ 【全新可选功能】请将这个函数粘贴到您的JS功能函数定义区 ▼▼▼
-/**
- * 根据用户消息内容，微调与AI的好感度
- * @param {string} chatId - 当前聊天的ID
- * @param {string} userMessage - 用户发送的消息文本
- */
-async function updateAffinity(chatId, userMessage) {
-    const chat = state.chats[chatId];
-    if (!chat || chat.isGroup) return; // 只对单聊生效
-
-    let affinityChange = 0;
-    const text = userMessage.toLowerCase();
-
-    // 正面关键词
-    const positiveKeywords = ['爱你', '喜欢你', '抱抱', '宝贝', '亲爱的', '谢谢', '好棒'];
-    // 负面关键词
-    const negativeKeywords = ['滚', '讨厌你', '再见', '分手', '烦', '闭嘴'];
-
-    if (positiveKeywords.some(kw => text.includes(kw))) {
-        affinityChange = 1;
-    } else if (negativeKeywords.some(kw => text.includes(kw))) {
-        affinityChange = -2; // 负面影响可以大一些
-    }
-
-    if (affinityChange !== 0) {
-        let currentAffinity = chat.relationship.affinity || 50;
-        let newAffinity = currentAffinity + affinityChange;
-        // 确保好感度在 0-100 的范围内
-        newAffinity = Math.max(0, Math.min(100, newAffinity));
-        
-        if (newAffinity !== currentAffinity) {
-            chat.relationship.affinity = newAffinity;
-            await db.chats.put(chat);
-            console.log(`好感度变化: ${chat.name} 的好感度 ${affinityChange > 0 ? '+' : ''}${affinityChange}，当前为 ${newAffinity}`);
-        }
-    }
-}
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 请将这个【助手函数】粘贴到您的JS功能函数定义区 ▼▼▼
 
 /**
@@ -7378,229 +7333,6 @@ db.version(23).stores({
 // ▼▼▼ 【全新】请将这三个函数粘贴到JS功能函数定义区 ▼▼▼
 
 /**
- * 【全新 | 性能核心】根据帖子数据，创建或更新单个帖子的HTML元素
- * @param {object} post - 单个帖子的数据对象
- * @returns {HTMLElement} - 创建或更新后的帖子容器DOM元素
- */
-function createOrUpdatePostElement(post) {
-    const existingPostContainer = document.querySelector(`.qzone-post-container[data-post-id="${post.id}"]`);
-    const isUpdating = !!existingPostContainer;
-    
-    // 如果是更新，就直接用旧的容器；如果是新建，就创建一个新的
-    const postContainer = isUpdating ? existingPostContainer : document.createElement('div');
-    if (!isUpdating) {
-        postContainer.className = 'qzone-post-container';
-        postContainer.dataset.postId = post.id;
-    }
-
-    // --- 后续的HTML构建逻辑与您旧的 renderQzonePosts 函数完全相同 ---
-    const postEl = isUpdating ? postContainer.querySelector('.qzone-post-item') : document.createElement('div');
-    if (!isUpdating) {
-        postEl.className = 'qzone-post-item';
-    }
-
-    let authorAvatar = '', authorNickname = '', commentAvatar = state.qzoneSettings.avatar; 
-
-    if (post.authorId === 'user') {
-        authorAvatar = state.qzoneSettings.avatar;
-        authorNickname = state.qzoneSettings.nickname;
-    } else if (state.chats[post.authorId]) {
-        const authorChat = state.chats[post.authorId];
-        authorAvatar = authorChat.settings.aiAvatar || defaultAvatar;
-        authorNickname = authorChat.name;
-    } else {
-        authorNickname = getDisplayNameByOriginalName(post.authorOriginalName);
-        authorAvatar = defaultAvatar;
-    }
-
-    function renderOriginalPostContent(targetPost) {
-        let innerContentHtml = '';
-        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
-
-        if (targetPost.type === 'shuoshuo') {
-            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
-        } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
-            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
-        } else if (targetPost.type === 'text_image') {
-            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
-        }
-        return innerContentHtml;
-    }
-
-    let mainContentHtml;
-
-    if (post.type === 'repost') {
-        const repostCommentHtml = post.repostComment ? `<div class="post-content">${post.repostComment.replace(/\n/g, '<br>')}</div>` : '';
-        let originalAuthorAvatar = defaultAvatar;
-        let originalAuthorNickname = '原作者';
-        if (post.originalPost.authorId === 'user') {
-            originalAuthorAvatar = state.qzoneSettings.avatar;
-            originalAuthorNickname = state.qzoneSettings.nickname;
-        } else {
-            const originalAuthorChat = state.chats[post.originalPost.authorId];
-            if (originalAuthorChat) {
-                originalAuthorAvatar = originalAuthorChat.settings.aiAvatar || defaultAvatar;
-            }
-            originalAuthorNickname = getDisplayNameByOriginalName(post.originalPost.authorOriginalName);
-        }
-        mainContentHtml = `
-            ${repostCommentHtml}
-            <div class="reposted-content-wrapper">
-                <div class="post-header">
-                    <img src="${originalAuthorAvatar}" class="post-avatar">
-                    <div class="post-info">
-                        <span class="post-nickname">@${originalAuthorNickname}</span>
-                        <span class="post-timestamp">${formatPostTimestamp(post.originalPost.timestamp)}</span>
-                    </div>
-                </div>
-                <div class="post-main-content">${renderOriginalPostContent(post.originalPost)}</div>
-            </div>
-        `;
-    } else {
-        mainContentHtml = `<div class="post-main-content">${renderOriginalPostContent(post)}</div>`;
-    }
-
-    let likesHtml = '';
-    if (post.likes && post.likes.length > 0) {
-        const displayLikes = post.likes.map(name => getDisplayNameByOriginalName(name)).join('、');
-        likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
-    }
-
-    let commentsHtml = '';
-    if (post.comments && post.comments.length > 0) {
-        commentsHtml = '<div class="post-comments-container">';
-        post.comments.forEach((comment, index) => {
-            if (typeof comment === 'object' && comment !== null && comment.commenterName) {
-                const commenterOriginalName = comment.commenterName;
-                const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
-                let innerCommentContent;
-                if (STICKER_REGEX.test(comment.text)) {
-                    innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
-                } else {
-                    innerCommentContent = parseMarkdown(comment.text);
-                }
-                let commentLineHtml = '';
-                if (comment.replyTo) {
-                    const repliedToDisplayName = getDisplayNameByOriginalName(comment.replyTo);
-                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span> 回复 <span class="commenter-name">${repliedToDisplayName}</span>: ${innerCommentContent}`;
-                } else {
-                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span>: ${innerCommentContent}`;
-                }
-                commentsHtml += `<div class="comment-item" data-post-id="${post.id}" data-commenter-original-name="${commenterOriginalName}" data-commenter-display-name="${commenterDisplayName}">
-                                    <div class="comment-text">${commentLineHtml}</div>
-                                    <span class="comment-delete-btn" data-comment-index="${index}">×</span>
-                                 </div>`;
-            } else {
-                commentsHtml += `<div class="legacy-comment-item">
-                                    <span class="comment-text">${String(comment)}</span>
-                                 </div>`;
-            }
-        });
-        commentsHtml += '</div>';
-    }
-
-    const userOriginalName = state.qzoneSettings.nickname;
-    const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
-    const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id);
-
-    let repostIconHtml = '';
-    if (post.type !== 'repost') {
-        repostIconHtml = `
-            <span class="action-icon repost">
-                <svg viewBox="0 0 24 24"><path d="M17 2.1l4 4-4 4 M3 11.5v-3a4 4 0 0 1 4-4h13 M7 21.9l-4-4 4-4 M21 12.5v3a4 4 0 0 1-4 4H4"></path></svg>
-            </span>`;
-    }
-    
-    postEl.innerHTML = `
-        <div class="post-header">
-            <img src="${authorAvatar}" class="post-avatar" data-author-id="${post.authorId}">
-            <div class="post-info">
-                <span class="post-nickname">${authorNickname}</span>
-                <span class="post-timestamp">${formatPostTimestamp(post.timestamp)}</span>
-            </div>
-            <div class="post-actions-btn">…</div>
-        </div>
-        ${mainContentHtml}
-        <div class="post-feedback-icons">
-            ${repostIconHtml}
-            <span class="action-icon like ${isLikedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></span>
-            <span class="action-icon favorite ${isFavoritedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></span>
-        </div>
-        ${likesHtml}
-        ${commentsHtml}
-        <div class="post-footer">
-            <div class="comment-section">
-                <img src="${commentAvatar}" class="comment-avatar">
-                <input type="text" class="comment-input" placeholder="友善的评论是交流的起点">
-                <button class="comment-sticker-btn">
-<svg viewBox="0 0 24 24">
-    <circle cx="12" cy="12" r="10"></circle>
-    <path d="M8 14 Q 12 16 16 14"></path>
-    <line x1="9" y1="9" x2="9.01" y2="9"></line>
-    <line x1="15" y1="9" x2="15.01" y2="9"></line>
-</svg>
-</button>
-                <div class="at-mention-popup"></div>
-            </div>
-            <button class="comment-send-btn">发送</button>
-        </div>
-    `;
-
-    if (!isUpdating) {
-        const deleteAction = document.createElement('div');
-        deleteAction.className = 'qzone-post-delete-action';
-        deleteAction.innerHTML = '<span>删除</span>';
-        postContainer.appendChild(postEl);
-        postContainer.appendChild(deleteAction);
-    }
-    
-    return postContainer;
-}
-
-/**
- * 【全新 | 增量更新函数】只更新单个帖子，而不是重绘整个列表
- * @param {number} postId - 需要更新的帖子的ID
- */
-async function updateSinglePostInDOM(postId) {
-    const postData = await db.qzonePosts.get(postId);
-    if (!postData) {
-        // 如果帖子被删了，就从DOM中移除
-        const postContainer = document.querySelector(`.qzone-post-container[data-post-id="${postId}"]`);
-        if (postContainer) postContainer.remove();
-        return;
-    }
-
-    // 更新缓存
-    const cacheIndex = qzonePostsCache.findIndex(p => p.id === postId);
-    if (cacheIndex > -1) qzonePostsCache[cacheIndex] = postData;
-    
-    // 更新收藏状态
-    const favorites = await db.favorites.where('type').equals('qzone_post').toArray();
-    state.favoritedPostIds = new Set(favorites.map(fav => fav.content.id));
-
-    // 调用核心函数来更新DOM
-    createOrUpdatePostElement(postData);
-}
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
-
-// ▼▼▼ 【全新】请将这个函数粘贴到 formatPostTimestamp 函数的后面 ▼▼▼
-function formatTimeAgo(timestamp) {
-    const now = Date.now();
-    const seconds = Math.floor((now - timestamp) / 1000);
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 2) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}小时前`;
-    const days = Math.floor(hours / 24);
-    return `${days}天前`;
-}
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
-
-
-// ▼▼▼ 【全新】请将这两个函数粘贴到JS功能函数定义区 ▼▼▼
-
-/**
  * 【全新 | 性能核心 | 已集成Markdown】根据帖子数据，创建或更新单个帖子的HTML元素
  * @param {object} post - 单个帖子的数据对象
  * @returns {HTMLElement} - 创建或更新后的帖子容器DOM元素
@@ -7732,6 +7464,240 @@ function createOrUpdatePostElement(post) {
     const userOriginalName = state.qzoneSettings.nickname;
     const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
     const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id);
+
+    let repostIconHtml = '';
+    if (post.type !== 'repost') {
+        repostIconHtml = `
+            <span class="action-icon repost">
+                <svg viewBox="0 0 24 24"><path d="M17 2.1l4 4-4 4 M3 11.5v-3a4 4 0 0 1 4-4h13 M7 21.9l-4-4 4-4 M21 12.5v3a4 4 0 0 1-4 4H4"></path></svg>
+            </span>`;
+    }
+    
+    postEl.innerHTML = `
+        <div class="post-header">
+            <img src="${authorAvatar}" class="post-avatar" data-author-id="${post.authorId}">
+            <div class="post-info">
+                <span class="post-nickname">${authorNickname}</span>
+                <span class="post-timestamp">${formatPostTimestamp(post.timestamp)}</span>
+            </div>
+            <div class="post-actions-btn">…</div>
+        </div>
+        ${mainContentHtml}
+        <div class="post-feedback-icons">
+            ${repostIconHtml}
+            <span class="action-icon like ${isLikedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></span>
+            <span class="action-icon favorite ${isFavoritedByUser ? 'active' : ''}"><svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg></span>
+        </div>
+        ${likesHtml}
+        ${commentsHtml}
+        <div class="post-footer">
+            <div class="comment-section">
+                <img src="${commentAvatar}" class="comment-avatar">
+                <input type="text" class="comment-input" placeholder="友善的评论是交流的起点">
+                <button class="comment-sticker-btn">
+<svg viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M8 14 Q 12 16 16 14"></path>
+    <line x1="9" y1="9" x2="9.01" y2="9"></line>
+    <line x1="15" y1="9" x2="15.01" y2="9"></line>
+</svg>
+</button>
+                <div class="at-mention-popup"></div>
+            </div>
+            <button class="comment-send-btn">发送</button>
+        </div>
+    `;
+
+    if (!isUpdating) {
+        const deleteAction = document.createElement('div');
+        deleteAction.className = 'qzone-post-delete-action';
+        deleteAction.innerHTML = '<span>删除</span>';
+        postContainer.appendChild(postEl);
+        postContainer.appendChild(deleteAction);
+    }
+    
+    return postContainer;
+}
+
+/**
+ * 【全新 | 增量更新函数】只更新单个帖子，而不是重绘整个列表
+ * @param {number} postId - 需要更新的帖子的ID
+ */
+async function updateSinglePostInDOM(postId) {
+    const postData = await db.qzonePosts.get(postId);
+    if (!postData) {
+        // 如果帖子被删了，就从DOM中移除
+        const postContainer = document.querySelector(`.qzone-post-container[data-post-id="${postId}"]`);
+        if (postContainer) postContainer.remove();
+        return;
+    }
+
+    // 更新缓存
+    const cacheIndex = qzonePostsCache.findIndex(p => p.id === postId);
+    if (cacheIndex > -1) qzonePostsCache[cacheIndex] = postData;
+    
+    // 更新收藏状态
+    const favorites = await db.favorites.where('type').equals('qzone_post').toArray();
+    state.favoritedPostIds = new Set(favorites.map(fav => fav.content.id));
+
+    // 调用核心函数来更新DOM
+    createOrUpdatePostElement(postData);
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
+// ▼▼▼ 【全新】请将这个函数粘贴到 formatPostTimestamp 函数的后面 ▼▼▼
+function formatTimeAgo(timestamp) {
+    const now = Date.now();
+    const seconds = Math.floor((now - timestamp) / 1000);
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 2) return '刚刚';
+    if (minutes < 60) return `${minutes}分钟前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}小时前`;
+    const days = Math.floor(hours / 24);
+    return `${days}天前`;
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
+
+// ▼▼▼ 【全新】请将这两个函数粘贴到JS功能函数定义区 ▼▼▼
+
+/**
+ * 【全新 | 性能核心】根据帖子数据，创建或更新单个帖子的HTML元素
+ * @param {object} post - 单个帖子的数据对象
+ * @returns {HTMLElement} - 创建或更新后的帖子容器DOM元素
+ */
+function createOrUpdatePostElement(post) {
+    const existingPostContainer = document.querySelector(`.qzone-post-container[data-post-id="${post.id}"]`);
+    const isUpdating = !!existingPostContainer;
+    
+    // 如果是更新，就直接用旧的容器；如果是新建，就创建一个新的
+    const postContainer = isUpdating ? existingPostContainer : document.createElement('div');
+    if (!isUpdating) {
+        postContainer.className = 'qzone-post-container';
+        postContainer.dataset.postId = post.id;
+    }
+
+    // --- 后续的HTML构建逻辑与您旧的 renderQzonePosts 函数完全相同 ---
+    // (我们只是把它从一个大循环里抽离出来，变成一个独立的、可复用的函数)
+    const postEl = isUpdating ? postContainer.querySelector('.qzone-post-item') : document.createElement('div');
+    if (!isUpdating) {
+        postEl.className = 'qzone-post-item';
+    }
+
+    let authorAvatar = '', authorNickname = '', commentAvatar = state.qzoneSettings.avatar; 
+
+    if (post.authorId === 'user') {
+        authorAvatar = state.qzoneSettings.avatar;
+        authorNickname = state.qzoneSettings.nickname;
+    } else if (state.chats[post.authorId]) {
+        const authorChat = state.chats[post.authorId];
+        authorAvatar = authorChat.settings.aiAvatar || defaultAvatar;
+        authorNickname = authorChat.name;
+    } else {
+        authorNickname = getDisplayNameByOriginalName(post.authorOriginalName);
+        authorAvatar = defaultAvatar;
+    }
+
+    function renderOriginalPostContent(targetPost) {
+        let innerContentHtml = '';
+        const publicTextHtml = targetPost.publicText ? `<div class="post-content">${parseMarkdown(targetPost.publicText).replace(/\n/g, '<br>')}</div>` : '';
+
+        if (targetPost.type === 'shuoshuo') {
+            innerContentHtml = `<div class="post-content" style="margin-bottom: 10px;">${parseMarkdown(targetPost.content).replace(/\n/g, '<br>')}</div>`;
+        } else if (targetPost.type === 'image_post' && targetPost.imageUrl) {
+            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="${targetPost.imageUrl}" class="chat-image"></div>` : `<img src="${targetPost.imageUrl}" class="chat-image">`;
+        } else if (targetPost.type === 'text_image') {
+            innerContentHtml = publicTextHtml ? `${publicTextHtml}<div style="margin-top:10px;"><img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}"></div>` : `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="chat-image" style="cursor: pointer;" data-hidden-text="${targetPost.hiddenContent}">`;
+        }
+        return innerContentHtml;
+    }
+
+    let mainContentHtml;
+
+    if (post.type === 'repost') {
+        const repostCommentHtml = post.repostComment ? `<div class="post-content">${post.repostComment.replace(/\n/g, '<br>')}</div>` : '';
+        let originalAuthorAvatar = defaultAvatar;
+        let originalAuthorNickname = '原作者';
+        if (post.originalPost.authorId === 'user') {
+            originalAuthorAvatar = state.qzoneSettings.avatar;
+            originalAuthorNickname = state.qzoneSettings.nickname;
+        } else {
+            const originalAuthorChat = state.chats[post.originalPost.authorId];
+            if (originalAuthorChat) {
+                originalAuthorAvatar = originalAuthorChat.settings.aiAvatar || defaultAvatar;
+            }
+            originalAuthorNickname = getDisplayNameByOriginalName(post.originalPost.authorOriginalName);
+        }
+        mainContentHtml = `
+            ${repostCommentHtml}
+            <div class="reposted-content-wrapper">
+                <div class="post-header">
+                    <img src="${originalAuthorAvatar}" class="post-avatar">
+                    <div class="post-info">
+                        <span class="post-nickname">@${originalAuthorNickname}</span>
+                        <span class="post-timestamp">${formatPostTimestamp(post.originalPost.timestamp)}</span>
+                    </div>
+                </div>
+                <div class="post-main-content">${renderOriginalPostContent(post.originalPost)}</div>
+            </div>
+        `;
+    } else {
+        mainContentHtml = `<div class="post-main-content">${renderOriginalPostContent(post)}</div>`;
+    }
+
+    let likesHtml = '';
+    if (post.likes && post.likes.length > 0) {
+        const displayLikes = post.likes.map(name => getDisplayNameByOriginalName(name)).join('、');
+        likesHtml = `<div class="post-likes-section"><svg class="like-icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span>${displayLikes} 觉得很赞</span></div>`;
+    }
+
+// ▼▼▼ 在 createOrUpdatePostElement 函数中，找到 let commentsHtml = ''; 并用下面这整块替换 ▼▼▼
+    let commentsHtml = '';
+    if (post.comments && post.comments.length > 0) {
+        commentsHtml = '<div class="post-comments-container">';
+        post.comments.forEach((comment, index) => {
+            // 【核心修复1】检查是否是新的、包含 commenterName 的对象格式
+            if (typeof comment === 'object' && comment !== null && comment.commenterName) {
+                const commenterOriginalName = comment.commenterName;
+                // 【核心修复2】使用我们全新的函数来实时查找最新的显示名称！
+                const commenterDisplayName = getDisplayNameByOriginalName(commenterOriginalName);
+                
+                let innerCommentContent;
+                if (STICKER_REGEX.test(comment.text)) {
+                    innerCommentContent = `<img src="${comment.text}" class="comment-sticker" alt="sticker">`;
+                } else {
+                    innerCommentContent = parseMarkdown(comment.text);
+                }
+
+                let commentLineHtml = '';
+                // 【核心修复3】回复的目标也使用新函数来查找名字
+                if (comment.replyTo) {
+                    const repliedToDisplayName = getDisplayNameByOriginalName(comment.replyTo);
+                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span> 回复 <span class="commenter-name">${repliedToDisplayName}</span>: ${innerCommentContent}`;
+                } else {
+                    commentLineHtml = `<span class="commenter-name">${commenterDisplayName}</span>: ${innerCommentContent}`;
+                }
+                
+                commentsHtml += `<div class="comment-item" data-post-id="${post.id}" data-commenter-original-name="${commenterOriginalName}" data-commenter-display-name="${commenterDisplayName}">
+                                    <div class="comment-text">${commentLineHtml}</div>
+                                    <span class="comment-delete-btn" data-comment-index="${index}">×</span>
+                                 </div>`;
+
+            } else {
+                // 【兼容旧数据】如果还是旧的字符串格式，就原样显示
+                commentsHtml += `<div class="legacy-comment-item">
+                                    <span class="comment-text">${String(comment)}</span>
+                                 </div>`;
+            }
+        });
+        commentsHtml += '</div>';
+    }
+// ▲▲▲ 替换结束 ▲▲▲
+
+    const userOriginalName = state.qzoneSettings.nickname;
+    const isLikedByUser = post.likes && post.likes.includes(userOriginalName);
+    const isFavoritedByUser = state.favoritedPostIds && state.favoritedPostIds.has(post.id); // 从 state 读取
 
     let repostIconHtml = '';
     if (post.type !== 'repost') {
@@ -8406,19 +8372,7 @@ async function loadAllDataFromDB() {
                 }
             });
         }
-        // ▼▼▼ 在 loadAllDataFromDB 函数的 chatsArr.reduce 循环内添加 ▼▼-▼
-// ...
-if (!chat.isGroup) {
-    if (!chat.relationship) {
-        chat.relationship = { status: 'friend', blockedTimestamp: null, applicationReason: '' };
-    }
-    // 【【【核心新增：为好感度设置默认值】】】
-    if (typeof chat.relationship.affinity === 'undefined') {
-        chat.relationship.affinity = 50; // 默认好感度为50
-    }
-}
-// ...
-// ▲▲▲ 添加结束 ▲▲▲
+        
         // 【【【核心修改：在这里添加默认值】】】
         if (!chat.settings) chat.settings = {}; // 确保 settings 对象存在
         if (typeof chat.settings.actionCooldownMinutes === 'undefined') {
@@ -9527,10 +9481,8 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        let processedText = processMentions(String(msg.content || ''), chat);
-        // ▼▼▼ 在这里添加新的一行代码 ▼▼▼
+        const processedText = processMentions(String(msg.content || ''), chat);
         processedText = parseMarkdown(processedText); // 调用Markdown解析器
-        // ▲▲▲ 添加结束 ▲▲▲
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
@@ -9970,16 +9922,10 @@ ${formattedHistory}
         }
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
-// ▼▼▼ 在 triggerAiResponse 函数中，用这个新版本完整替换旧的 if (chat.isGroup) { ... } 代码块 ▼▼▼
         if (chat.isGroup) {
-            // 【【【核心修改1：在构建成员列表时，查询并加入每个人的好感度】】】
             let membersWithContacts = chat.members.map(member => {
-                const memberChat = state.chats[member.id]; // 找到该成员的“独立档案”
+                const memberChat = state.chats[member.id];
                 let contactsText = "无共同好友";
-                
-                // 获取好感度，如果找不到档案则默认为50
-                const affinity = memberChat ? (memberChat.relationship.affinity || 50) : 50;
-
                 if (memberChat && memberChat.groupId) {
                     const friendChats = Object.values(state.chats).filter(c => 
                         !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
@@ -9988,8 +9934,7 @@ ${formattedHistory}
                         contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
                     }
                 }
-                // 在人设描述中，明确注明对用户的好感度
-                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}] [对您的好感度: ${affinity}/100]`;
+                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
             }).join('\n');
             
             const myNickname = chat.settings.myNickname || '我';
@@ -10020,11 +9965,7 @@ ${formattedHistory}
             } else {
                 groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
             }
-
-            // 【【【核心修改2：在Prompt规则中，增加对好感度的说明】】】
             systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
-
-
 /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
@@ -10036,7 +9977,6 @@ ${formattedHistory}
 【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
 /* ▲▲▲ 替换结束 ▲▲▲ */
 
-
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
     - 用户的身份是【${myNickname}】，用户的【本名】是【${myOriginalName}】。当你要发专属红包给用户时，【必须】在 'receiver' 字段中使用这个本名。
@@ -10045,10 +9985,55 @@ ${formattedHistory}
     - 你【绝对不能】生成 'name' 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
 3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
-4.  **【【【全新好感度规则】】】**: 每个AI角色都有一条与用户（${myNickname}）之间的独立好感度。在扮演角色时，如果TA的发言是**针对用户**或**提及用户**的，其语气和态度【必须】严格符合下方括号内注明的好感度数值。好感度高则亲密热情，好感度低则冷淡。
-5.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
-6.  **情景感知**: 注意当前时间是 ${currentTime}。
-// ... (此处省略了您已有的其他所有规则，如红包、投票、音乐、指令列表等，它们保持不变) ...
+4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
+5.  **情景感知**: 注意当前时间是 ${currentTime}。
+6.  **红包互动**:
+    - **【【【红包类型】】】**: 红包分为两种：“拼手气红包”和“专属红包”。
+    - **【【【领取规则】】】**:
+      - **拼手气红包**: 群内【任何人】都可以尝试使用 'open_red_packet' 指令领取。
+      - **专属红包**: 【只有你的角色本名与红包的“接收人”完全一致时】，你才能使用 'open_red_packet' 指令领取。绝对不要尝试领取不属于你的专属红包。
+    - **【【【重要：对结果做出反应】】】**: 当你执行抢红包指令后，系统会通过一条隐藏的 '[系统提示：你抢到了XX元...]' 来告诉你结果。你【必须】根据你抢到的金额、以及系统是否告知你“手气王”是谁，来发表符合你人设的评论。例如，抢得少可以自嘲，抢得多可以炫耀，看到别人是手气王可以祝贺或嫉妒。
+7.  **【【【投票规则】】】**: 对话历史中可能会出现 '[系统提示：...]' 这样的消息，这是刚刚发生的事件。
+    - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
+    - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
+    - 你也可以随时主动发起投票。
+8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
+9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
+# 【【【全新音乐互动铁律】】】
+-   当你在对话历史中看到形如“[系统提示：用户 (我) ...]”的音乐相关消息时，这表示是【用户】刚刚执行了该操作。
+-   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
+-   你也可以根据对话内容或群聊氛围，主动使用 "change_music" 指令来切换到播放列表中的另一首歌。
+-   【【【绝对禁止】】】将用户切换歌曲的行为，错误地归因于群内的任何其他AI成员。不要说“XX切歌了”或“怎么换这首了？”这类话。
+## 你可以使用的操作指令 (JSON数组中的元素):
+-   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
+-   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
+-   **【【【全新】】】切换歌曲**: '{"type": "change_music", "name": "你的角色本名", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
+- 发送表情: '{"type": "sticker", "name": "角色本名", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
+-   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "图片的详细文字描述"}'
+-   **发送语音**: '{"type": "voice_message", "name": "角色本名", "content": "语音的文字内容"}'
+-   **发起外卖代付**: '{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
+-   **【新】发起群视频**: '{"type": "group_call_request", "name": "你的角色本名"}'
+-   **【新】回应群视频**: '{"type": "group_call_response", "name": "你的角色本名", "decision": "join" or "decline"}'
+-   **拍一拍用户**: '{"type": "pat_user", "name": "你的角色本名", "suffix": "(可选)你想加的后缀"}'
+-   **发拼手气红包**: '{"type": "red_packet", "packetType": "lucky", "name": "你的角色本名", "amount": 8.88, "count": 5, "greeting": "祝大家天天开心！"}'
+-   **发专属红包**: '{"type": "red_packet", "packetType": "direct", "name": "你的角色本名", "amount": 5.20, "receiver": "接收者角色本名", "greeting": "给你的~"}'
+-   **打开红包**: '{"type": "open_red_packet", "name": "你的角色本名", "packet_timestamp": (你想打开的红包消息的时间戳)}'
+-   **【新】发送系统消息**: '{"type": "system_message", "content": "你想在聊天中显示的系统文本"}' 
+-   **【全新】共享位置**: '{"type": "location_share", "name": "角色本名", "content": "你想分享的位置名"}'
+-   **【【【全新】】】发起投票**: '{"type": "poll", "name": "角色本名", "question": "投票的问题", "options": "选项A\n选项B\n选项C"}' (重要提示：投票的问题【必须】放在 "question" 字段中！options字段是一个用换行符 \n 分隔的字符串，不是数组！)
+-   **【【【全新】】】参与投票**: '{"type": "vote", "name": "角色本名", "poll_timestamp": (投票消息的时间戳), "choice": "你选择的选项文本"}'
+- **【全新】引用回复**: '{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}' (提示：每条历史消息的开头都提供了 '(Timestamp: ...)'，请使用它！)
+-   **修改群名**: '{"type": "change_group_name", "name": "你的角色本名", "new_name": "新的群聊名称"}'
+-   **修改群头像**: '{"type": "change_group_avatar", "name": "你的角色本名", "avatar_name": "头像名"}' (头像名必须从下面的“可用群头像列表”中选择)
+# 如何区分图片与表情:
+-   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
+-   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
+# 如何处理群内的外卖代付请求:
+1.  **发起请求**: 当【你扮演的某个角色】想要某样东西，并希望【群里的其他人（包括用户）】为Ta付款时，你可以使用这个指令。例如：'{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
+2.  **响应请求**: 当历史记录中出现【其他成员】发起的 "waimai_request" 请求时，你可以根据自己扮演的角色的性格和与发起人的关系，决定是否为Ta买单。
+3.  **响应方式**: 如果你决定买单，你【必须】使用以下指令：'{"type": "waimai_response", "name": "你的角色本名", "status": "paid", "for_timestamp": (被代付请求的原始时间戳)}'
+4.  **【【【至关重要】】】**: 一旦历史记录中出现了针对某个代付请求的【任何一个】"status": "paid" 的响应（无论是用户支付还是其他角色支付），就意味着该订单【已经完成】。你【绝对不能】再对【同一个】订单发起支付。你可以选择对此事发表评论，但不能再次支付。
+${forbiddenNamesContext}
 # 当前群聊信息
 - **群名称**: ${chat.name}
 ${worldBookContent}
@@ -10059,7 +10044,7 @@ ${groupAvatarLibraryContext}
 
 ${announcementContext}
 # 群成员列表、人设及社交背景 (至关重要！)
-你【必须】根据每个角色的社交背景和对用户的好感度来决定他们的互动方式。
+你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
 ${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
@@ -10236,7 +10221,6 @@ ${membersWithContacts}
             //  修复结束
             // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
-// ▼▼▼ 在 triggerAiResponse 函数中，用这个新版本完整替换旧的单聊 systemPrompt ▼▼▼
             systemPrompt = `你现在扮演一个名为"${chat.originalName}"的角色。
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
@@ -10258,14 +10242,6 @@ ${chat.settings.aiPersona}
 - 【【【关键身份档案】】】\n${userProfileContext}
 ${nameHistoryContext}
 
-# 【【【核心情感规则：基于好感度的态度变化】】】
-你和用户当前的好感度是: ${chat.relationship.affinity} (0-100)。这个数值【绝对地】决定了你此刻对用户的态度和情感表达方式。你必须严格遵守以下规则：
-- **好感度 81-100 (热恋/挚友)**: 你的语气应该极其亲密、热情和主动。频繁使用爱称，分享生活中的一切细节，言语中充满爱意、依赖甚至撒娇。你会因为用户的简单一句话而感到非常开心。
-- **好感度 61-80 (亲密/好友)**: 你们的关系非常好。你的语气应该是温柔、体贴和积极的。你会主动关心用户，分享有趣的事，对用户的请求积极响应，并期待与TA聊天。
-- **好感度 41-60 (普通/朋友)**: 这是你们关系的基准线。你的语气是友好和礼貌的。你会正常地进行对话，回答用户的问题，但不会过分主动或热情。
-- **好感度 21-40 (冷淡/疏远)**: 你们的关系出现了问题。你的回复应该变得简短、客气甚至冷漠。你会避免主动分享自己的事，对用户的热情回应平淡，回复可能会有延迟（通过在JSON数组开头加入一个 '{"type": "delay", "seconds": 5}' 指令来实现）。
-- **好感度 0-20 (厌烦/决裂)**: 你们的关系降到了冰点。你的语气充满不耐烦、敷衍甚至敌意。你会使用单字或非常简短的句子回复，甚至可能直接拒绝回答某些问题。
-
 # 你的当前状态：
 你现在的状态是【${chat.status.text}】。
 # 你的任务与规则：
@@ -10282,7 +10258,6 @@ ${nameHistoryContext}
 - **可用头像列表 (请从以下名称中选择一个)**:
 ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? chat.settings.aiAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n') : '- (你的头像库是空的，无法更换头像)'}
 # 你可以使用的操作指令 (JSON数组中的元素):
--   **【新增】消息延迟**: '{"type": "delay", "seconds": 5}' (模拟思考或冷淡，延迟5秒再发送后续消息)
 -   **【全新】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
 +   **【全新】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "content": "你想让AI说出后立刻消失的话"}' (用于模拟说错话、后悔等场景，消息会短暂出现后自动变为“已撤回”)
 -   **【新增】更新状态**: '{"type": "update_status", "status_text": "我去做什么了", "is_busy": false}' (is_busy: true代表忙碌/离开, false代表空闲)
@@ -10353,7 +10328,6 @@ ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
-// ▲▲▲ 替换结束 ▲▲▲
 
             messagesPayload = historySlice.map(msg => {
                 if (msg.isHidden) return null;
@@ -10533,12 +10507,6 @@ ${contextSummaryForApproval}
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
 
             switch (msgData.type) {
-                // 【【【核心新增：添加delay指令的处理】】】
-                case 'delay':
-                    // 如果AI返回了delay指令，就在这里暂停几秒
-                    await new Promise(resolve => setTimeout(resolve, (msgData.seconds || 1) * 1000));
-                    continue; // 暂停后，继续处理下一条消息
-                // 【【【新增结束】】】
                 case 'qzone_delete_post': {
     const postIdToDelete = parseInt(msgData.postId);
     const postToDelete = await db.qzonePosts.get(postIdToDelete);
@@ -11170,7 +11138,7 @@ ${contextSummaryForApproval}
                     }
                     continue;
                 }
-                 case 'message': // <--- 【核心修正1】新增这个case，让它和'text'走同一个逻辑               
+                
                 case 'text':
                     aiMessage = { ...baseMessage, content: String(msgData.content || msgData.message) };
                     break;
@@ -12063,18 +12031,14 @@ ${recentlyPostedSummaries.join('\n')}
     }
 
 
-// ▼▼▼ 在 triggerInactiveAiAction 函数中，用这个新版本完整替换旧的 systemPrompt ▼▼▼
     const systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
 
-# 【【【核心情感与行为准则：基于好感度的态度变化】】】
-你和用户当前的好感度是: ${chat.relationship.affinity} / 100。这个数值【绝对地】决定了你此刻所有行动的动机和情感基调。你必须严格遵守：
-- **好感度 81-100 (热恋/挚友)**: 你处于极度思念和依恋的状态。你的独立行动应该**完全围绕着用户**展开。例如，发一条饱含思念的动态并私信提醒TA，或者直接给用户发一条充满爱意的消息开启对话。
-- **好感度 61-80 (亲密/好友)**: 你们关系很好，你会经常想起TA。你的行动应该是积极和正面的。可以发一条关于你们共同兴趣的动态并期待TA的回应，或者主动发消息分享你的趣事。
-- **好感度 41-60 (普通/朋友)**: 你们是普通朋友。你的行动可以是分享自己的生活（发一条与用户无关的动态），或者在看到有趣的动态时进行评论/点赞。你可能会想，但不会特别主动地给用户发消息。
-- **好感度 21-40 (冷淡/疏远)**: 你们的关系出现了问题。你应该**避免主动给用户发消息**。你的行动应该更关注自己，例如只发一条关于自己心情或日常的、与用户无关的动态，语气平淡。
-- **好感度 0-20 (厌烦/决裂)**: 你对用户感到非常失望或生气。你应该**完全避免与用户产生任何交集**。你不会给用户发消息，也不会评论或点赞TA的动态。你可能会发布一条表达负面情绪的、完全独立的动态。
+# 【【【最高优先级指令：情感维系】】】
+**你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
+${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！**` : ''}
+
 /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
@@ -12086,12 +12050,16 @@ ${recentlyPostedSummaries.join('\n')}
 
 【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
 /* ▲▲▲ 替换结束 ▲▲▲ */
+
 # 核心规则
-1.  **【【【决策依据】】】**: 你的所有行动都【必须深度结合你的角色设定、核心世界观、你们最后的对话摘要以及当前的好感度】。
+1.  **【【【决策依据】】】**: 你的所有行动都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。
 2.  **【【【内容多样性铁律】】】**: 你的行动【必须】具有逻辑和多样性。你【绝对不能】发布与下方“内容禁忌”列表或“最近的动态列表”中内容相似或主题重复的动态。
 3.  **【【【行为多样性指南 (至关重要)】】】**:
     - 你的上一次独立行动是：**${chat.lastActionType || '无'}**。
     - 为了让你的行为看起来更真实，你本次的行动【必须】选择一个与上次【不同类型】的指令。例如，如果上次是发动态(qzone_post)，这次就应该优先考虑评论(qzone_comment)、点赞(qzone_like)或发消息(text)。
+4.  **【【【行为组合指南 (高级技巧)】】】**:
+    -   你可以在一次行动中执行【多个不同类型的指令】，让你的行为更丰富、更主动。
+    -   **【核心修正：更柔和的引导】**: 你可以根据你的性格，决定在发动态后是否要私信提醒用户。例如，一个外向、渴望关注的角色可能会这么做，而一个内向、安静的角色则可能更喜欢默默分享，等待用户自己发现。
 
 # 【【【社交义务铁律 (全新)】】】
 1.  **【【【至关重要】】】**: 当你发现“最近的动态列表”中，有你【感兴趣且还未互动过】的动态时，你**应该优先考虑**使用 'qzone_comment' 或 'qzone_like' 指令去进行互动，这比你自己发一条新动态更符合社交礼仪。
@@ -12100,13 +12068,31 @@ ${recentlyPostedSummaries.join('\n')}
     -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
     -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
 
+5.  **【【【回复铁律 (终极版)】】】**:
+    -   当你决定回复动态中的某条评论时，你【必须】使用“方式4 (回复评论)”的指令格式。你【必须】正确填写 'replyTo' 字段为被回复者的“本名”。
+    -   **即使你之前已经评论过某条动态，但如果现在看到了【新的、你感兴趣的】评论，你【也应该】主动去回复他们，以保持对话的持续性！**
+6.  你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。
+
+# 【【【表情评论指南 (全新)】】】
+你现在拥有了评论表情的能力，你应该更频繁地使用它！这能让你的角色更加生动、富有个性。
+-   **表达情绪时**: 当你感到开心、惊讶、疑惑或有趣时，优先考虑使用表情评论。
+-   **混合使用**: 不要总是只发文字。尝试将你的评论行为混合起来，大约有 30-40% 的评论应该是表情。
+-   **无话可说时**: 如果你觉得一条动态很有趣但又不知道该说什么文字，发送一个相关的表情是最好的互动方式。
+-   **【【【全新】】】删除动态**: 如果你觉得你之前发的某条动态不妥或过时了，你可以选择删除它。
+
 # 你的可选行动指令:
--   **发消息给用户**: '[{"type": "text", "content": "你想对用户说的话..."}]'
+-   **发消息+更新状态**: '[{"type": "update_status", "status_text": "正在做的事", "is_busy": true}, {"type": "text", "content": "你想对用户说的话..."}]'
 -   **发说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
--   **评论动态**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
+-   **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
+-   **发布文字图**: '[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]'
+-   **【【【评论动态的四种方式】】】**:
+    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "commentText": "这太有趣了！"}]'
+    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
+    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
 -   **点赞**: '[{"type": "qzone_like", "postId": 456}]'
 -   **打视频**: '[{"type": "video_call_request"}]'
-
+-   **【【【全新】】】删除动态**: '{"type": "qzone_delete_post", "postId": (要删除的、你自己的动态ID)}'
 ${contentTabooPrompt}
 ${myPostsContext} 
 # 供你决策的参考信息：
@@ -12117,7 +12103,6 @@ ${linkedMemoryContext}
 -   **对话状态**: ${timeContextText}
 -   **你们最后的对话摘要**: ${recentContextSummary}
 ${dynamicContext}`;
-// ▲▲▲ 替换结束 ▲▲▲
   
   try {
         const messagesPayload = [
@@ -12341,15 +12326,18 @@ async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
+    // 【【【核心修改1：从群聊设置中读取冷却时间】】】
     const groupActionCooldownMinutes = chat.settings.actionCooldownMinutes || 10;
 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
+        // 【【【核心修改2：使用新的变量进行判断】】】
         if (minutesSinceLastAction < groupActionCooldownMinutes) {
             console.log(`群聊 "${chat.name}" 处于行动冷却中，本次独立行动跳过。`);
             return;
         }
     }
+    
     
     const { proxyUrl, apiKey, model } = state.apiConfig;
     if (!proxyUrl || !apiKey || !model) return;
@@ -12357,11 +12345,14 @@ async function triggerGroupAiAction(chatId) {
     const myNickname = chat.settings.myNickname || '我';
     const now = new Date();
     
+    // ★★★ 核心修复开始 ★★★
     let systemPrompt;
     
-    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5);
+    // 1. 检查最近的消息，看是否有未领完的红包
+    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5); // 检查最近5条
     const unclaimedPacket = recentHistory.find(m => m.type === 'red_packet' && !m.isFullyClaimed);
 
+    // 2. 如果找到了未领完的红包，就生成一个专门的“抢红包”指令
     if (unclaimedPacket) {
         const senderDisplayName = getDisplayNameInGroup(chat, unclaimedPacket.senderName);
         console.log(`检测到群聊 "${chat.name}" 中有未领完的红包，正在生成抢红包指令...`);
@@ -12378,6 +12369,7 @@ async function triggerGroupAiAction(chatId) {
 现在，请立即执行抢红包操作！
 `;
     } else {
+        // 3. 如果没有红包事件，才执行原来的通用聊天逻辑
         const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
         let timeContextText = "群里已经安静很久了。";
         if (lastMessage) {
@@ -12397,14 +12389,8 @@ async function triggerGroupAiAction(chatId) {
                 return `${sender}: ${content}...`;
             }).join('\n');
         }
-        
-        // 【【【核心修改1：与回复逻辑一样，在此处注入每个成员的好感度】】】
-        const membersList = chat.members.map(member => {
-            const memberChat = state.chats[member.id];
-            const affinity = memberChat ? (memberChat.relationship.affinity || 50) : 50;
-            return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [对您的好感度: ${affinity}/100]`;
-        }).join('\n');
 
+        const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
         let worldBookContent = '';
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -12415,7 +12401,7 @@ async function triggerGroupAiAction(chatId) {
                 worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
             }
         }
-        
+
         let linkedMemoryContext = '';
         const memoryCount = chat.settings.linkedMemoryCount || 10;
         if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
@@ -12423,12 +12409,16 @@ async function triggerGroupAiAction(chatId) {
                 const linkedChat = state.chats[id];
                 if (!linkedChat) return null;
                 const lastMsg = linkedChat.history.slice(-1)[0];
-                return { chat: linkedChat, latestTimestamp: lastMsg ? lastMsg.timestamp : 0 };
-            }).filter(Boolean);
+                return {
+                    chat: linkedChat,
+                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                };
+            }).filter(Boolean); 
+
             linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中)\n`;
+            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
             for (const item of linkedChatsWithTimestamps) {
-                 const linkedChat = item.chat;
+                const linkedChat = item.chat;
                 const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
                 const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
                 linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
@@ -12438,8 +12428,11 @@ async function triggerGroupAiAction(chatId) {
                     filteredHistory.forEach(msg => {
                         const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
                         let contentText = String(msg.content);
-                         if (msg.type === 'ai_image' || msg.type === 'user_photo') contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                         else if (msg.type === 'voice_message') contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                        } else if (msg.type === 'voice_message') {
+                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                        }
                         linkedMemoryContext += `${sender}: ${contentText}\n`;
                     });
                 } else {
@@ -12447,9 +12440,9 @@ async function triggerGroupAiAction(chatId) {
                 }
             }
         }
-
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
         let dynamicContext = "";
+        
         const visiblePostsForGroup = new Set();
         for (const member of chat.members) {
             const memberChat = state.chats[member.id];
@@ -12458,6 +12451,7 @@ async function triggerGroupAiAction(chatId) {
                 visibleForMember.forEach(post => visiblePostsForGroup.add(post));
             }
         }
+
         const groupMemberNames = new Set(chat.members.map(m => m.originalName));
         const unInteractedPostsForGroup = [...visiblePostsForGroup].filter(post => {
             const hasBeenLikedByGroup = post.likes && post.likes.some(likerName => groupMemberNames.has(likerName));
@@ -12466,14 +12460,50 @@ async function triggerGroupAiAction(chatId) {
         });
         
         if (unInteractedPostsForGroup.length > 0) {
-            dynamicContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n" + unInteractedPostsForGroup.map(post => {
+            let postsContext = "\n\n# 最近的动态列表 (供群内角色参考和评论):\n";
+            for (const post of unInteractedPostsForGroup) {
                 let authorName = post.authorId === 'user' ? myNickname : (state.chats[post.authorId]?.name || '一位朋友');
-                let contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
-                return `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"`;
-            }).join('\n');
+                let contentSummary;
+                if (post.type === 'repost') {
+                    const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                    let originalAuthorName = '原作者';
+                    const originalAuthorId = post.originalPost.authorId;
+                    if (originalAuthorId === 'user') {
+                        originalAuthorName = state.qzoneSettings.nickname;
+                    } else if (state.chats[originalAuthorId]) {
+                        originalAuthorName = state.chats[originalAuthorId].name;
+                    }
+                    let originalContentSummary;
+                    const originalPost = post.originalPost;
+                    if (originalPost.type === 'text_image') {
+                        originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                    } else if (originalPost.type === 'image_post') {
+                        originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                    } else { // 'shuoshuo'
+                        originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                    }
+                    contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+                } else if (post.type === 'text_image') {
+                    contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else if (post.type === 'image_post') {
+                    contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                } else {
+                    contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                }
+                postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+                if (post.comments && post.comments.length > 0) {
+                    for (const comment of post.comments) {
+                        if (typeof comment === 'object' && comment.commenterName) {
+                            const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                            let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                            postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                        }
+                    }
+                }
+            }
+            dynamicContext = postsContext;
         }
 
-        // 【【【核心修改2：在Prompt中加入好感度决策规则】】】
         systemPrompt = `
 # 你的任务
 你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
@@ -12494,16 +12524,6 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 
 # 核心规则
 你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
-
-# 【【【全新好感度规则 (V2.0 精准版)】】】
-每个AI角色都有一条与用户（${myNickname}）的独立好感度。这是TA与用户之间的私人关系，不影响TA与其他AI角色的关系。在扮演角色时，你必须严格遵守：
-- **高好感度角色**: 他们更有可能主动开启与用户相关的话题，或者在群聊中主动@用户、回应用户。当他们发言时，对用户的态度会明显表现出亲密和热情。
-- **低好感度角色**: 
-    - 他们会尽量避免主动与用户开启对话。
-    - 当用户在群里发言时，他们可能会选择忽略，或者只给出非常简短、中立的回复（例如“嗯”、“收到”）。
-    - **至关重要**：他们对您的冷淡【不影响】他们与其他AI角色的互动。他们完全可以正常地、根据自己的人设与群内其他AI进行热情或有趣的对话，但在对话转向您时，态度会立刻变得疏远。
-
-// ▲▲▲ 替换结束 ▲▲▲
 
 # 你的可选行动指令:
 -   **发送文本**: '{"type": "text", "name": "角色本名", "content": "文本内容"}'
@@ -12532,6 +12552,7 @@ ${dynamicContext}
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
     }
+    // ★★★ 核心修复结束 ★★★
 
     try {
         const messagesPayload = [{ role: 'user', content: systemPrompt }];
@@ -14475,7 +14496,7 @@ function createMemoryCard(memory) {
 
         titleHtml = `${authorDisplayName} 的日记`;
         // ▼▼▼ 已添加 Markdown 解析 ▼▼▼
-        contentHtml = parseMarkdown(memory.description).replace(/\n/g, '<br>');
+        contentHtml = parseMarkdown(memory.description);
     }
 
     card.innerHTML = `
@@ -16924,6 +16945,7 @@ async function handleLongScreenshot() {
         exitSelectionMode(); 
     }
 }
+// ▲▲▲ 全新JS函数粘贴结束 ▲▲▲
 /**
  * 【增强版】一个简单的 Markdown 解析器
  * @param {string} text - 包含 Markdown 语法的原始文本
@@ -17148,8 +17170,6 @@ document.getElementById('add-group-chat-btn').addEventListener('click', openCont
 document.getElementById('send-btn').addEventListener('click', async () => { 
     const content = chatInput.value.trim(); 
     if (!content || !state.activeChatId) return; 
-    // 【【【核心新增：在发送消息时，调用好感度更新函数】】】
-    await updateAffinity(state.activeChatId, content);
     // ▼▼▼ 【请确认您的代码中有这一行】 ▼▼▼
     checkMessageForHeartRateTrigger(state.activeChatId, content);
     // ▲▲▲ 确认结束 ▲▲
@@ -17401,17 +17421,6 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         document.getElementById('ai-original-name-input').value = chat.originalName;
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
-    // 【【【核心新增：加载好感度数据到滑块】】】
-    const affinitySlider = document.getElementById('ai-affinity-slider');
-    const affinityValueEl = document.getElementById('ai-affinity-value');
-    const currentAffinity = chat.relationship.affinity || 50;
-    affinitySlider.value = currentAffinity;
-    affinityValueEl.textContent = currentAffinity;
-    // 实时更新滑块数值显示
-    affinitySlider.oninput = function() {
-        affinityValueEl.textContent = this.value;
-    }
-    // 【【【新增结束】】】
         // 【【【核心修改：加载单聊冷却时间】】】
         document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
         const select = document.getElementById('assign-group-select');
@@ -17535,14 +17544,6 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
         // 【【【核心修改：保存群聊冷却时间】】】
         chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
     } else {
-    // ... 您已有的保存“本名”、“人设”、“头像”等信息的代码 ...
-    chat.originalName = document.getElementById('ai-original-name-input').value.trim();
-    chat.settings.aiPersona = document.getElementById('ai-persona').value;
-    chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
-
-    // 【【【核心新增：从滑块读取并保存好感度】】】
-    chat.relationship.affinity = parseInt(document.getElementById('ai-affinity-slider').value);
-    // 【【【新增结束】】】
         const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
         if (!newOriginalName) return alert('对方本名不能为空！');
         chat.originalName = newOriginalName;
