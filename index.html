@@ -9481,8 +9481,8 @@ else if (msg.type === 'waimai_request') {
         const imageUrl = msg.content[0].image_url.url;
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
-        const processedText = processMentions(String(msg.content || ''), chat);
-        processedText = parseMarkdown(processedText); // 调用Markdown解析器
+        let processedText = processMentions(String(msg.content || ''), chat);
+        processedText = parseMarkdown(processedText);// 调用Markdown解析器
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
@@ -19835,3 +19835,4 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 </div>
 </body>
 </html>
+
