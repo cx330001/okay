@@ -13675,7 +13675,7 @@ async function handleAddMembersToGroup() {
     // --- 【修复结束】 ---
 }
 
-// ▼▼▼ 请用这个【已修复错误】的全新版本，完整替换旧的 createNewMemberInGroup 函数 ▼▼▼
+// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 createNewMemberInGroup 函数 ▼▼▼
 /**
  * 【重构版】在群聊中创建一个全新的虚拟成员
  */
@@ -13696,21 +13696,19 @@ async function createNewMemberInGroup() {
         id: 'npc_' + Date.now(),
         originalName: name.trim(),
         groupNickname: name.trim(),
-        // 注意：avatar 和 avatarFrame 也是动态获取的，无需在此处存储
+        // 【核心修复】为NPC直接添加avatar属性，并赋予默认头像
+        avatar: defaultGroupMemberAvatar,
         persona: persona,
     };
 
     chat.members.push(newMember);
     await db.chats.put(chat);
-
-    // --- 【核心修复】 ---
-    // 之前这里调用了两个刷新函数，其中一个会报错。
-    // 正确的逻辑是：只需要刷新当前用户正在看的“成员管理”列表即可。
+    
     renderMemberManagementList();
-    // --- 【修复结束】 ---
 
     alert(`新成员“${name}”已成功加入群聊！`);
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【全新】外卖请求倒计时函数 ▼▼▼
 function startWaimaiCountdown(element, endTime) {
@@ -17452,6 +17450,7 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
 });
 // ▲▲▲ 替换结束 ▲▲▲
             
+// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 renderGroupMemberSettings 函数 ▼▼▼
 function renderGroupMemberSettings(members) { 
     const container = document.getElementById('group-members-settings'); 
     container.innerHTML = ''; 
@@ -17459,38 +17458,54 @@ function renderGroupMemberSettings(members) {
         const div = document.createElement('div'); 
         div.className = 'member-editor'; 
         div.dataset.memberId = member.id; 
-        // ★★★【核心重构】★★★
-        // 显示的是 groupNickname
-        // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
-// 【核心修改】实时查找头像
-const characterProfile = state.chats[member.id];
-const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
+        
+        // 【核心修复】智能判断成员类型，从不同位置获取头像
+        let memberAvatar;
+        if (member.id.startsWith('npc_')) {
+            // 如果是NPC，直接从成员对象本身获取头像
+            memberAvatar = member.avatar || defaultGroupMemberAvatar;
+        } else {
+            // 如果是普通AI角色，保持原有逻辑
+            const characterProfile = state.chats[member.id];
+            memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
+        }
+
+        div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
         div.addEventListener('click', () => openMemberEditor(member.id)); 
         container.appendChild(div); 
     }); 
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
+// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 openMemberEditor 函数 ▼▼▼
 function openMemberEditor(memberId) { 
     editingMemberId = memberId; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === memberId); 
     document.getElementById('member-name-input').value = member.groupNickname; 
     document.getElementById('member-persona-input').value = member.persona; 
-    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
-// 【核心修改】实时查找头像
-const characterProfile = state.chats[member.id];
-const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-document.getElementById('member-avatar-preview').src = memberAvatar;
+    
+    // 【核心修复】与上面同样的逻辑，智能获取头像
+    let memberAvatar;
+    if (member.id.startsWith('npc_')) {
+        memberAvatar = member.avatar || defaultGroupMemberAvatar;
+    } else {
+        const characterProfile = state.chats[member.id];
+        memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
+    }
+
+    document.getElementById('member-avatar-preview').src = memberAvatar;
     document.getElementById('member-settings-modal').classList.add('visible'); 
 }
-            document.getElementById('cancel-member-settings-btn').addEventListener('click', () => { document.getElementById('member-settings-modal').classList.remove('visible'); editingMemberId = null; });
-            // ▼▼▼ 将其【完整替换为】下面这段修正后的代码 ▼▼▼
-document.getElementById('save-member-settings-btn').addEventListener('click', async () => { // <---【已修正】在这里加上 async
+// ▲▲▲ 替换结束 ▲▲▲
+
+
+// ▼▼▼ 【最终修复版】请用这个【已修复】的版本，完整替换旧的 save-member-settings-btn 事件监听器 ▼▼▼
+document.getElementById('save-member-settings-btn').addEventListener('click', async () => {
     if (!editingMemberId) return; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === editingMemberId); 
-    if (!member) return; // 安全检查
+    if (!member) return;
 
     const newNickname = document.getElementById('member-name-input').value.trim();
     if (!newNickname) {
@@ -17499,19 +17514,29 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
     }
     member.groupNickname = newNickname; 
     member.persona = document.getElementById('member-persona-input').value; 
-    
-    // 【核心修改】找到角色的主配置并更新其头像
-    const characterProfile = state.chats[member.id];
-    if (characterProfile) {
-        characterProfile.settings.aiAvatar = document.getElementById('member-avatar-preview').src;
-        // 现在 await 可以正常工作了
-        await db.chats.put(characterProfile);
+
+    // 【核心修复】在这里进行智能判断和保存
+    const newAvatarSrc = document.getElementById('member-avatar-preview').src;
+    if (member.id.startsWith('npc_')) {
+        // 如果是NPC，直接更新成员对象上的avatar属性
+        member.avatar = newAvatarSrc;
+    } else {
+        // 如果是普通AI角色，更新其全局配置
+        const characterProfile = state.chats[member.id];
+        if (characterProfile) {
+            characterProfile.settings.aiAvatar = newAvatarSrc;
+            await db.chats.put(characterProfile); // 保存AI角色的全局配置
+        }
     }
     
+    // 【重要】无论修改的是谁，最后都需要把包含最新成员列表的【群聊对象】存回数据库
+    await db.chats.put(chat);
+
     renderGroupMemberSettings(chat.members); 
     document.getElementById('member-settings-modal').classList.remove('visible'); 
-    editingMemberId = null; // 操作完成后重置
+    editingMemberId = null;
 });
+// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
             document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
 
