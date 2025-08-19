@@ -11,8 +11,7 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
-
+/* 1. 重置 html，让它不干预布局 */
 /* 1. 重置 html，让它不干预布局 */
 html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
@@ -5153,71 +5152,6 @@ input:checked + .slider:before {
     color: white;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
-/* ▼▼▼ 【Safari键盘终极修复方案 V2】请将这一整块代码粘贴到 <style> 的最末尾 ▼▼▼ */
-
-/* 
-  第一步：确保我们的应用主容器 (#phone-screen) 是一个可靠的画布，
-  并且它的子元素 (#chat-interface-screen) 也能正确地撑满它。
-*/
-#phone-screen {
-    position: fixed !important;
-    top: 0; left: 0; right: 0; bottom: 0;
-    display: flex !important;
-    flex-direction: column !important;
-}
-#chat-interface-screen {
-    position: relative !important;
-    flex-grow: 1 !important;
-    height: 100% !important;
-}
-
-/* 
-  第二步：【核心】将聊天界面的“头”和“脚”都设置为 position: fixed。
-  这会让它们脱离父容器的约束，直接相对于浏览器窗口进行定位，
-  从而彻底免疫键盘弹出时导致的“父容器被挤扁”的问题。
-*/
-
-/* 2a. 将聊天顶栏“钉死”在屏幕最上方 */
-#chat-interface-screen > .header {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    width: 100% !important; /* 确保宽度正确 */
-    z-index: 100 !important;
-}
-
-/* 2b. 将输入区域“钉死”在屏幕最下方 */
-#chat-interface-screen #chat-input-area {
-    position: fixed !important;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100% !important; /* 确保宽度正确 */
-    z-index: 100 !important;
-}
-
-/* 
-  第三步：重新定义聊天内容区的布局。
-  让它也铺满整个屏幕，然后用 padding 为“钉死”的头和脚留出空间。
-  这样，内容就可以在透明的顶栏和输入框“下面”自由滚动了。
-*/
-#chat-interface-screen #chat-messages {
-    position: absolute !important; /* 让它也脱离文档流，成为一个独立的滚动层 */
-    top: 0;
-    left: 0;
-    width: 100% !important;
-    height: 100% !important;
-    box-sizing: border-box !important;
-    margin-top: 0 !important; /* 移除所有可能干扰布局的 margin */
-
-    /* 为顶栏和刘海留出大约 100px 的空间 */
-    padding-top: 100px !important; 
-    
-    /* 为底部的输入框和安全区留出大约 120px 的空间 */
-    padding-bottom: 120px !important; 
-}
-/* ▲▲▲ 修复代码粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -7295,6 +7229,42 @@ async function syncCharacterNameInGroups(characterChat) {
     }
 }
 
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
+// ▼▼▼ 【全新】请将这个全新的函数粘贴到 syncCharacterNameInGroups 的下方 ▼▼▼
+/**
+ * 【全新】当单聊角色的头像被修改后，自动同步其在所有群聊中的头像信息
+ * @param {object} characterChat - 被修改了头像的【单聊】chat对象
+ */
+async function syncCharacterAvatarInGroups(characterChat) {
+    // 1. 安全检查，确保是有效的单聊对象
+    if (!characterChat || characterChat.isGroup) {
+        console.warn("syncCharacterAvatarInGroups: 传入的不是有效的单聊对象，已跳过同步。");
+        return;
+    }
+
+    const characterId = characterChat.id;
+    const newAvatar = characterChat.settings.aiAvatar; // 获取最新的头像URL
+
+    console.log(`正在为角色 ${characterId} 同步所有群聊内的头像...`);
+
+    // 2. 遍历所有聊天，找出所有群聊
+    for (const groupChat of Object.values(state.chats)) {
+        if (groupChat.isGroup && groupChat.members) {
+            // 3. 在群聊中查找对应的成员
+            const memberToUpdate = groupChat.members.find(m => m.id === characterId);
+            
+            // 4. 如果找到了该成员，并且头像信息不一致，就更新它
+            if (memberToUpdate && memberToUpdate.avatar !== newAvatar) {
+                memberToUpdate.avatar = newAvatar; // 将新头像同步到群成员数据中
+                
+                // 5. 【至关重要】将修改后的【整个群聊对象】存回数据库
+                await db.chats.put(groupChat);
+                console.log(`成功将角色 ${characterId} 的新头像同步到群聊 "${groupChat.name}"`);
+            }
+        }
+    }
+}
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 
 // ▼▼▼ 确保你的JS代码中包含这个【助手函数】 ▼▼▼
@@ -9714,55 +9684,44 @@ async function handleBatchStickerImport(text) {
     }
 }
 // ▲▲▲ 全新功能函数粘贴结束 ▲▲▲
-// ▼▼▼ 【已修复】请用这个新版本替换旧的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
-if (msg.type === 'recalled_message') {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'message-wrapper system-pat';
-    wrapper.dataset.timestamp = msg.timestamp; 
+    if (msg.type === 'recalled_message') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message-wrapper system-pat';
+        wrapper.dataset.timestamp = msg.timestamp; 
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble recalled-message-placeholder';
+        bubble.dataset.timestamp = msg.timestamp; 
+        bubble.textContent = msg.content;
+        wrapper.appendChild(bubble);
+        addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
+        wrapper.addEventListener('click', () => { 
+            if (isSelectionMode) {
+                toggleMessageSelection(msg.timestamp);
+            }
+        });
+        return wrapper;
+    }
+    else if (msg.type === 'post_deleted_notice') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message-wrapper system-pat';
+        wrapper.dataset.timestamp = msg.timestamp; 
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble post-deleted-placeholder'; 
+        bubble.dataset.postId = msg.postId;
+        bubble.textContent = msg.content;
+        wrapper.appendChild(bubble);
+        addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
+        wrapper.addEventListener('click', () => { 
+            if (isSelectionMode) {
+                toggleMessageSelection(msg.timestamp);
+            }
+        });
+        return wrapper;
+    }
 
-    const bubble = document.createElement('div');
-    bubble.className = 'message-bubble recalled-message-placeholder';
-    bubble.dataset.timestamp = msg.timestamp; 
-    bubble.textContent = msg.content;
-    
-    wrapper.appendChild(bubble);
-    
-    addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
-    wrapper.addEventListener('click', () => { 
-        if (isSelectionMode) {
-            toggleMessageSelection(msg.timestamp);
-        }
-    });
-    
-    return wrapper;
-}
-// ▼▼▼ 在 recalled_message 的 } 后面，粘贴下面这段全新的代码 ▼▼▼
-else if (msg.type === 'post_deleted_notice') {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'message-wrapper system-pat';
-    wrapper.dataset.timestamp = msg.timestamp; 
-
-    const bubble = document.createElement('div');
-    // 我们给它一个新 class，方便加样式和绑定事件
-    bubble.className = 'message-bubble post-deleted-placeholder'; 
-    bubble.dataset.postId = msg.postId; // 把 postId 存到元素上
-    bubble.textContent = msg.content;
-    
-    wrapper.appendChild(bubble);
-    
-    // 同样给它加上长按和多选功能
-    addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
-    wrapper.addEventListener('click', () => { 
-        if (isSelectionMode) {
-            toggleMessageSelection(msg.timestamp);
-        }
-    });
-    
-    return wrapper;
-}
-// ▲▲▲ 粘贴结束 ▲▲▲
     if (msg.isHidden) {
         return null;
     }
@@ -9771,12 +9730,10 @@ else if (msg.type === 'post_deleted_notice') {
         const wrapper = document.createElement('div');
         wrapper.className = 'message-wrapper system-pat'; 
         const bubble = document.createElement('div');
-        // 【核心修正】为“拍一拍”消息的气泡也添加上 data-timestamp 属性
         bubble.className = 'message-bubble system-bubble'; 
         bubble.dataset.timestamp = msg.timestamp;
         bubble.textContent = msg.content;
         wrapper.appendChild(bubble);
-        // 【核心修正】为“拍一拍”消息也绑定长按和点击事件
         addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
         wrapper.addEventListener('click', () => { if (isSelectionMode) toggleMessageSelection(msg.timestamp); });
         return wrapper;
@@ -9788,12 +9745,9 @@ else if (msg.type === 'post_deleted_notice') {
 
     if (chat.isGroup && !isUser) {
         const member = chat.members.find(m => m.originalName === msg.senderName);
-        
         const senderNameDiv = document.createElement('div');
         senderNameDiv.className = 'sender-name';
-        
         senderNameDiv.textContent = member ? member.groupNickname : (msg.senderName || '未知成员');
-        
         wrapper.appendChild(senderNameDiv);
     }
 
@@ -9805,51 +9759,54 @@ else if (msg.type === 'post_deleted_notice') {
     timestampEl.className = 'timestamp';
     timestampEl.textContent = formatTimestamp(msg.timestamp);
 
-let avatarSrc, avatarFrameSrc = '';
+    let avatarSrc, avatarFrameSrc = '';
 
-if (chat.isGroup) {
     if (isUser) {
-        avatarSrc = chat.settings.myAvatar || defaultMyGroupAvatar;
+        avatarSrc = chat.settings.myAvatar || (chat.isGroup ? defaultMyGroupAvatar : defaultAvatar);
         avatarFrameSrc = chat.settings.myAvatarFrame || '';
-    } else {
-        const member = chat.members.find(m => m.originalName === msg.senderName);
-        const characterProfile = member ? state.chats[member.id] : null;
-        
-        if (characterProfile) {
-            avatarSrc = characterProfile.settings.aiAvatar || defaultAvatar;
-            avatarFrameSrc = characterProfile.settings.aiAvatarFrame || '';
-        } else {
-            avatarSrc = defaultGroupMemberAvatar;
-            avatarFrameSrc = '';
+    } else { // AI 或 NPC 的消息
+        if (chat.isGroup) {
+            const member = chat.members.find(m => m.originalName === msg.senderName);
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            //            这就是本次修复的核心所在！
+            //  我们在这里使用了和设置界面完全相同的逻辑来获取头像
+            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+            if (member) {
+                const characterProfile = state.chats[member.id];
+                // 优先使用成员自己独立的头像(member.avatar)，如果没有，再尝试去单聊配置里找，最后才用默认头像。
+                avatarSrc = member.avatar || (characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar);
+                avatarFrameSrc = member.avatarFrame || (characterProfile ? characterProfile.settings.aiAvatarFrame : '');
+            } else {
+                // 如果在成员列表里都找不到，就用默认头像
+                avatarSrc = defaultGroupMemberAvatar;
+                avatarFrameSrc = '';
+            }
+        } else { // 单聊AI
+            avatarSrc = chat.settings.aiAvatar || defaultAvatar;
+            avatarFrameSrc = chat.settings.aiAvatarFrame || '';
         }
     }
-}  else {
-    if (isUser) {
-        avatarSrc = chat.settings.myAvatar || defaultAvatar;
-        avatarFrameSrc = chat.settings.myAvatarFrame || '';
+
+    let avatarHtml;
+    if (avatarFrameSrc) {
+        avatarHtml = `
+            <div class="avatar-with-frame">
+                <img src="${avatarSrc}" class="avatar-img">
+                <img src="${avatarFrameSrc}" class="avatar-frame">
+            </div>
+        `;
     } else {
-        avatarSrc = chat.settings.aiAvatar || defaultAvatar;
-        avatarFrameSrc = chat.settings.aiAvatarFrame || '';
+        avatarHtml = `<img src="${avatarSrc}" class="avatar">`;
     }
-}
+    const hasFrameClass = avatarFrameSrc ? 'has-frame' : '';
+    const avatarGroupHtml = `<div class="avatar-group ${hasFrameClass}">${avatarHtml}</div>`;
 
-let avatarHtml;
-if (avatarFrameSrc) {
-    avatarHtml = `
-        <div class="avatar-with-frame">
-            <img src="${avatarSrc}" class="avatar-img">
-            <img src="${avatarFrameSrc}" class="avatar-frame">
-        </div>
-    `;
-} else {
-    avatarHtml = `<img src="${avatarSrc}" class="avatar">`;
-}
-
-const hasFrameClass = avatarFrameSrc ? 'has-frame' : '';
-const avatarGroupHtml = `<div class="avatar-group ${hasFrameClass}">${avatarHtml}</div>`;
-
-    let contentHtml;
+    // ... 后续所有处理消息内容的代码 (contentHtml) 保持不变 ...
     
+    // =====================================================================
+    // 这部分代码省略，因为它们都是正确的，无需修改
+    // =====================================================================
+    let contentHtml;
     if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
         
@@ -9863,139 +9820,107 @@ const avatarGroupHtml = `<div class="avatar-group ${hasFrameClass}">${avatarHtml
                     </div>
                 </div>
             `;
-    }
-
-else if (msg.type === 'share_card') {
-    bubble.classList.add('is-link-share');
-    contentHtml = `
-        <div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}">
-            <div class="title">${msg.payload.title}</div>
-            <div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div>
-            <div class="footer">
-                <svg class="footer-icon" ...>...</svg>
-                <span>聊天记录</span>
-            </div>
-        </div>
-    `;
-}
-else if (msg.type === 'location_share') {
-    bubble.classList.add('is-location-share');
-    
-    contentHtml = `
-        <div class="location-share-card">
-            <div class="card-text-area">
-                <div class="card-text-primary">${msg.content}</div>
-                <div class="card-text-secondary">共享实时位置</div>
-            </div>
-            <div class="card-map-area">
-                <div class="card-pin-icon">
-                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg>
+    } else if (msg.type === 'share_card') {
+        bubble.classList.add('is-link-share');
+        contentHtml = `
+            <div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}">
+                <div class="title">${msg.payload.title}</div>
+                <div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div>
+                <div class="footer">
+                    <svg class="footer-icon" ...>...</svg>
+                    <span>聊天记录</span>
                 </div>
             </div>
-        </div>
-    `;
-}
-    // ▼▼▼ 核心修复就在这里！▼▼▼
-    else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
+        `;
+    } else if (msg.type === 'location_share') {
+        bubble.classList.add('is-location-share');
+        contentHtml = `
+            <div class="location-share-card">
+                <div class="card-text-area">
+                    <div class="card-text-primary">${msg.content}</div>
+                    <div class="card-text-secondary">共享实时位置</div>
+                </div>
+                <div class="card-map-area">
+                    <div class="card-pin-icon">
+                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
         bubble.classList.add('is-ai-image');
-        // 1. 设置正确的alt文本
         const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
-        // 2. 将AI的【文字描述】(msg.content)正确地存入 data-description 属性
         contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
-    // ▲▲▲ 修复结束 ▲▲▲
     } else if (msg.type === 'voice_message') {
-    bubble.classList.add('is-voice-message');
-    
-    bubble.dataset.voiceText = msg.content;
-    
-    const duration = Math.max(1, Math.round((msg.content || '').length / 5));
-    const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
-    const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
-    
-    contentHtml = `
-        <div class="voice-message-body">
-            <div class="voice-waveform">${waveformHTML}</div>
-            <div class="loading-spinner"></div>
-            <span class="voice-duration">${durationFormatted}</span>
-        </div>
-        <div class="voice-transcript"></div>
-    `;
-}else if (msg.type === 'transfer') {
-    bubble.classList.add('is-transfer'); 
-    let titleText, noteText;
-    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
-
-    const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
-    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
-
-    if (isUser) { 
-        if (msg.isRefund) {
-            titleText = `退款给 ${receiverDisplayName}`;
-            noteText = '已拒收对方转账';
+        bubble.classList.add('is-voice-message');
+        bubble.dataset.voiceText = msg.content;
+        const duration = Math.max(1, Math.round((msg.content || '').length / 5));
+        const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
+        const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
+        contentHtml = `
+            <div class="voice-message-body">
+                <div class="voice-waveform">${waveformHTML}</div>
+                <div class="loading-spinner"></div>
+                <span class="voice-duration">${durationFormatted}</span>
+            </div>
+            <div class="voice-transcript"></div>
+        `;
+    } else if (msg.type === 'transfer') {
+        bubble.classList.add('is-transfer');
+        let titleText, noteText;
+        const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+        const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
+        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
+        if (isUser) { 
+            if (msg.isRefund) {
+                titleText = `退款给 ${receiverDisplayName}`;
+                noteText = '已拒收对方转账';
+            } else {
+                titleText = `转账给 ${receiverDisplayName}`;
+                if (msg.status === 'accepted') noteText = '对方已收款';
+                else if (msg.status === 'declined') noteText = '对方已拒收';
+                else noteText = msg.note || '等待对方处理...';
+            }
         } else {
-            titleText = `转账给 ${receiverDisplayName}`;
-            if (msg.status === 'accepted') {
-                noteText = '对方已收款';
-            } else if (msg.status === 'declined') {
-                noteText = '对方已拒收';
+            if (msg.isRefund) {
+                titleText = `退款来自 ${senderDisplayName}`;
+                noteText = '转账已被拒收';
+            } else if (msg.receiverName === myNickname) {
+                titleText = `转账给 ${myNickname}`;
+                if (msg.status === 'accepted') noteText = '你已收款';
+                else if (msg.status === 'declined') noteText = '你已拒收';
+                else {
+                    bubble.style.cursor = 'pointer'; 
+                    bubble.dataset.status = 'pending'; 
+                    noteText = msg.note || '点击处理';
+                }
             } else {
-                noteText = msg.note || '等待对方处理...';
+                titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`;
+                noteText = msg.note || '群聊内转账';
             }
         }
-    } else { // AI的消息
-        if (msg.isRefund) {
-            titleText = `退款来自 ${senderDisplayName}`;
-            noteText = '转账已被拒收';
-        } else if (msg.receiverName === myNickname) { // AI转账给我
-            titleText = `转账给 ${myNickname}`;
-             if (msg.status === 'accepted') {
-                noteText = '你已收款';
-            } else if (msg.status === 'declined') {
-                noteText = '你已拒收';
-            } else {
-                bubble.style.cursor = 'pointer'; 
-                bubble.dataset.status = 'pending'; 
-                noteText = msg.note || '点击处理';
-            }
-        } else { // AI在群里转账给别人
-            titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`;
-            noteText = msg.note || '群聊内转账';
-        }
-    }
-
-    const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
-        
-    contentHtml = `
-        <div class="transfer-card">
-            <div class="transfer-title">${heartIcon} ${titleText}</div>
-            <div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div>
-            <div class="transfer-note">${noteText}</div>
-        </div>
-    `;
-    
-} 
-else if (msg.type === 'waimai_request') {
+        const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
+        contentHtml = `
+            <div class="transfer-card">
+                <div class="transfer-title">${heartIcon} ${titleText}</div>
+                <div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div>
+                <div class="transfer-note">${noteText}</div>
+            </div>
+        `;
+    } else if (msg.type === 'waimai_request') {
         bubble.classList.add('is-waimai-request');
-        if (msg.status === 'paid' || msg.status === 'rejected') {
-            bubble.classList.add(`status-${msg.status}`);
-        }
+        if (msg.status === 'paid' || msg.status === 'rejected') bubble.classList.add(`status-${msg.status}`);
         const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
         const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
         let actionButtonsHtml = '';
         if (msg.status === 'pending' && !isUser) {
-            actionButtonsHtml = `
-                <div class="waimai-user-actions">
-                    <button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button>
-                    <button class="waimai-pay-btn" data-choice="paid">为Ta买单</button>
-                </div>`;
+            actionButtonsHtml = `<div class="waimai-user-actions"><button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button><button class="waimai-pay-btn" data-choice="paid">为Ta买单</button></div>`;
         }
         contentHtml = `
             <div class="waimai-card">
                 <div class="waimai-header">
                     <img src="https://files.catbox.moe/mq179k.png" class="icon" alt="Meituan Icon">
-                    <div class="title-group">
-                        <span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span>
-                    </div>
+                    <div class="title-group"><span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span></div>
                 </div>
                 <div class="waimai-catchphrase">Hi，你和我的距离只差一顿外卖～</div>
                 <div class="waimai-main">
@@ -10003,24 +9928,18 @@ else if (msg.type === 'waimai_request') {
                     <div class="payment-box">
                         <div class="payment-label">需付款</div>
                         <div class="amount">¥${Number(msg.amount).toFixed(2)}</div>
-                        <div class="countdown-label">剩余支付时间
-                            <div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div>
-                        </div>
+                        <div class="countdown-label">剩余支付时间<div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div></div>
                     </div>
                     <button class="waimai-details-btn">查看详情</button>
                 </div>
                 ${actionButtonsHtml}
             </div>`;
-        
         setTimeout(() => {
             const timerEl = document.getElementById(`waimai-timer-${msg.timestamp}`);
             if (timerEl && msg.countdownEndTime) {
                 if (waimaiTimers[msg.timestamp]) clearInterval(waimaiTimers[msg.timestamp]);
-                if (msg.status === 'pending') {
-                    waimaiTimers[msg.timestamp] = startWaimaiCountdown(timerEl, msg.countdownEndTime);
-                } else {
-                    timerEl.innerHTML = `<span>已</span><span>处</span><span>理</span>`;
-                }
+                if (msg.status === 'pending') waimaiTimers[msg.timestamp] = startWaimaiCountdown(timerEl, msg.countdownEndTime);
+                else timerEl.innerHTML = `<span>已</span><span>处</span><span>理</span>`;
             }
             const detailsBtn = document.querySelector(`.message-bubble[data-timestamp="${msg.timestamp}"] .waimai-details-btn`);
             if (detailsBtn) {
@@ -10035,115 +9954,58 @@ else if (msg.type === 'waimai_request') {
                 });
             }
             const actionButtons = document.querySelectorAll(`.message-bubble[data-timestamp="${msg.timestamp}"] .waimai-user-actions button`);
-            actionButtons.forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const choice = e.target.dataset.choice;
-                    handleWaimaiResponse(msg.timestamp, choice);
-                });
-            });
+            actionButtons.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); handleWaimaiResponse(msg.timestamp, e.target.dataset.choice); }));
         }, 0);
-
-} else if (msg.type === 'red_packet') {
-    bubble.classList.add('is-red-packet');
-    const myNickname = chat.settings.myNickname || '我';
-    
-    const isFinished = msg.isFullyClaimed;
-    const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
-
-    let cardClass = '';
-    let claimedInfoHtml = '';
-    let typeText = '拼手气红包';
-
-    if (isFinished) {
-        cardClass = 'opened';
-    }
-    
-    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
-    
-    if (msg.packetType === 'direct') {
-        typeText = `专属红包: 给 ${receiverDisplayName}`;
-        if (Object.keys(msg.claimedBy || {}).length > 0) {
-            cardClass = 'opened';
+    } else if (msg.type === 'red_packet') {
+        bubble.classList.add('is-red-packet');
+        const myNickname = chat.settings.myNickname || '我';
+        const isFinished = msg.isFullyClaimed;
+        const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
+        let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
+        if (isFinished) cardClass = 'opened';
+        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+        if (msg.packetType === 'direct') {
+            typeText = `专属红包: 给 ${receiverDisplayName}`;
+            if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened';
         }
-    }
-    
-    if (hasClaimed) {
-        const myClaimedAmount = msg.claimedBy[myNickname] || 0;
-        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
-    } else if (isFinished) {
-        claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
-    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
-    }
-
-    contentHtml = `
-        <div class="red-packet-card ${cardClass}">
-            <div class="rp-header">
-                <img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon">
-                <span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span>
-            </div>
-            <div class="rp-type">${typeText}</div>
-            ${claimedInfoHtml}
-        </div>
-    `;
-
-} else if (msg.type === 'poll') {
-    bubble.classList.add('is-poll');
-    
-    const pollQuestionText = msg.question || msg.content || '(无标题投票)'; 
-
-    let totalVotes = 0;
-    const voteCounts = {};
-
-    for (const option in msg.votes) {
-        const count = msg.votes[option].length;
-        voteCounts[option] = count;
-        totalVotes += count;
-    }
-
-    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
-    let myVote = null;
-    for (const option in msg.votes) {
-        if (msg.votes[option].includes(myNickname)) {
-            myVote = option;
-            break;
-        }
-    }
-
-    let optionsHtml = '<div class="poll-options-list">';
-    msg.options.forEach(optionText => {
-        const count = voteCounts[optionText] || 0;
-        const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
-        const isVotedByMe = myVote === optionText;
-
-        optionsHtml += `
-            <div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}">
-                <div class="poll-option-bar" style="width: ${percentage}%;"></div>
-                <div class="poll-option-content">
-                    <span class="poll-option-text">${optionText}</span>
-                    <span class="poll-option-votes">${count} 票</span>
-                </div>
+        if (hasClaimed) {
+            const myClaimedAmount = msg.claimedBy[myNickname] || 0;
+            claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
+        } else if (isFinished) claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
+        else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
+        contentHtml = `
+            <div class="red-packet-card ${cardClass}">
+                <div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div>
+                <div class="rp-type">${typeText}</div>
+                ${claimedInfoHtml}
             </div>
         `;
-    });
-    optionsHtml += '</div>';
-    
-    let footerHtml = '';
-    if (msg.isClosed) {
-        footerHtml = `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>`;
-    } else {
-        footerHtml = `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
-    }
-
-    contentHtml = `
-        <div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}">
-            <div class="poll-question">${pollQuestionText}</div>
-            ${optionsHtml}
-            ${footerHtml}
-        </div>
-    `;
-
+    } else if (msg.type === 'poll') {
+        bubble.classList.add('is-poll');
+        const pollQuestionText = msg.question || msg.content || '(无标题投票)';
+        let totalVotes = 0;
+        const voteCounts = {};
+        for (const option in msg.votes) {
+            const count = msg.votes[option].length;
+            voteCounts[option] = count;
+            totalVotes += count;
+        }
+        const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+        let myVote = null;
+        for (const option in msg.votes) {
+            if (msg.votes[option].includes(myNickname)) { myVote = option; break; }
+        }
+        let optionsHtml = '<div class="poll-options-list">';
+        msg.options.forEach(optionText => {
+            const count = voteCounts[optionText] || 0;
+            const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0;
+            const isVotedByMe = myVote === optionText;
+            optionsHtml += `<div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}"><div class="poll-option-bar" style="width: ${percentage}%;"></div><div class="poll-option-content"><span class="poll-option-text">${optionText}</span><span class="poll-option-votes">${count} 票</span></div></div>`;
+        });
+        optionsHtml += '</div>';
+        let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>`
+                                     : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
+        contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
     } else if (typeof msg.content === 'string' && STICKER_REGEX.test(msg.content)) {
         bubble.classList.add('is-sticker');
         contentHtml = `<img src="${msg.content}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
@@ -10153,7 +10015,7 @@ else if (msg.type === 'waimai_request') {
         contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
     } else {
         let processedText = processMentions(String(msg.content || ''), chat);
-        processedText = parseMarkdown(processedText);// 调用Markdown解析器
+        processedText = parseMarkdown(processedText);
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
@@ -10198,6 +10060,7 @@ else if (msg.type === 'waimai_request') {
     return wrapper;
 }
 // ▲▲▲ 替换结束
+
         function prependMessage(msg, chat) { const messagesContainer = document.getElementById('chat-messages'); const messageEl = createMessageElement(msg, chat); 
 
     if (!messageEl) return; // <--- 新增这行，同样的处理
@@ -18508,6 +18371,7 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
 });
 // ▲▲▲ 替换结束 ▲▲▲
             
+// ▼▼▼ 【请用这个新版本】替换旧的 renderGroupMemberSettings 函数 ▼▼▼
 function renderGroupMemberSettings(members) { 
     const container = document.getElementById('group-members-settings'); 
     container.innerHTML = ''; 
@@ -18515,38 +18379,45 @@ function renderGroupMemberSettings(members) {
         const div = document.createElement('div'); 
         div.className = 'member-editor'; 
         div.dataset.memberId = member.id; 
-        // ★★★【核心重构】★★★
-        // 显示的是 groupNickname
-        // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
-// 【核心修改】实时查找头像
-const characterProfile = state.chats[member.id];
-const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
+        
+        // ★★★★★ 这就是【核心修复 ①】★★★★★
+        // 优先使用成员自己独立的头像(member.avatar)，如果没有，再尝试去单聊配置里找，
+        // 如果还没有，最后才用默认头像。这套逻辑能完美兼容所有类型的成员。
+        const memberAvatar = member.avatar || (state.chats[member.id] ? state.chats[member.id].settings.aiAvatar : defaultGroupMemberAvatar);
+
+        div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
         div.addEventListener('click', () => openMemberEditor(member.id)); 
         container.appendChild(div); 
     }); 
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
+// ▼▼▼ 【请用这个新版本】替换旧的 openMemberEditor 函数 ▼▼▼
 function openMemberEditor(memberId) { 
     editingMemberId = memberId; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === memberId); 
+    if (!member) return; // 安全检查
+
     document.getElementById('member-name-input').value = member.groupNickname; 
     document.getElementById('member-persona-input').value = member.persona; 
-    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
-// 【核心修改】实时查找头像
-const characterProfile = state.chats[member.id];
-const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-document.getElementById('member-avatar-preview').src = memberAvatar;
+    
+    // ★★★★★ 这就是【核心修复 ②】★★★★★
+    // 使用与上面完全相同的逻辑来获取并显示正确的当前头像。
+    const memberAvatar = member.avatar || (state.chats[member.id] ? state.chats[member.id].settings.aiAvatar : defaultGroupMemberAvatar);
+    document.getElementById('member-avatar-preview').src = memberAvatar;
+
     document.getElementById('member-settings-modal').classList.add('visible'); 
 }
+// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('cancel-member-settings-btn').addEventListener('click', () => { document.getElementById('member-settings-modal').classList.remove('visible'); editingMemberId = null; });
             // ▼▼▼ 将其【完整替换为】下面这段修正后的代码 ▼▼▼
-document.getElementById('save-member-settings-btn').addEventListener('click', async () => { // <---【已修正】在这里加上 async
+// ▼▼▼ 【最终修复版】请用这整块代码，完整替换旧的 'save-member-settings-btn' 事件监听器 ▼▼▼
+document.getElementById('save-member-settings-btn').addEventListener('click', async () => {
     if (!editingMemberId) return; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === editingMemberId); 
-    if (!member) return; // 安全检查
+    if (!member) return;
 
     const newNickname = document.getElementById('member-name-input').value.trim();
     if (!newNickname) {
@@ -18556,18 +18427,28 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
     member.groupNickname = newNickname; 
     member.persona = document.getElementById('member-persona-input').value; 
     
-    // 【核心修改】找到角色的主配置并更新其头像
+    const newAvatarUrl = document.getElementById('member-avatar-preview').src;
+
+    // ★★★★★ 这就是【核心修复】 ★★★★★
+    // 无论成员是“真角色”还是“纯NPC”，都【必须】将新头像URL直接保存在群聊的成员信息里。
+    member.avatar = newAvatarUrl;
+
+    // 同时，如果这个成员是一个“真角色”，我们依然更新他的主配置，保持数据同步。
     const characterProfile = state.chats[member.id];
     if (characterProfile) {
-        characterProfile.settings.aiAvatar = document.getElementById('member-avatar-preview').src;
-        // 现在 await 可以正常工作了
+        characterProfile.settings.aiAvatar = newAvatarUrl;
         await db.chats.put(characterProfile);
     }
     
+    // 将包含最新成员信息的【整个群聊对象】存回数据库，让NPC的头像得以永久保存。
+    await db.chats.put(chat);
+    
+    // 刷新UI并关闭弹窗
     renderGroupMemberSettings(chat.members); 
     document.getElementById('member-settings-modal').classList.remove('visible'); 
-    editingMemberId = null; // 操作完成后重置
+    editingMemberId = null;
 });
+// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
             document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
 
@@ -18629,7 +18510,14 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
     await db.chats.put(chat);
 
-    if (!chat.isGroup) await syncCharacterNameInGroups(chat);
+   // ▼▼▼ 【请用这个新版本】替换旧的 if (!chat.isGroup) { ... } 代码块 ▼▼▼
+if (!chat.isGroup) {
+    // 调用我们现有的函数同步【名字】
+    await syncCharacterNameInGroups(chat);
+    // 【【【核心修复】】】调用我们刚刚创建的新函数，同步【头像】
+    await syncCharacterAvatarInGroups(chat);
+}
+// ▲▲▲ 替换结束 ▲▲▲
 
     applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
     document.getElementById('chat-settings-modal').classList.remove('visible');
