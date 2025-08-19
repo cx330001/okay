@@ -5061,6 +5061,45 @@ input:checked + .slider:before {
     color: inherit;           /* 恢复为正常的文字颜色 */
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】长期记忆管理按钮美化样式 ▼▼▼ */
+.memory-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px; /* 增加一点可点击区域，方便用户操作 */
+    border-radius: 50%; /* 圆形背景 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.memory-action-btn svg {
+    width: 18px;  /* 让图标比顶部的稍小一点，更显精致 */
+    height: 18px;
+    stroke: var(--text-secondary); /* 默认使用次要文字的灰色 */
+    transition: stroke 0.2s;
+}
+
+.memory-action-btn:hover {
+    background-color: #e9ecef; /* 鼠标悬停时给一个淡淡的背景色 */
+}
+
+/* 夜间模式下的悬停效果 */
+#phone-screen.dark-mode .memory-action-btn:hover {
+    background-color: #38383a;
+}
+
+/* 编辑按钮悬停时，图标变为蓝色 */
+.memory-action-btn.edit-memory-btn:hover svg {
+    stroke: var(--accent-color);
+}
+
+/* 删除按钮悬停时，图标变为危险的红色 */
+.memory-action-btn.delete-memory-btn:hover svg {
+    stroke: #ff3b30;
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5164,56 +5203,93 @@ input:checked + .slider:before {
                 </div>
             </div>
 
-            <div id="api-settings-screen" class="screen"><div class="header"><span class="back-btn" onclick="showScreen('home-screen')">‹</span><span>API 设置</span><span style="width: 30px;"></span></div><div class="form-container"><p style="font-size: 14px; color: #666; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">提示: 若要使用“发送图片”功能, 请务必选择支持Vision(视觉)的模型, 如<code style="background-color: #e0e0e0; padding: 2px 4px; border-radius: 4px;">gpt-4o</code>或<code style="background-color: #e0e0e0; padding: 2px 4px; border-radius: 4px;">gpt-4-vision-preview</code>。</p><div class="form-group"><label for="proxy-url">反代地址 (不需要添加/v1噢~)</label><input type="text" id="proxy-url" placeholder="例如: https://api.openai.com"></div><div class="form-group"><label for="api-key">密钥 (API Key)</label><input type="password" id="api-key" placeholder="sk-..."></div><div class="form-group"><label for="model-select">模型</label><select id="model-select"></select></div><button class="form-button" id="fetch-models-btn">拉取模型</button>
-
-<!-- ▼▼▼ 将这段代码粘贴到 API 设置页面的“保存设置”按钮上方 ▼▼▼ -->
-<hr style="margin:20px 0; opacity:.3">
-<div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
-    <label for="background-activity-switch" style="margin-bottom: 0;">
-        启用后台角色活动
-        <p style="font-size: 12px; font-weight: normal; color: #ff6b6b; margin-top: 5px;">
-            警告：此功能会显著增加API调用和费用！
+            <!-- ▼▼▼ 请用这整块代码，完整替换你现有的 id="api-settings-screen" 的 div ▼▼▼ -->
+<div id="api-settings-screen" class="screen">
+    <div class="header">
+        <span class="back-btn" onclick="showScreen('home-screen')">‹</span>
+        <span>API 设置</span>
+        <span style="width: 30px;"></span>
+    </div>
+    <div class="form-container">
+        <!-- 主API设置 -->
+        <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;">主API设置 (用于聊天)</h3>
+        <p style="font-size: 14px; color: #666; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
+            提示: 若要使用“发送图片”功能, 请务必选择支持Vision(视觉)的模型, 如<code style="background-color: #e0e0e0; padding: 2px 4px; border-radius: 4px;">gpt-4o</code>或<code style="background-color: #e0e0e0; padding: 2px 4px; border-radius: 4px;">gpt-4-vision-preview</code>。
         </p>
-    </label>
-    <input type="checkbox" id="background-activity-switch" style="width: auto; height: 20px;">
-</div>
-<!-- ▲▲▲ 粘贴结束 ▲▲▲ -->
+        <div class="form-group">
+            <label for="proxy-url">反代地址 (不需要添加/v1噢~)</label>
+            <input type="text" id="proxy-url" placeholder="例如: https://api.openai.com">
+        </div>
+        <div class="form-group">
+            <label for="api-key">密钥 (API Key)</label>
+            <input type="password" id="api-key" placeholder="sk-...">
+        </div>
+        <div class="form-group">
+            <label for="model-select">模型</label>
+            <select id="model-select"></select>
+        </div>
+        <button class="form-button" id="fetch-models-btn">拉取主模型</button>
 
-<!-- ▼▼▼ 将这段代码粘贴到“启用后台角色活动”开关的下方 ▼▼▼ -->
-<div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-    <label for="background-interval-input" style="margin-bottom: 0;">
-        后台活动检测间隔 (秒)
-        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
-            建议值 60-300。值越大，费用越低，但角色反应越慢。
+        <!-- 【【【全新：副API设置】】】 -->
+        <hr style="margin: 30px 0; opacity: 0.3;">
+        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">副API设置 (用于总结长期记忆)</h3>
+        <p style="font-size: 14px; color: #666; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
+            您可以在此配置一个独立的、可能成本更低的API，专门用于后台的长期记忆总结任务，以节省主API的费用。如果留空，将默认使用主API进行总结。
         </p>
-    </label>
-    <input type="number" id="background-interval-input" min="30" value="60" style="width: 80px; text-align: center;">
+        <div class="form-group">
+            <label for="secondary-proxy-url">副反代地址</label>
+            <input type="text" id="secondary-proxy-url" placeholder="例如: https://api.groq.com/openai">
+        </div>
+        <div class="form-group">
+            <label for="secondary-api-key">副密钥</label>
+            <input type="password" id="secondary-api-key" placeholder="gsk_...">
+        </div>
+        <div class="form-group">
+            <label for="secondary-model-select">副模型</label>
+            <select id="secondary-model-select"></select>
+        </div>
+        <button class="form-button form-button-secondary" id="fetch-secondary-models-btn">拉取副模型</button>
+
+        <!-- 后台活动设置 -->
+        <hr style="margin: 30px 0; opacity: 0.3;">
+        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">后台活动设置</h3>
+        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+            <label for="background-activity-switch" style="margin-bottom: 0;">
+                启用后台角色活动
+                <p style="font-size: 12px; font-weight: normal; color: #ff6b6b; margin-top: 5px;">
+                    警告：此功能会显著增加API调用和费用！
+                </p>
+            </label>
+            <input type="checkbox" id="background-activity-switch" style="width: auto; height: 20px;">
+        </div>
+        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <label for="background-interval-input" style="margin-bottom: 0;">
+                后台活动检测间隔 (秒)
+                <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+                    建议值 60-300。值越大，费用越低，但角色反应越慢。
+                </p>
+            </label>
+            <input type="number" id="background-interval-input" min="30" value="60" style="width: 80px; text-align: center;">
+        </div>
+        <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <label for="block-cooldown-input" style="margin-bottom: 0;">
+                AI被拉黑后冷静期 (小时)
+                <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+                    被拉黑超过这个时间后，AI才有几率重新申请好友。
+                </p>
+            </label>
+            <input type="number" id="block-cooldown-input" min="0.1" step="0.1" value="1" style="width: 80px; text-align: center;">
+        </div>
+
+        <!-- 保存与导入导出 -->
+        <hr style="margin: 30px 0; opacity: 0.3;">
+        <button class="form-button" id="save-api-settings-btn" style="margin-top: 20px;">保存所有设置</button>
+        <button class="form-button" id="export-data-btn">导出数据</button>
+        <button class="form-button" id="import-btn">导入备份文件</button>
+        <input id="import-data-input" type="file" accept="application/json" hidden>
+    </div>
 </div>
-<!-- ▲▲▲ 粘贴结束 ▲▲▲ -->
-
-<!-- ▼▼▼ 在这里新增 ▼▼▼ -->
-<div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-    <label for="block-cooldown-input" style="margin-bottom: 0;">
-        AI被拉黑后冷静期 (小时)
-        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
-            被拉黑超过这个时间后，AI才有几率重新申请好友。
-        </p>
-    </label>
-    <input type="number" id="block-cooldown-input" min="0.1" step="0.1" value="1" style="width: 80px; text-align: center;">
-</div>
-<!-- ▲▲▲ 新增结束 ▲▲▲ -->
-
-<button class="form-button" id="save-api-settings-btn">保存设置</button>
-			<hr style="margin:20px 0; opacity:.3">
-
-			<button class="form-button" id="export-data-btn">导出数据</button>
-
-<!-- ① 普通按钮，和“导出”一个 class -->
-<button class="form-button" id="import-btn">导入备份文件</button>
-
-<!-- ② 真正的文件选择器，完全隐藏 -->
-<input id="import-data-input" type="file" accept="application/json" hidden>
-</div></div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
 <!-- ▼▼▼ 用下面这段代码，完整替换掉你原来的 chat-list-screen ▼▼▼ -->
 <div id="chat-list-screen" class="screen">
     
@@ -5399,6 +5475,16 @@ input:checked + .slider:before {
                 </div>
             </div>
 <div class="header-actions">
+<!-- ▼▼▼ 请用这整块代码，替换你现有的 id="open-memory-screen-btn" 的 span 标签 ▼▼▼ -->
+<span class="action-btn" id="open-memory-screen-btn" title="长期记忆">
+    <!-- 【核心修改】使用SVG图标替换原来的图片 -->
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 3H5C3.89543 3 3 3.89543 3 5V19C3 20.1046 3.89543 21 5 21H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 6L9 9L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M21 5V19C21 20.1046 20.1046 21 19 21H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</span>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
                 <span class="action-btn" id="listen-together-btn" title="一起听"><img src="https://i.postimg.cc/dV8sdNcx/210-20250618115221.png" alt="一起听"></span>
 
                 <span class="action-btn" id="chat-settings-btn" title="聊天设置"><img src="https://i.postimg.cc/bvPq64cv/CCA834-BA-5-A90-408-D-94-FA-7-EE156-B6-A765.png" alt="设置"></span>
@@ -5469,7 +5555,8 @@ input:checked + .slider:before {
             <span class="panel-btn" id="close-sticker-panel-btn">取消</span>
             <span class="title">我的表情</span>
             <div style="display: flex; gap: 10px;">
-              <span class="panel-btn" id="add-sticker-btn">添加</span>
+      <span class="panel-btn" id="add-sticker-batch-btn">批量</span>
+      <span class="panel-btn" id="add-sticker-url-btn">URL</span>
               <span class="panel-btn" id="upload-sticker-btn">上传</span>
             </div>
         </div>
@@ -5836,7 +5923,13 @@ input:checked + .slider:before {
 
     <!-- 【新增】管理成员按钮 -->
     <button id="manage-members-btn" class="form-button form-button-secondary" style="margin-top: 15px;">管理群成员</button></div>
-<div class="form-group"><label for="max-memory">上下文记忆条数</label><input type="number" id="max-memory" value="10"></div>
+<!-- ▼▼▼ 请用下面这【一整块代码】，替换掉从“上下文记忆条数”开始，到“聊天背景”之前的所有 form-group ▼▼▼ -->
+
+<div class="form-group">
+    <label for="max-memory">短期记忆（上下文）条数</label>
+    <input type="number" id="max-memory" value="10">
+</div>
+
 <div class="form-group">
     <label for="linked-memory-count">挂载记忆条数</label>
     <input type="number" id="linked-memory-count" value="10">
@@ -5846,16 +5939,58 @@ input:checked + .slider:before {
         • 建议值 5-20。值越大记忆越全，但API费用越高、响应越慢。
     </p>
 </div>
-<div class="form-group"><label>聊天气泡主题 <button id="reset-theme-btn" type="button">重置</button></label><div class="theme-selector"><label><input type="radio" name="theme-select" value="default" id="theme-default"> 默认</label><label><input type="radio" name="theme-select" value="pink_blue"> 粉蓝</label><label><input type="radio" name="theme-select" value="blue_white"> 蓝白</label><label><input type="radio" name="theme-select" value="purple_yellow"> 紫黄</label><label><input type="radio" name="theme-select" value="black_white"> 黑白</label><label><input type="radio" name="theme-select" value="yellow_white"> 黄白</label><label><input type="radio" name="theme-select" value="red_black"> 红黑</label><label><input type="radio" name="theme-select" value="blue_yellow"> 蓝黄</label><label><input type="radio" name="theme-select" value="pink_yellow"> 粉黄</label><label><input type="radio" name="theme-select" value="pink_purple"> 粉紫</label><label><input type="radio" name="theme-select" value="gray_white"> 灰白</label><label><input type="radio" name="theme-select" value="blue_green"> 蓝绿</label><label><input type="radio" name="theme-select" value="pink_white"> 粉白</label><label><input type="radio" name="theme-select" value="pink_black"> 粉黑</label><label><input type="radio" name="theme-select" value="pink_green"> 粉绿</label><label><input type="radio" name="theme-select" value="green_black"> 绿黑</label></div></div>
 
-<!-- ▼▼▼ 请将这段新代码粘贴到“聊天气泡主题”的 form-group 之后 ▼▼▼ -->
+<!-- 【【【全新功能：长期记忆设置】】】 -->
+<hr style="opacity: 0.3; margin: 20px 0;">
+<div class="form-group" style="display: flex; justify-content: space-between; align-items: center;">
+    <label for="auto-memory-toggle" style="margin-bottom: 0;">
+        启用自动总结长期记忆
+        <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+            开启后，AI会在对话达到一定长度时，自动将内容提炼为长期记忆。
+        </p>
+    </label>
+    <label class="toggle-switch">
+        <input type="checkbox" id="auto-memory-toggle">
+        <span class="slider"></span>
+    </label>
+</div>
+<div class="form-group">
+    <label for="auto-memory-interval">自动总结间隔（消息条数）</label>
+    <input type="number" id="auto-memory-interval" min="10" value="20" style="width: 80px; text-align: center;">
+    <p style="font-size: 12px; color: #8a8a8a; margin-top: 8px;">
+        建议值 15-30。值越小，总结越频繁，但API费用也越高。
+    </p>
+</div>
+<hr style="opacity: 0.3; margin: 20px 0;">
+
+
+<div class="form-group">
+    <label>聊天气泡主题 <button id="reset-theme-btn" type="button">重置</button></label>
+    <div class="theme-selector">
+        <label><input type="radio" name="theme-select" value="default" id="theme-default"> 默认</label>
+        <label><input type="radio" name="theme-select" value="pink_blue"> 粉蓝</label>
+        <label><input type="radio" name="theme-select" value="blue_white"> 蓝白</label>
+        <label><input type="radio" name="theme-select" value="purple_yellow"> 紫黄</label>
+        <label><input type="radio" name="theme-select" value="black_white"> 黑白</label>
+        <label><input type="radio" name="theme-select" value="yellow_white"> 黄白</label>
+        <label><input type="radio" name="theme-select" value="red_black"> 红黑</label>
+        <label><input type="radio" name="theme-select" value="blue_yellow"> 蓝黄</label>
+        <label><input type="radio" name="theme-select" value="pink_yellow"> 粉黄</label>
+        <label><input type="radio" name="theme-select" value="pink_purple"> 粉紫</label>
+        <label><input type="radio" name="theme-select" value="gray_white"> 灰白</label>
+        <label><input type="radio" name="theme-select" value="blue_green"> 蓝绿</label>
+        <label><input type="radio" name="theme-select" value="pink_white"> 粉白</label>
+        <label><input type="radio" name="theme-select" value="pink_black"> 粉黑</label>
+        <label><input type="radio" name="theme-select" value="pink_green"> 粉绿</label>
+        <label><input type="radio" name="theme-select" value="green_black"> 绿黑</label>
+    </div>
+</div>
+
 <div class="form-group">
     <label for="font-size-slider">聊天字体大小 <span id="font-size-value">13px</span></label>
     <input type="range" id="font-size-slider" min="12" max="20" step="1" value="13" style="width: 100%; margin-top: 8px;">
 </div>
-<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 
-<!-- ▼▼▼ 请将这段新代码粘贴到“聊天字体大小”的 form-group 之后 ▼▼▼ -->
 <div class="form-group">
     <label for="custom-css-input">
         自定义气泡样式 (CSS)
@@ -5868,29 +6003,30 @@ input:checked + .slider:before {
   border-radius: 15px 4px 15px 15px;
 }"></textarea>
 </div>
-<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 
-<!-- ▼▼▼ 请将这段新代码粘贴到自定义CSS输入框的 form-group 之后 ▼▼▼ -->
 <div class="form-group">
     <label>实时预览</label>
     <div id="settings-preview-area">
         <!-- JS会在这里生成预览内容 -->
     </div>
 </div>
-<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
 
-            <div class="form-group">
-                <label>聊天背景</label>
-                <div class="bg-upload-container">
-                    <button type="button" class="form-button-secondary" style="width: auto; padding: 8px 12px; margin-top: 0;" onclick="document.getElementById('bg-input').click()">上传背景图</button>
-                    <button type="button" id="remove-bg-btn">移除背景</button>
-                </div>
-                <img id="bg-preview" class="bg-preview-img">
-                <input type="file" id="bg-input" accept="image/*" style="display: none;">
-            </div>
+<div class="form-group">
+    <label>聊天背景</label>
+    <div class="bg-upload-container">
+        <button type="button" class="form-button-secondary" style="width: auto; padding: 8px 12px; margin-top: 0;" onclick="document.getElementById('bg-input').click()">上传背景图</button>
+        <button type="button" id="remove-bg-btn">移除背景</button>
+    </div>
+    <img id="bg-preview" class="bg-preview-img">
+    <input type="file" id="bg-input" accept="image/*" style="display: none;">
+</div>
 <hr style="margin: 25px 0; border: none; border-top: 1px solid #eee;">
+
 <button class="form-button form-button-secondary" id="block-chat-btn" style="background-color: #ff3b30; color: white; border-color: #ff3b30;">拉黑对方</button>
-<button class="form-button form-button-secondary" id="clear-chat-btn">清空聊天记录</button></div><div class="modal-footer"><button class="cancel" id="cancel-chat-settings-btn">取消</button><button class="save" id="save-chat-settings-btn">保存</button></div></div></div>
+<button class="form-button form-button-secondary" id="clear-chat-btn">清空聊天记录</button>
+
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
+</div><div class="modal-footer"><button class="cancel" id="cancel-chat-settings-btn">取消</button><button class="save" id="save-chat-settings-btn">保存</button></div></div></div>
     
     <div id="persona-library-modal" class="modal"><div class="modal-content"><div class="modal-header"><span>我的人设库</span><button id="add-persona-preset-btn" class="action-button">添加</button></div><div class="modal-body"><div id="persona-library-grid"></div></div><div class="modal-footer"><button class="cancel" id="close-persona-library-btn">关闭</button></div></div></div>
     
@@ -6267,10 +6403,15 @@ input:checked + .slider:before {
 <!-- ▼▼▼ 【全新】AI头像库管理模态框 ▼▼▼ -->
 <div id="ai-avatar-library-modal" class="modal">
     <div class="modal-content" style="height: 70%;">
-        <div class="modal-header">
-            <span id="ai-avatar-library-title">对方的头像库</span>
-            <button id="add-ai-avatar-btn" class="action-button">添加</button>
-        </div>
+<div class="modal-header">
+    <span id="ai-avatar-library-title">对方的头像库</span>
+    <div class="header-actions">
+        <!-- 【核心修改】将一个按钮拆分为两个 -->
+        <button id="add-ai-avatar-batch-btn" class="action-button">批量</button>
+        <button id="add-ai-avatar-url-btn" class="action-button">URL</button>
+        <button id="add-ai-avatar-upload-btn" class="action-button">上传</button>
+    </div>
+</div>
         <div class="modal-body" style="padding: 15px;">
             <div id="ai-avatar-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 15px;">
                 <!-- 头像库内容将由JS动态生成 -->
@@ -6285,10 +6426,17 @@ input:checked + .slider:before {
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 <div id="group-avatar-library-modal" class="modal">
     <div class="modal-content" style="height: 70%;">
-        <div class="modal-header">
-            <span id="group-avatar-library-title">群头像库</span>
-            <button id="add-group-avatar-btn" class="action-button">添加</button>
-        </div>
+<!-- ▼▼▼ 请用这整块代码，完整替换你现有的 #group-avatar-library-modal .modal-header ▼▼▼ -->
+<div class="modal-header">
+    <span id="group-avatar-library-title">群头像库</span>
+    <div class="header-actions">
+        <!-- 【核心修改】将一个按钮拆分为两个 -->
+        <button id="add-group-avatar-batch-btn" class="action-button">批量</button>
+        <button id="add-group-avatar-url-btn" class="action-button">URL</button>
+        <button id="add-group-avatar-upload-btn" class="action-button">上传</button>
+    </div>
+</div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
         <div class="modal-body" style="padding: 15px;">
             <div id="group-avatar-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 15px;">
                 </div>
@@ -6449,6 +6597,23 @@ input:checked + .slider:before {
     </div>
 </div>
 
+<!-- ▼▼▼ 【全新】长期记忆管理全屏页面 ▼▼▼ -->
+<div id="long-term-memory-screen" class="screen">
+    <div class="header">
+        <span class="back-btn" id="memory-screen-back-btn">‹</span>
+        <span>长期记忆</span>
+        <div class="header-actions">
+             <span class="action-btn" id="summarize-recent-btn-header">总结</span>
+             <span class="action-btn" id="add-manual-memory-btn-header">+</span>
+        </div>
+    </div>
+    <div class="list-container" id="memory-list-container" style="padding: 15px; display: flex; flex-direction: column; gap: 15px; background-color: #f0f2f5;">
+        <!-- 长期记忆列表将由JS动态生成在这里 -->
+    </div>
+</div>
+<!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
+<input type="file" id="ai-avatar-upload-input" accept="image/*" hidden>
+<input type="file" id="group-avatar-upload-input" accept="image/*" hidden>
 <script>
 // ... 其他全局变量
 let activeMessageTimestamp = null;
@@ -6792,7 +6957,173 @@ let repostTargetId = null; // 用于存储当前要转发的动态ID
             if (modalResolve) modalResolve(null); 
         }
 // ▼▼▼ 把这个【全新的函数】粘贴到你的JS功能函数定义区 ▼▼▼
+// ▼▼▼ 【全新】本地上传群头像并由副API识别的核心功能 ▼▼▼
 
+/**
+ * 【全新】处理用户从本地上传群头像的流程
+ * @param {Event} event - 文件输入框的 change 事件对象
+ */
+async function handleLocalGroupAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 1. 读取文件为 Base64
+    const base64Url = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+
+    // 2. 弹出提示，开始识图
+    await showCustomAlert("请稍候...", "正在请求AI为新群头像命名...");
+
+    try {
+        // 3. 调用通用的API识图函数获取描述
+        const description = await getAvatarDescriptionFromApi(base64Url);
+        
+        if (!description) {
+            throw new Error("AI未能成功描述图片。");
+        }
+
+        // 4. 将描述作为名字，和图片URL一起存入群头像库
+        const chat = state.chats[state.activeChatId];
+        if (!chat.settings.groupAvatarLibrary) {
+            chat.settings.groupAvatarLibrary = [];
+        }
+        chat.settings.groupAvatarLibrary.push({ name: description, url: base64Url });
+        
+        // 5. 保存并刷新
+        await db.chats.put(chat);
+        renderGroupAvatarLibrary();
+        await showCustomAlert("上传成功！", `AI已将新群头像命名为：“${description}”`);
+
+    } catch (error) {
+        console.error("本地群头像上传及识别失败:", error);
+        await showCustomAlert("操作失败", `无法为头像命名，请检查（主/副）API配置是否正确并支持Vision。\n错误: ${error.message}`);
+    } finally {
+        // 无论成功与否，都清空文件输入框
+        event.target.value = null;
+    }
+}
+// ▲▲▲ 全新功能函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】本地上传头像并由副API识别的核心功能 ▼▼▼
+
+/**
+ * 【全新】处理用户从本地上传头像的流程
+ * @param {Event} event - 文件输入框的 change 事件对象
+ */
+async function handleLocalAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 1. 读取文件为 Base64，这是发送给API和存储的必要格式
+    const base64Url = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+
+    // 2. 弹出提示，开始识图
+    await showCustomAlert("请稍候...", "正在请求AI为新头像命名...");
+
+    try {
+        // 3. 调用API获取图片描述（这个描述将作为头像的名字）
+        const description = await getAvatarDescriptionFromApi(base64Url);
+        
+        if (!description) {
+            throw new Error("AI未能成功描述图片。");
+        }
+
+        // 4. 将描述作为名字，和图片URL一起存入头像库
+        const chat = state.chats[state.activeChatId];
+        if (!chat.settings.aiAvatarLibrary) {
+            chat.settings.aiAvatarLibrary = [];
+        }
+        chat.settings.aiAvatarLibrary.push({ name: description, url: base64Url });
+        
+        // 5. 保存并刷新
+        await db.chats.put(chat);
+        renderAiAvatarLibrary();
+        await showCustomAlert("上传成功！", `AI已将新头像命名为：“${description}”`);
+
+    } catch (error) {
+        console.error("本地头像上传及识别失败:", error);
+        await showCustomAlert("操作失败", `无法为头像命名，请检查（主/副）API配置是否正确并支持Vision。\n错误: ${error.message}`);
+    } finally {
+        // 无论成功与否，都清空文件输入框，以便下次能选择同一个文件
+        event.target.value = null;
+    }
+}
+
+/**
+ * 【全新】调用（副）API来获取图片的描述
+ * @param {string} base64Url - 图片的 Base64 Data URL
+ * @returns {Promise<string>} - 返回AI生成的图片描述
+ */
+async function getAvatarDescriptionFromApi(base64Url) {
+    // 智能选择API：优先使用副API，如果未配置则自动回退到主API
+    const useSecondaryApi = state.apiConfig.secondaryProxyUrl && state.apiConfig.secondaryApiKey && state.apiConfig.secondaryModel;
+    const { proxyUrl, apiKey, model } = useSecondaryApi 
+        ? { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel }
+        : state.apiConfig;
+
+    if (!proxyUrl || !apiKey || !model) {
+        throw new Error("主API和副API均未配置或配置不完整。");
+    }
+
+    const prompt = "请为这张图片起一个简洁的、适合作为头像库标签的名字。例如：“微笑自拍”、“阳光下的猫咪”、“蓝发动漫少女”。请直接回答名字，不要加任何多余的解释。";
+    
+    let isGemini = proxyUrl.includes('generativelanguage');
+    let response;
+
+    if (isGemini) {
+        const mimeType = base64Url.match(/^data:(.*);base64/)[1];
+        const base64Data = base64Url.split(',')[1];
+        const payload = {
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: mimeType, data: base64Data } }
+                ]
+            }]
+        };
+        response = await fetch(`${proxyUrl}/${model}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+    } else { // OpenAI 兼容 Vision API
+        const payload = {
+            model: model,
+            messages: [{
+                role: 'user',
+                content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: base64Url } }
+                ]
+            }],
+            max_tokens: 50 // 限制输出长度
+        };
+        response = await fetch(`${proxyUrl}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify(payload)
+        });
+    }
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`API 错误: ${errorData.error.message}`);
+    }
+
+    const data = await response.json();
+    let description = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+    
+    // 清理AI可能返回的多余字符
+    return description.trim().replace(/["'“”‘’]/g, '');
+}
+// ▲▲▲ 全新功能函数粘贴结束 ▲▲▲
 /**
  * 【全新】当单聊角色的名称被修改后，自动同步其在所有群聊中的信息
  * @param {object} characterChat - 被修改了名称的【单聊】chat对象
@@ -8409,6 +8740,10 @@ async function loadAllDataFromDB() {
             });
             if (needsUpdate) db.chats.put(chat);
         }
+if (!chat.settings.enableAutoMemory) chat.settings.enableAutoMemory = false;
+if (!chat.settings.autoMemoryInterval) chat.settings.autoMemoryInterval = 20;
+if (!chat.longTermMemory) chat.longTermMemory = [];
+if (!chat.lastMemorySummaryTimestamp) chat.lastMemorySummaryTimestamp = 0;
         acc[chat.id] = chat;
         return acc;
     }, {});
@@ -8443,7 +8778,8 @@ async function loadAllDataFromDB() {
     }
     // --- ▲▲▲ 数据迁移结束 ▲▲▲ ---
 
-    state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '' };
+// 在 loadAllDataFromDB 函数中
+state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '', secondaryProxyUrl: '', secondaryApiKey: '', secondaryModel: '' };
     state.globalSettings = globalSettings || { id: 'main', wallpaper: 'linear-gradient(135deg, #89f7fe, #66a6ff)', fontUrl: '', enableBackgroundActivity: false, backgroundActivityInterval: 60, blockCooldownHours: 1, appIcons: { ...DEFAULT_APP_ICONS } };
     state.globalSettings.appIcons = { ...DEFAULT_APP_ICONS, ...(state.globalSettings.appIcons || {}) };
     // ▼▼▼ 在这里粘贴新代码 ▼▼▼
@@ -8557,12 +8893,22 @@ function parseAiResponse(content) {
     return [{ type: 'text', content: content }];
 }
 
-        function renderApiSettings() { document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || ''; document.getElementById('api-key').value = state.apiConfig.apiKey || ''; 
-    // ▼▼▼ 新增这行 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 renderApiSettings 函数 ▼▼▼
+function renderApiSettings() { 
+    // 渲染主API
+    document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || ''; 
+    document.getElementById('api-key').value = state.apiConfig.apiKey || ''; 
+    
+    // 【核心新增】渲染副API
+    document.getElementById('secondary-proxy-url').value = state.apiConfig.secondaryProxyUrl || '';
+    document.getElementById('secondary-api-key').value = state.apiConfig.secondaryApiKey || '';
+
+    // 渲染后台活动设置
     document.getElementById('background-activity-switch').checked = state.globalSettings.enableBackgroundActivity || false;
     document.getElementById('background-interval-input').value = state.globalSettings.backgroundActivityInterval || 60;
     document.getElementById('block-cooldown-input').value = state.globalSettings.blockCooldownHours || 1;
 }
+// ▲▲▲ 替换结束 ▲▲▲
         window.renderApiSettingsProxy = renderApiSettings;
 
 // ▼▼▼ 请用这个【全新版本】的函数，完整替换掉你旧的 renderChatList ▼▼▼
@@ -9043,6 +9389,85 @@ async function openWorldBookEditor(bookId) {
 
         function renderStickerPanel() { const grid = document.getElementById('sticker-grid'); grid.innerHTML = ''; if (state.userStickers.length === 0) { grid.innerHTML = '<p style="text-align:center; color: var(--text-secondary); grid-column: 1 / -1;">大人请点击右上角“添加”或“上传”来添加你的第一个表情吧！</p>'; return; } state.userStickers.forEach(sticker => { const item = document.createElement('div'); item.className = 'sticker-item'; item.style.backgroundImage = `url(${sticker.url})`; item.title = sticker.name; item.addEventListener('click', () => sendSticker(sticker)); addLongPressListener(item, () => { if (isSelectionMode) return; const existingDeleteBtn = item.querySelector('.delete-btn'); if (existingDeleteBtn) return; const deleteBtn = document.createElement('div'); deleteBtn.className = 'delete-btn'; deleteBtn.innerHTML = '&times;'; deleteBtn.onclick = async (e) => { e.stopPropagation(); const confirmed = await showCustomConfirm('删除表情', `确定要删除表情 "${sticker.name}" 吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.userStickers.delete(sticker.id); state.userStickers = state.userStickers.filter(s => s.id !== sticker.id); renderStickerPanel(); } }; item.appendChild(deleteBtn); deleteBtn.style.display = 'block'; setTimeout(() => item.addEventListener('mouseleave', () => deleteBtn.remove(), { once: true }), 3000); }); grid.appendChild(item); }); }
 
+// ▼▼▼ 【全新】批量导入表情的核心功能 ▼▼▼
+
+/**
+ * 【总入口】打开批量导入表情的弹窗
+ */
+async function openBatchStickerImportModal() {
+    const placeholderText = `请按照以下格式粘贴，一行一个：\n\n焦虑 2a9wte.jpeg\n大惊失色 or8qf4.png\n没有灵感 njwujh.jpeg`;
+    
+    const pastedText = await showCustomPrompt(
+        '批量导入表情',
+        placeholderText,
+        '',
+        'textarea'
+    );
+
+    if (pastedText && pastedText.trim()) {
+        await handleBatchStickerImport(pastedText);
+    }
+}
+
+/**
+ * 【核心逻辑】处理粘贴的文本，解析并存入数据库
+ * @param {string} text - 用户粘贴的文本内容
+ */
+async function handleBatchStickerImport(text) {
+    const lines = text.trim().split('\n');
+    const newStickers = [];
+    const baseUrl = 'https://files.catbox.moe/';
+    let errorCount = 0;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine || trimmedLine.includes('http') || trimmedLine.includes('填入')) {
+            continue; 
+        }
+
+        let name = null;
+        let code = null;
+
+        const noSpaceMatch = trimmedLine.match(/^([\u4e00-\u9fa5]+)([a-zA-Z0-9]+\..+)$/);
+        
+        if (noSpaceMatch) {
+            name = noSpaceMatch[1];
+            code = noSpaceMatch[2];
+        } else {
+            const parts = trimmedLine.split(/\s+/);
+            if (parts.length >= 2) {
+                code = parts.pop();
+                name = parts.join(' ');
+            }
+        }
+
+        if (name && code && code.includes('.')) {
+            newStickers.push({
+                id: 'sticker_' + Date.now() + Math.random(), // 确保ID唯一
+                name: name,
+                url: baseUrl + code
+            });
+        } else {
+            errorCount++;
+            console.warn('批量导入格式错误，已跳过此行:', trimmedLine);
+        }
+    }
+
+    if (errorCount > 0) {
+        await showCustomAlert('部分导入失败', `有 ${errorCount} 行的格式不正确，已被系统跳过。`);
+    }
+
+    if (newStickers.length > 0) {
+        await db.userStickers.bulkAdd(newStickers);
+        state.userStickers.push(...newStickers);
+        renderStickerPanel(); // 刷新表情面板
+        await showCustomAlert('导入成功', `已成功批量导入 ${newStickers.length} 个新表情！`);
+    } else if (errorCount === 0) {
+        alert("没有找到可导入的内容。请检查您粘贴的格式是否正确。");
+    }
+}
+// ▲▲▲ 全新功能函数粘贴结束 ▲▲▲
 // ▼▼▼ 【已修复】请用这个新版本替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
@@ -9629,6 +10054,9 @@ async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
     const chat = state.chats[state.activeChatId];
+
+    const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
+
     setAvatarActingState(chatId, true);
     const chatHeaderTitle = document.getElementById('chat-header-title');
     const typingIndicator = document.getElementById('typing-indicator');
@@ -9966,6 +10394,8 @@ ${formattedHistory}
                 groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
             }
             systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
@@ -10035,6 +10465,8 @@ ${formattedHistory}
 4.  **【【【至关重要】】】**: 一旦历史记录中出现了针对某个代付请求的【任何一个】"status": "paid" 的响应（无论是用户支付还是其他角色支付），就意味着该订单【已经完成】。你【绝对不能】再对【同一个】订单发起支付。你可以选择对此事发表评论，但不能再次支付。
 ${forbiddenNamesContext}
 # 当前群聊信息
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 - **群名称**: ${chat.name}
 ${worldBookContent}
 ${musicContext}
@@ -10159,13 +10591,10 @@ ${membersWithContacts}
             const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
             const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
 
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-            //  这就是本次修复的核心，与 triggerInactiveAiAction 中的修复逻辑完全相同
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
             let postsContext = "";
             if (visiblePosts.length > 0) {
                 postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-                const aiOriginalName = chat.originalName; // 【修复】使用本名进行判断
+                const aiOriginalName = chat.originalName;
                 for (const post of visiblePosts) {
                     let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
                     if (post.authorId === chatId) authorName += " (这是你的帖子)";
@@ -10199,14 +10628,12 @@ ${membersWithContacts}
                     }
                     postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
 
-                    // 【【【核心修复逻辑】】】
                     if (post.comments && post.comments.length > 0) {
                         for (const comment of post.comments) {
                             if (typeof comment === 'object' && comment.commenterName) {
                                 const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
                                 let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
                                 
-                                // 判断评论者是否是AI自己 (使用本名判断)
                                 if (comment.commenterName === aiOriginalName) {
                                     postsContext += `  - 你评论说: ${commentText}\n`;
                                 } else {
@@ -10217,22 +10644,11 @@ ${membersWithContacts}
                     }
                 }
             }
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
-            //  修复结束
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
             systemPrompt = `你现在扮演一个名为"${chat.originalName}"的角色。
-# 【【【全新】文本格式化指南】】】
-在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-- \`**粗体文本**\` 会显示为 **粗体文本**。
-- \`*斜体文本*\` 会显示为 *斜体文本*。
-- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-【示例】: \`{"type": "text", "content": "我**非常确定**那件事，但关于细节...我只能告诉你||它和蓝色的花有关||。"}\`
+# 长期记忆 (最高优先级，这是你和用户之间已经确立的事实，必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 
-【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
-/* ▲▲▲ 替换结束 ▲▲▲ */
 # 你的角色设定：
 ${chat.settings.aiPersona}
 
@@ -11252,9 +11668,12 @@ ${contextSummaryForApproval}
             }
         }
         renderChatList();
+        // 【核心新增】检查是否需要自动总结
+        if (isViewingThisChat) { // 仅在当前聊天界面才触发
+            checkAndTriggerAutoSummary(chatId);
+        }
     }
 }
-// ▲▲▲ 替换结束 ▲▲▲
 // ▲▲▲ 替换结束 ▲▲▲
 
 
@@ -12531,7 +12950,8 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
 -   **发起投票**: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
 -   **发起群视频**: '{"type": "group_call_request", "name": "角色本名"}'
-
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 # 当前群聊信息
 - **群名称**: ${chat.name}
 ${worldBookContent}
@@ -13675,7 +14095,7 @@ async function handleAddMembersToGroup() {
     // --- 【修复结束】 ---
 }
 
-// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 createNewMemberInGroup 函数 ▼▼▼
+// ▼▼▼ 请用这个【已修复错误】的全新版本，完整替换旧的 createNewMemberInGroup 函数 ▼▼▼
 /**
  * 【重构版】在群聊中创建一个全新的虚拟成员
  */
@@ -13696,19 +14116,21 @@ async function createNewMemberInGroup() {
         id: 'npc_' + Date.now(),
         originalName: name.trim(),
         groupNickname: name.trim(),
-        // 【核心修复】为NPC直接添加avatar属性，并赋予默认头像
-        avatar: defaultGroupMemberAvatar,
+        // 注意：avatar 和 avatarFrame 也是动态获取的，无需在此处存储
         persona: persona,
     };
 
     chat.members.push(newMember);
     await db.chats.put(chat);
-    
+
+    // --- 【核心修复】 ---
+    // 之前这里调用了两个刷新函数，其中一个会报错。
+    // 正确的逻辑是：只需要刷新当前用户正在看的“成员管理”列表即可。
     renderMemberManagementList();
+    // --- 【修复结束】 ---
 
     alert(`新成员“${name}”已成功加入群聊！`);
 }
-// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【全新】外卖请求倒计时函数 ▼▼▼
 function startWaimaiCountdown(element, endTime) {
@@ -15272,10 +15694,11 @@ function renderAiAvatarLibrary() {
     });
 }
 
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 addAvatarToLibrary / addAvatarToLibraryFromURL 函数 ▼▼▼
 /**
- * 向当前AI的头像库中添加新头像
+ * 【重命名后】向当前AI的头像库中通过URL添加新头像
  */
-async function addAvatarToLibrary() {
+async function addAvatarToLibraryFromURL() {
     const name = await showCustomPrompt("添加头像", "请为这个头像起个名字（例如：开心、哭泣）");
     if (!name || !name.trim()) return;
 
@@ -15294,6 +15717,7 @@ async function addAvatarToLibrary() {
     await db.chats.put(chat);
     renderAiAvatarLibrary();
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 /**
  * 关闭AI头像库管理模态框
@@ -15357,7 +15781,7 @@ function renderGroupAvatarLibrary() {
 /**
  * 向当前群聊的头像库中添加新头像
  */
-async function addAvatarToGroupLibrary() {
+async function addAvatarToGroupLibraryFromUR() {
     const name = await showCustomPrompt("添加头像", "请为这个头像起个名字（例如：春日野餐、学习时间）");
     if (!name || !name.trim()) return;
 
@@ -15383,7 +15807,135 @@ async function addAvatarToGroupLibrary() {
 function closeGroupAvatarLibraryModal() {
     document.getElementById('group-avatar-library-modal').classList.remove('visible');
 }
+// ▼▼▼ 【全新】批量导入头像的核心功能 ▼▼▼
 
+/**
+ * 【总入口】打开批量导入的弹窗
+ * @param {string} type - 导入类型, 'ai' 或 'group'
+ */
+async function openBatchImportModal(type) {
+    const placeholderText = `请按照以下格式粘贴，一行一个：\n\n焦虑 2a9wte.jpeg\n大惊失色 or8qf4.png\n没有灵感 njwujh.jpeg`;
+    
+    // 复用我们强大的自定义输入框函数
+    const pastedText = await showCustomPrompt(
+        '批量导入头像',
+        placeholderText,
+        '',
+        'textarea' // 使用多行文本框
+    );
+
+    // 如果用户输入了内容并点击“确定”
+    if (pastedText && pastedText.trim()) {
+        await handleBatchImport(type, pastedText);
+    }
+}
+
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 handleBatchImport ▼▼▼
+/**
+ * 【核心逻辑】处理粘贴的文本，解析并存入数据库 (V4 - 终极智能版)
+ * @param {string} type - 导入类型, 'ai' 或 'group'
+ * @param {string} text - 用户粘贴的文本内容
+ */
+async function handleBatchImport(type, text) {
+    const chat = state.chats[state.activeChatId];
+    if (!chat) return;
+
+    const lines = text.trim().split('\n');
+    const newAvatars = [];
+    const baseUrl = 'https://files.catbox.moe/';
+    let errorCount = 0;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        if (!trimmedLine || trimmedLine.includes('http') || trimmedLine.includes('填入')) {
+            continue; 
+        }
+
+        let name = null;
+        let code = null;
+
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        //            这就是本次修复的核心所在！
+        //  全新的、能同时处理“有空格”和“无空格”两种格式的解析逻辑
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+        // 步骤1：尝试用正则表达式匹配 “中文名+英文代码” 的无空格格式
+        const noSpaceMatch = trimmedLine.match(/^([\u4e00-\u9fa5]+)([a-zA-Z0-9]+\..+)$/);
+        
+        if (noSpaceMatch) {
+            // 如果匹配成功，直接提取
+            name = noSpaceMatch[1];
+            code = noSpaceMatch[2];
+        } else {
+            // 步骤2：如果正则匹配失败，就回退到之前按空格分割的逻辑
+            const parts = trimmedLine.split(/\s+/);
+            if (parts.length >= 2) {
+                code = parts.pop();
+                name = parts.join(' ');
+            }
+        }
+
+        // 步骤3：最后验证解析结果是否有效
+        if (name && code && code.includes('.')) {
+            newAvatars.push({
+                name: name,
+                url: baseUrl + code
+            });
+        } else {
+            errorCount++;
+            console.warn('批量导入格式错误，已跳过此行:', trimmedLine);
+        }
+    }
+
+    if (errorCount > 0) {
+        await showCustomAlert('部分导入失败', `有 ${errorCount} 行的格式不正确，已被系统跳过。`);
+    }
+
+    if (newAvatars.length > 0) {
+        if (type === 'ai') {
+            if (!chat.settings.aiAvatarLibrary) chat.settings.aiAvatarLibrary = [];
+            chat.settings.aiAvatarLibrary.push(...newAvatars);
+            await db.chats.put(chat);
+            renderAiAvatarLibrary();
+        } else if (type === 'group') {
+            if (!chat.settings.groupAvatarLibrary) chat.settings.groupAvatarLibrary = [];
+            chat.settings.groupAvatarLibrary.push(...newAvatars);
+            await db.chats.put(chat);
+            renderGroupAvatarLibrary();
+        }
+        await showCustomAlert('导入成功', `已成功批量导入 ${newAvatars.length} 个新头像！`);
+    } else if (errorCount === 0) {
+        alert("没有找到可导入的内容。请检查您粘贴的格式是否正确。");
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 【这是您缺失的核心功能代码，请粘贴在这里】 ▼▼▼
+
+/**
+ * 【重命名后】向当前群聊的头像库中通过URL添加新头像
+ */
+async function addAvatarToGroupLibraryFromURL() {
+    const name = await showCustomPrompt("添加头像", "请为这个头像起个名字（例如：春日野餐、学习时间）");
+    if (!name || !name.trim()) return;
+
+    const url = await showCustomPrompt("添加头像", "请输入头像的图片URL", "", "url");
+    if (!url || !url.trim().startsWith('http')) {
+        alert("请输入有效的图片URL！");
+        return;
+    }
+    
+    const chat = state.chats[state.activeChatId];
+    if (!chat.settings.groupAvatarLibrary) {
+        chat.settings.groupAvatarLibrary = [];
+    }
+
+    chat.settings.groupAvatarLibrary.push({ name: name.trim(), url: url.trim() });
+    await db.chats.put(chat);
+    renderGroupAvatarLibrary();
+}
+
+// ▲▲▲ 粘贴结束 ▲▲▲
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 【全新】聊天列表长按操作菜单的核心功能 ▼▼▼
 
@@ -15653,8 +16205,250 @@ function toggleTheme() {
     applyTheme(newTheme);
 }
 
-// ▼▼▼ 请将这【一整块新函数】粘贴到你的JS功能函数定义区 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 openLongTermMemoryManager 函数 ▼▼▼
+/**
+ * 【重构版】打开长期记忆管理的全屏页面
+ */
+function openLongTermMemoryScreen() {
+    if (!state.activeChatId) return;
+    renderLongTermMemoryList();
+    showScreen('long-term-memory-screen');
+}
+// ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 【请用这个图标美化版】替换旧的 renderLongTermMemoryList 函数 ▼▼▼
+/**
+ * 渲染长期记忆列表
+ */
+function renderLongTermMemoryList() {
+    const container = document.getElementById('memory-list-container');
+    const chat = state.chats[state.activeChatId];
+    container.innerHTML = '';
 
+    if (!chat.longTermMemory || chat.longTermMemory.length === 0) {
+        container.innerHTML = '<p style="text-align:center; color: var(--text-secondary); margin-top: 50px;">这里还没有任何长期记忆。</p>';
+        return;
+    }
+
+    chat.longTermMemory.forEach((memory, index) => {
+        const item = document.createElement('div');
+        item.className = 'memory-card'; // 复用日记卡片样式
+        item.style.cursor = 'default';
+
+        // 【【【核心修改：将文字按钮替换为SVG图标按钮】】】
+        item.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div class="content" style="padding: 0; flex-grow: 1;">${memory.content.replace(/\n/g, '<br>')}</div>
+                <div style="display: flex; gap: 8px; flex-shrink: 0; margin-left: 15px;">
+                    <button class="memory-action-btn edit-memory-btn" data-index="${index}" title="编辑">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
+                    <button class="memory-action-btn delete-memory-btn" data-index="${index}" title="删除">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+// ▲▲▲ 替换结束 ▲▲▲
+
+/**
+ * 手动添加一条新的长期记忆
+ */
+async function handleAddManualMemory() {
+    const content = await showCustomPrompt('手动添加记忆', '请输入要添加的记忆要点：', '', 'textarea');
+    if (content && content.trim()) {
+        const chat = state.chats[state.activeChatId];
+        chat.longTermMemory.push({
+            content: content.trim(),
+            timestamp: Date.now(),
+            source: 'manual'
+        });
+        await db.chats.put(chat);
+        renderLongTermMemoryList();
+    }
+}
+
+/**
+ * 编辑指定的长期记忆
+ * @param {number} index - 记忆在数组中的索引
+ */
+async function handleEditMemory(index) {
+    const chat = state.chats[state.activeChatId];
+    const memory = chat.longTermMemory[index];
+    if (!memory) return;
+
+    const newContent = await showCustomPrompt('编辑记忆', '请修改记忆要点：', memory.content, 'textarea');
+    if (newContent && newContent.trim()) {
+        memory.content = newContent.trim();
+        await db.chats.put(chat);
+        renderLongTermMemoryList();
+    }
+}
+
+/**
+ * 删除指定的长期记忆
+ * @param {number} index - 记忆在数组中的索引
+ */
+async function handleDeleteMemory(index) {
+    const confirmed = await showCustomConfirm('确认删除', '确定要删除这条长期记忆吗？', { confirmButtonClass: 'btn-danger' });
+    if (confirmed) {
+        const chat = state.chats[state.activeChatId];
+        chat.longTermMemory.splice(index, 1);
+        await db.chats.put(chat);
+        renderLongTermMemoryList();
+    }
+}
+
+/**
+ * 【核心】手动触发对话总结
+ */
+async function handleManualSummary() {
+    const confirmed = await showCustomConfirm('确认操作', '这将提取最近的对话内容发送给AI进行总结，会消耗API额度。确定要继续吗？');
+    if (confirmed) {
+        await triggerAutoSummary(state.activeChatId, true); // force=true 表示强制执行
+    }
+}
+
+/**
+ * 【核心】检查并触发自动总结
+ * @param {string} chatId 
+ */
+async function checkAndTriggerAutoSummary(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.settings.enableAutoMemory) return;
+
+    const lastSummaryTimestamp = chat.lastMemorySummaryTimestamp || 0;
+    const messagesSinceLastSummary = chat.history.filter(m => m.timestamp > lastSummaryTimestamp && !m.isHidden);
+
+    if (messagesSinceLastSummary.length >= chat.settings.autoMemoryInterval) {
+        console.log(`达到自动总结阈值 (${messagesSinceLastSummary.length}/${chat.settings.autoMemoryInterval})，开始总结...`);
+        await triggerAutoSummary(chatId);
+    }
+}
+
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAutoSummary ▼▼▼
+/**
+ * 【核心】执行总结的API调用 (V4 - 修复命名与引号问题)
+ * @param {string} chatId 
+ * @param {boolean} force - 是否忽略消息数量检查，强制执行
+ */
+async function triggerAutoSummary(chatId, force = false) {
+    const chat = state.chats[chatId];
+    if (!chat) return;
+
+    const lastSummaryTimestamp = chat.lastMemorySummaryTimestamp || 0;
+    const messagesToSummarize = force 
+        ? chat.history.filter(m => !m.isHidden).slice(-(chat.settings.autoMemoryInterval || 20))
+        : chat.history.filter(m => m.timestamp > lastSummaryTimestamp && !m.isHidden);
+        
+    if (messagesToSummarize.length < 5) {
+        if (force) alert("最近的消息太少，无法进行有意义的总结。");
+        return;
+    }
+
+    const userNickname = state.qzoneSettings.nickname || '用户';
+
+    const formattedHistory = messagesToSummarize.map(msg => {
+        const sender = msg.role === 'user' ? userNickname : (msg.senderName || chat.originalName);
+        return `${sender}: ${String(msg.content)}`;
+    }).join('\n');
+
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    //            这就是本次修复的核心所在！
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    
+    // 【核心修复】修改给AI的指令，明确禁止它给名字加引号
+    const systemPrompt = `
+# 你的任务
+你是一个对话摘要专家。你的唯一任务是阅读下面的对话历史，并将其浓缩成【一段】流畅、连贯、客观的摘要。
+
+# 核心规则
+1.  **叙事风格**: 你的总结必须是一段通顺的文字，而不是一个要点列表。就像在写一段故事摘要一样。
+2.  **客观事实**: 只记录已经发生的事实、确认的约定或角色的核心特征。不要添加你的猜测或主观感受。
+3.  **第三人称与命名**: 你的总结必须使用第三人称视角。请严格使用“${userNickname}”（代表用户）和“${chat.originalName}”（代表AI角色）来指代对话双方。
+4.  **【【【格式铁律】】】**: 在总结中提及任何名字时，【绝对不要】给名字加上任何形式的引号（例如 “猫猫” 或 ‘猫猫’）。直接使用名字本身。
+    - **错误示例**: “猫猫” 将自己的名字更改为 “新名字”。
+    - **正确示例**: 猫猫将自己的名字更改为新名字。
+5.  **输出格式**: 你的回复【必须且只能】是一个JSON对象，格式如下：
+    \`{"summary": "在这里写下你总结好的、单一的、完整的摘要段落。"}\`
+
+# 待总结的对话历史
+${formattedHistory}
+
+现在，请根据以上所有规则，将这段对话总结成一段流畅的摘要。`;
+
+    try {
+        const useSecondaryApi = state.apiConfig.secondaryProxyUrl && state.apiConfig.secondaryApiKey && state.apiConfig.secondaryModel;
+        
+        const { proxyUrl, apiKey, model } = useSecondaryApi 
+            ? { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel }
+            : state.apiConfig;
+        
+        if (!proxyUrl || !apiKey || !model) {
+            alert('请先在API设置中配置好（主或副）API以进行总结。');
+            return;
+        }
+        console.log(`本次总结将使用 ${useSecondaryApi ? '副API' : '主API'}: ${model}`);
+        
+        let isGemini = proxyUrl === GEMINI_API_URL;
+        let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, [{ role: 'user', content: "请开始总结。" }]);
+
+        const response = isGemini 
+            ? await fetch(geminiConfig.url, geminiConfig.data) 
+            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{role: 'system', content: systemPrompt}, {role: 'user', content: "请开始总结。"}],
+                    temperature: 0.2, 
+                    response_format: { "type": "json_object" } 
+                })
+            });
+        
+        if (!response.ok) throw new Error(`API 错误: ${response.statusText}`);
+
+        const data = await response.json();
+        let rawContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+        
+        rawContent = rawContent.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+        const result = JSON.parse(rawContent);
+
+        if (result.summary && typeof result.summary === 'string' && result.summary.trim()) {
+            
+            const newMemoryEntry = {
+                content: result.summary.trim(),
+                timestamp: Date.now(),
+                source: 'auto'
+            };
+            
+            chat.longTermMemory.push(newMemoryEntry);
+
+            chat.lastMemorySummaryTimestamp = messagesToSummarize.slice(-1)[0].timestamp;
+            await db.chats.put(chat);
+            
+            if (document.getElementById('long-term-memory-screen').classList.contains('active')) {
+                renderLongTermMemoryList();
+            }
+            await showCustomAlert('总结成功', `已成功添加 1 条新的长期记忆！`);
+        } else {
+            throw new Error("AI返回了空的或格式不正确的总结内容。");
+        }
+        
+    } catch (error) {
+        console.error("总结长期记忆时出错:", error);
+        await showCustomAlert('总结失败', `操作失败，可能是API返回了空内容或格式错误。\n错误信息: ${error.message}`);
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲
 // ▼▼▼ 【全新】引用回复功能函数 ▼▼▼
 
 function startReplyToMessage() {
@@ -17231,40 +18025,42 @@ document.getElementById('save-wallpaper-btn').addEventListener('click', async ()
     showScreen('home-screen');
 });
 // ▲▲▲ 替换结束 ▲▲▲
-            document.getElementById('save-api-settings-btn').addEventListener('click', async () => {
-    // --- 原有的API保存逻辑 (这部分是正确的) ---
+// ▼▼▼ 【请用这个新版本】替换旧的 save-api-settings-btn 事件监听器 ▼▼▼
+document.getElementById('save-api-settings-btn').addEventListener('click', async () => {
+    // 保存主API
     state.apiConfig.proxyUrl = document.getElementById('proxy-url').value.trim();
     state.apiConfig.apiKey = document.getElementById('api-key').value.trim();
     state.apiConfig.model = document.getElementById('model-select').value;
+    
+    // 【核心新增】保存副API
+    state.apiConfig.secondaryProxyUrl = document.getElementById('secondary-proxy-url').value.trim();
+    state.apiConfig.secondaryApiKey = document.getElementById('secondary-api-key').value.trim();
+    state.apiConfig.secondaryModel = document.getElementById('secondary-model-select').value;
+    
     await db.apiConfig.put(state.apiConfig);
 
-    // --- 修复问题的核心代码 (这是补充上去的部分) ---
+    // 后台活动设置的保存逻辑保持不变
     const backgroundSwitch = document.getElementById('background-activity-switch');
     const intervalInput = document.getElementById('background-interval-input');
-    const cooldownInput = document.getElementById('block-cooldown-input'); // 获取冷静期输入框
+    const cooldownInput = document.getElementById('block-cooldown-input');
 
-    // 读取开关、检测间隔和冷静期的当前状态
     state.globalSettings.enableBackgroundActivity = backgroundSwitch.checked;
     state.globalSettings.backgroundActivityInterval = parseInt(intervalInput.value) || 60;
-    state.globalSettings.blockCooldownHours = parseFloat(cooldownInput.value) || 1; // 保存冷静期设置
+    state.globalSettings.blockCooldownHours = parseFloat(cooldownInput.value) || 1;
 
-    // 将包含新设置的整个 globalSettings 对象保存到数据库
     await db.globalSettings.put(state.globalSettings);
 
-    // 根据最新的设置，动态地启动或停止后台模拟器
-    stopBackgroundSimulation(); // 总是先停止旧的
+    stopBackgroundSimulation(); 
     if (state.globalSettings.enableBackgroundActivity) {
         startBackgroundSimulation();
         console.log(`后台活动模拟已启动，间隔: ${state.globalSettings.backgroundActivityInterval}秒`);
     } else {
         console.log("后台活动模拟已停止。");
     }
-    // --- 修复代码结束 ---
     
-
+    alert('所有API与后台设置已保存!'); 
+});
 // ▲▲▲ 替换结束 ▲▲▲
-
-alert('API设置已保存!'); });
 
                     // gemini 密钥聚焦的时候显示明文
         const ApiKeyInput = document.getElementById('api-key')
@@ -17276,39 +18072,49 @@ alert('API设置已保存!'); });
         })
 
 
-        document.getElementById('fetch-models-btn').addEventListener('click', async () => {
-            const url = document.getElementById('proxy-url').value.trim();
-            const key = document.getElementById('api-key').value.trim();
-            if (!url || !key) return alert('请先填写反代地址和密钥');
-            try {
+// ▼▼▼ 【请用这整块代码】替换旧的 fetch-models-btn 事件监听器 ▼▼▼
 
-                let  isGemini = url === GEMINI_API_URL;
-                const response = await fetch(isGemini ? `${GEMINI_API_URL}?key=${getRandomValue(key)}` : `${url}/v1/models`,isGemini ? undefined : {headers: {'Authorization': `Bearer ${key}`}});
-                if (!response.ok) throw new Error('无法获取模型列表');
-                const data = await response.json();
-                let models = isGemini ? data.models : data.data;
-                if(isGemini){
-                    models = models.map((model)=>{
-                        const parts = model.name.split('/');
-                        return {
-                            id:parts.length > 1 ? parts[1] : model.name
-                        }
-                    })
-                }
-                const modelSelect = document.getElementById('model-select');
-                modelSelect.innerHTML = '';
-                models.forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model.id;
-                    option.textContent = model.id;
-                    if (model.id === state.apiConfig.model) option.selected = true;
-                    modelSelect.appendChild(option);
-                });
-                alert('模型列表已更新');
-            } catch (error) {
-                alert(`拉取模型失败: ${error.message}`);
-            }
+// 封装一个可复用的模型拉取函数
+async function fetchModels(urlInputId, keyInputId, selectId) {
+    const url = document.getElementById(urlInputId).value.trim();
+    const key = document.getElementById(keyInputId).value.trim();
+    if (!url || !key) return alert('请先填写对应的反代地址和密钥');
+    
+    try {
+        let isGemini = url === GEMINI_API_URL;
+        const response = await fetch(isGemini ? `${GEMINI_API_URL}?key=${getRandomValue(key)}` : `${url}/v1/models`, isGemini ? undefined : { headers: { 'Authorization': `Bearer ${key}` } });
+        if (!response.ok) throw new Error('无法获取模型列表');
+        const data = await response.json();
+        let models = isGemini ? data.models.map(model => ({ id: model.name.split('/')[1] || model.name })) : data.data;
+        
+        const modelSelect = document.getElementById(selectId);
+        modelSelect.innerHTML = '';
+        // 【核心】根据是主/副模型，读取正确的已保存模型
+        const savedModel = selectId === 'model-select' ? state.apiConfig.model : state.apiConfig.secondaryModel;
+
+        models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.id;
+            if (model.id === savedModel) option.selected = true;
+            modelSelect.appendChild(option);
         });
+        alert('模型列表已更新');
+    } catch (error) {
+        alert(`拉取模型失败: ${error.message}`);
+    }
+}
+
+// 绑定主模型拉取按钮
+document.getElementById('fetch-models-btn').addEventListener('click', () => {
+    fetchModels('proxy-url', 'api-key', 'model-select');
+});
+
+// 【核心新增】绑定副模型拉取按钮
+document.getElementById('fetch-secondary-models-btn').addEventListener('click', () => {
+    fetchModels('secondary-proxy-url', 'secondary-api-key', 'secondary-model-select');
+});
+// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('add-world-book-btn').addEventListener('click', async () => { const name = await showCustomPrompt('创建世界书', '请输入书名'); if (name && name.trim()) { const newBook = { id: 'wb_' + Date.now(), name: name.trim(), content: '' }; await db.worldBooks.add(newBook); state.worldBooks.push(newBook); renderWorldBookScreen(); openWorldBookEditor(newBook.id); } });
             document.getElementById('save-world-book-btn').addEventListener('click', async () => { if (!editingWorldBookId) return; const book = state.worldBooks.find(wb => wb.id === editingWorldBookId); if (book) { const newName = document.getElementById('world-book-name-input').value.trim(); if (!newName) { alert('书名不能为空！'); return; } book.name = newName; book.content = document.getElementById('world-book-content-input').value; 
 
@@ -17446,11 +18252,12 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
     const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
     updateSettingsPreview();
+  document.getElementById('auto-memory-toggle').checked = chat.settings.enableAutoMemory || false;
+   document.getElementById('auto-memory-interval').value = chat.settings.autoMemoryInterval || 20;
     document.getElementById('chat-settings-modal').classList.add('visible');
 });
 // ▲▲▲ 替换结束 ▲▲▲
             
-// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 renderGroupMemberSettings 函数 ▼▼▼
 function renderGroupMemberSettings(members) { 
     const container = document.getElementById('group-members-settings'); 
     container.innerHTML = ''; 
@@ -17458,54 +18265,38 @@ function renderGroupMemberSettings(members) {
         const div = document.createElement('div'); 
         div.className = 'member-editor'; 
         div.dataset.memberId = member.id; 
-        
-        // 【核心修复】智能判断成员类型，从不同位置获取头像
-        let memberAvatar;
-        if (member.id.startsWith('npc_')) {
-            // 如果是NPC，直接从成员对象本身获取头像
-            memberAvatar = member.avatar || defaultGroupMemberAvatar;
-        } else {
-            // 如果是普通AI角色，保持原有逻辑
-            const characterProfile = state.chats[member.id];
-            memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-        }
-
-        div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
+        // ★★★【核心重构】★★★
+        // 显示的是 groupNickname
+        // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
+// 【核心修改】实时查找头像
+const characterProfile = state.chats[member.id];
+const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
+div.innerHTML = `<img src="${memberAvatar}" alt="${member.groupNickname}"><div class="member-name">${member.groupNickname}</div>`;
         div.addEventListener('click', () => openMemberEditor(member.id)); 
         container.appendChild(div); 
     }); 
 }
-// ▲▲▲ 替换结束 ▲▲▲
 
-// ▼▼▼ 请用这个【已修复】的版本，完整替换旧的 openMemberEditor 函数 ▼▼▼
 function openMemberEditor(memberId) { 
     editingMemberId = memberId; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === memberId); 
     document.getElementById('member-name-input').value = member.groupNickname; 
     document.getElementById('member-persona-input').value = member.persona; 
-    
-    // 【核心修复】与上面同样的逻辑，智能获取头像
-    let memberAvatar;
-    if (member.id.startsWith('npc_')) {
-        memberAvatar = member.avatar || defaultGroupMemberAvatar;
-    } else {
-        const characterProfile = state.chats[member.id];
-        memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
-    }
-
-    document.getElementById('member-avatar-preview').src = memberAvatar;
+    // ▼▼▼ 将其【替换为】下面这段【新代码】▼▼▼
+// 【核心修改】实时查找头像
+const characterProfile = state.chats[member.id];
+const memberAvatar = characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar;
+document.getElementById('member-avatar-preview').src = memberAvatar;
     document.getElementById('member-settings-modal').classList.add('visible'); 
 }
-// ▲▲▲ 替换结束 ▲▲▲
-
-
-// ▼▼▼ 【最终修复版】请用这个【已修复】的版本，完整替换旧的 save-member-settings-btn 事件监听器 ▼▼▼
-document.getElementById('save-member-settings-btn').addEventListener('click', async () => {
+            document.getElementById('cancel-member-settings-btn').addEventListener('click', () => { document.getElementById('member-settings-modal').classList.remove('visible'); editingMemberId = null; });
+            // ▼▼▼ 将其【完整替换为】下面这段修正后的代码 ▼▼▼
+document.getElementById('save-member-settings-btn').addEventListener('click', async () => { // <---【已修正】在这里加上 async
     if (!editingMemberId) return; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === editingMemberId); 
-    if (!member) return;
+    if (!member) return; // 安全检查
 
     const newNickname = document.getElementById('member-name-input').value.trim();
     if (!newNickname) {
@@ -17514,29 +18305,19 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
     }
     member.groupNickname = newNickname; 
     member.persona = document.getElementById('member-persona-input').value; 
-
-    // 【核心修复】在这里进行智能判断和保存
-    const newAvatarSrc = document.getElementById('member-avatar-preview').src;
-    if (member.id.startsWith('npc_')) {
-        // 如果是NPC，直接更新成员对象上的avatar属性
-        member.avatar = newAvatarSrc;
-    } else {
-        // 如果是普通AI角色，更新其全局配置
-        const characterProfile = state.chats[member.id];
-        if (characterProfile) {
-            characterProfile.settings.aiAvatar = newAvatarSrc;
-            await db.chats.put(characterProfile); // 保存AI角色的全局配置
-        }
+    
+    // 【核心修改】找到角色的主配置并更新其头像
+    const characterProfile = state.chats[member.id];
+    if (characterProfile) {
+        characterProfile.settings.aiAvatar = document.getElementById('member-avatar-preview').src;
+        // 现在 await 可以正常工作了
+        await db.chats.put(characterProfile);
     }
     
-    // 【重要】无论修改的是谁，最后都需要把包含最新成员列表的【群聊对象】存回数据库
-    await db.chats.put(chat);
-
     renderGroupMemberSettings(chat.members); 
     document.getElementById('member-settings-modal').classList.remove('visible'); 
-    editingMemberId = null;
+    editingMemberId = null; // 操作完成后重置
 });
-// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
             document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
 
@@ -17594,7 +18375,8 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     } else {
         chat.settings.linkedMemoryChatIds = [];
     }
-    
+    chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
+    chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
     await db.chats.put(chat);
 
     if (!chat.isGroup) await syncCharacterNameInGroups(chat);
@@ -17669,7 +18451,30 @@ myFrameTab.addEventListener('click', () => {
             const stickerPanel = document.getElementById('sticker-panel');
             document.getElementById('open-sticker-panel-btn').addEventListener('click', () => { renderStickerPanel(); stickerPanel.classList.add('visible'); });
             document.getElementById('close-sticker-panel-btn').addEventListener('click', () => stickerPanel.classList.remove('visible'));
-            document.getElementById('add-sticker-btn').addEventListener('click', async () => { const url = await showCustomPrompt("添加表情(URL)", "请输入表情包的图片URL"); if (!url || !url.trim().startsWith('http')) return url && alert("请输入有效的URL (以http开头)"); const name = await showCustomPrompt("命名表情", "请为这个表情命名 (例如：开心、疑惑)"); if (name && name.trim()) { const newSticker = { id: 'sticker_' + Date.now(), url: url.trim(), name: name.trim() }; await db.userStickers.add(newSticker); state.userStickers.push(newSticker); renderStickerPanel(); } else if (name !== null) alert("表情名不能为空！"); });
+            // ▼▼▼ 【请用这整块代码】替换旧的 add-sticker-btn 事件监听器 ▼▼▼
+
+// 【核心新增】为“批量”按钮绑定新函数
+document.getElementById('add-sticker-batch-btn').addEventListener('click', openBatchStickerImportModal);
+
+// 【核心新增】为“URL”按钮绑定旧的单条添加逻辑
+document.getElementById('add-sticker-url-btn').addEventListener('click', async () => {
+    const url = await showCustomPrompt("添加表情(URL)", "请输入表情包的图片URL");
+    if (!url || !url.trim().startsWith('http')) {
+        if (url) alert("请输入有效的URL (以http开头)");
+        return;
+    }
+    const name = await showCustomPrompt("命名表情", "请为这个表情命名 (例如：开心、疑惑)");
+    if (name && name.trim()) {
+        const newSticker = { id: 'sticker_' + Date.now(), url: url.trim(), name: name.trim() };
+        await db.userStickers.add(newSticker);
+        state.userStickers.push(newSticker);
+        renderStickerPanel();
+    } else if (name !== null) {
+        alert("表情名不能为空！");
+    }
+});
+
+// ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('upload-sticker-btn').addEventListener('click', () => document.getElementById('sticker-upload-input').click());
             document.getElementById('sticker-upload-input').addEventListener('change', async (event) => { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = async () => { const base64Url = reader.result; const name = await showCustomPrompt("命名表情", "请为这个表情命名 (例如：好耶、疑惑)"); if (name && name.trim()) { const newSticker = { id: 'sticker_' + Date.now(), url: base64Url, name: name.trim() }; await db.userStickers.add(newSticker); state.userStickers.push(newSticker); renderStickerPanel(); } else if (name !== null) alert("表情名不能为空！"); }; event.target.value = null; });
 
@@ -19212,12 +20017,43 @@ document.getElementById('chat-messages').addEventListener('click', (e) => {
 
   // ▼▼▼ 【全新】AI头像库功能事件绑定 ▼▼▼
 document.getElementById('manage-ai-avatar-library-btn').addEventListener('click', openAiAvatarLibraryModal);
-document.getElementById('add-ai-avatar-btn').addEventListener('click', addAvatarToLibrary);
+// ▼▼▼ 【全新】为批量导入按钮绑定事件 ▼▼▼
+// 绑定AI头像库的“批量”按钮
+document.getElementById('add-ai-avatar-batch-btn').addEventListener('click', () => openBatchImportModal('ai'));
+
+// 绑定群头像库的“批量”按钮
+document.getElementById('add-group-avatar-batch-btn').addEventListener('click', () => openBatchImportModal('group'));
+// ▲▲▲ 新增结束 ▲▲▲
+// ▼▼▼ 【请用这整块代码】替换旧的 add-ai-avatar-btn 事件监听器 ▼▼▼
+// 绑定“URL”按钮，调用我们刚刚重命名的函数
+document.getElementById('add-ai-avatar-url-btn').addEventListener('click', addAvatarToLibraryFromURL);
+
+// 【核心新增】绑定“上传”按钮，触发隐藏的文件选择器
+document.getElementById('add-ai-avatar-upload-btn').addEventListener('click', () => {
+    document.getElementById('ai-avatar-upload-input').click();
+});
+
+// 【核心新增】为文件选择器绑定 change 事件，这是处理上传的核心入口
+document.getElementById('ai-avatar-upload-input').addEventListener('change', handleLocalAvatarUpload);
+// ▲▲▲ 替换结束 ▲▲▲
 document.getElementById('close-ai-avatar-library-btn').addEventListener('click', closeAiAvatarLibraryModal);
 // ▲▲▲ 新增结束 ▲▲▲
 // ▼▼▼ 【全新】群头像库功能事件绑定 ▼▼▼
 document.getElementById('manage-group-avatar-library-btn').addEventListener('click', openGroupAvatarLibraryModal);
-document.getElementById('add-group-avatar-btn').addEventListener('click', addAvatarToGroupLibrary);
+// ▼▼▼ 【请用这整块代码】替换旧的 add-group-avatar-btn 事件监听器 ▼▼▼
+
+// 绑定“URL”按钮，调用我们刚刚重命名的函数
+document.getElementById('add-group-avatar-url-btn').addEventListener('click', addAvatarToGroupLibraryFromURL);
+
+// 【核心新增】绑定“上传”按钮，触发隐藏的文件选择器
+document.getElementById('add-group-avatar-upload-btn').addEventListener('click', () => {
+    document.getElementById('group-avatar-upload-input').click();
+});
+
+// 【核心新增】为文件选择器绑定 change 事件，这是处理上传的核心入口
+document.getElementById('group-avatar-upload-input').addEventListener('change', handleLocalGroupAvatarUpload);
+
+// ▲▲▲ 替换结束 ▲▲▲
 document.getElementById('close-group-avatar-library-btn').addEventListener('click', closeGroupAvatarLibraryModal);
 // ▲▲▲ 新增结束 ▲▲▲
 // ▼▼▼ 在 init() 的事件监听区域，粘贴这段【新代码】▼▼▼
@@ -19809,6 +20645,39 @@ document.getElementById('announcement-action-cancel').addEventListener('click', 
                 // (可选) 如果希望点击重置后立刻看到效果，可以加上下面这行
                 // applyGlobalCss('');
             });
+// ▼▼▼ 【最终修复版】请用这个全新的事件监听器，替换旧的长期记忆功能事件绑定 ▼▼▼
+// 聊天界面顶部新按钮 -> 打开全屏页面
+document.getElementById('open-memory-screen-btn').addEventListener('click', openLongTermMemoryScreen);
+
+// 长期记忆页面返回按钮 -> 返回聊天界面
+document.getElementById('memory-screen-back-btn').addEventListener('click', () => {
+    showScreen('chat-interface-screen');
+});
+
+// 长期记忆页面顶部“+”按钮 -> 手动添加
+document.getElementById('add-manual-memory-btn-header').addEventListener('click', handleAddManualMemory);
+
+// 长期记忆页面顶部“总结”按钮 -> 手动总结
+document.getElementById('summarize-recent-btn-header').addEventListener('click', handleManualSummary);
+
+// 【【【核心修复就在这里！】】】
+// 使用事件委托，并用 .closest() 来确保能正确捕获按钮点击
+document.getElementById('memory-list-container').addEventListener('click', (e) => {
+    // 检查是否点击了编辑按钮或其内部的SVG
+    const editBtn = e.target.closest('.edit-memory-btn');
+    if (editBtn) {
+        handleEditMemory(parseInt(editBtn.dataset.index));
+        return; // 处理完后退出，防止误触
+    }
+    
+    // 检查是否点击了删除按钮或其内部的SVG
+    const deleteBtn = e.target.closest('.delete-memory-btn');
+    if (deleteBtn) {
+        handleDeleteMemory(parseInt(deleteBtn.dataset.index));
+        return; // 处理完后退出
+    }
+});
+// ▲▲▲ 替换结束 ▲▲▲
 // ▼▼▼ 【这是修复代码】请将这段代码粘贴到 init() 函数的事件监听器区域末尾 ▼▼▼
 document.getElementById('add-countdown-btn').addEventListener('click', () => {
     // 清空输入框
@@ -19829,6 +20698,7 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
 
         init();
     });
+
 </script>
 <div id="qzone-sticker-panel">
     <div id="qzone-sticker-grid"></div>
