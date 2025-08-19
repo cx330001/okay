@@ -14720,13 +14720,14 @@ async function triggerAiInCallAction(userInput = null) {
     }
 
     // 2. 构建全新的、包含完整上下文的 System Prompt
-    let inCallPrompt;
-    if (videoCallState.isGroupCall) {
-        const participantNames = videoCallState.participants.map(p => p.name);
-        if(videoCallState.isUserParticipating) {
-            participantNames.unshift(userNickname);
-        }
-        inCallPrompt = `
+// 2. 构建全新的、“更安全”的系统指令，避免触发关键词
+let inCallPrompt;
+if (videoCallState.isGroupCall) {
+    const participantNames = videoCallState.participants.map(p => p.groupNickname); // 使用群昵称
+    if(videoCallState.isUserParticipating) {
+        participantNames.unshift(userNickname);
+    }
+    inCallPrompt = `
 # 你的任务
 你是一个群聊视频通话的导演。你的任务是扮演所有【除了用户以外】的AI角色，并以【第三人称旁观视角】来描述他们在通话中的所有动作和语言。
 # 核心规则
@@ -14789,7 +14790,7 @@ ${videoCallState.preCallContext}
             if (!response.ok) throw new Error((await response.json()).error.message);
 
             const data = await response.json();
-            const aiResponse = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
+            const aiResponse = getGeminiResponseText(data);
 
             const connectingElement = callFeed.querySelector('em');
             if (connectingElement) connectingElement.remove();
