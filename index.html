@@ -5153,6 +5153,59 @@ input:checked + .slider:before {
     color: white;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【Safari键盘终极修复方案】请将这一整块代码粘贴到 <style> 的最末尾 ▼▼▼ */
+
+/* 
+  第一部分：修复音乐播放器等最高层级弹窗
+  我们给它们一个比聊天头部更高的 z-index，确保它们能正确地覆盖所有内容。
+*/
+#music-player-overlay, #custom-modal-overlay, #transfer-modal {
+    z-index: 200 !important;
+}
+
+/* 
+  第二部分：彻底重构聊天页面的布局，解决所有遮挡和挤压问题
+  我们将采用最稳定、最现代的布局方式：
+  - 头部和输入框都使用绝对定位，分别“钉”在屏幕的顶部和底部。
+  - 聊天内容区则占据整个屏幕的高度，并通过内边距（padding）为头部和输入框留出空间。
+  这样可以完美实现内容在透明顶/底部之下滚动的美观效果，且不会再出现宽度计算错误或被键盘挤压的问题。
+*/
+
+/* 1. 确保聊天界面容器是一个可靠的定位锚点 (这步主要是为了保险) */
+#chat-interface-screen {
+    position: relative !important;
+}
+
+/* 2. 强制头部绝对定位，并撑满宽度，赋予高层级 */
+#chat-interface-screen > .header {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    right: 0; /* 使用 left:0 和 right:0 来确保它撑满宽度 */
+    width: auto !important; /* 让 left/right 决定宽度，而不是固定的 100% */
+    z-index: 100 !important;
+}
+
+/* 3. 强制输入框区域也绝对定位，钉在底部，并撑满宽度 */
+#chat-interface-screen #chat-input-area {
+    position: absolute !important;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: auto !important;
+    z-index: 100 !important;
+}
+
+/* 4. 【核心】重新定义聊天内容区的布局 */
+#chat-interface-screen #chat-messages {
+    width: 100% !important; /* 强制宽度为100% */
+    height: 100% !important; /* 强制高度为100%，以填满整个屏幕 */
+    box-sizing: border-box !important; /* 确保 padding 不会撑破容器 */
+    margin-top: 0 !important; /* 移除所有可能干扰布局的 margin */
+    padding-top: 100px !important; /* 为绝对定位的头部和刘海留出大约100px的空间 */
+    padding-bottom: 120px !important; /* 为底部的输入框和安全区留出大约120px的空间 */
+}
+/* ▲▲▲ 修复代码粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
