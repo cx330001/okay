@@ -7278,28 +7278,36 @@ async function syncCharacterAvatarInGroups(characterChat) {
     }
 }
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
-
-// ▼▼▼ 确保你的JS代码中包含这个【助手函数】 ▼▼▼
-
+// ▼▼▼ 【最终修复版】请用这个全新的、更智能的函数，完整替换旧的 getDisplayNameInGroup 函数 ▼▼▼
 /**
- * 【全新】根据角色本名，在指定群聊中获取其正确的显示名称（群昵称）
+ * 【全新 | 已修复用户识别问题】根据角色本名，在指定群聊中获取其正确的显示名称（群昵称）
  * @param {object} groupChat - 当前的群聊对象
- * @param {string} originalName - 角色的本名 (e.g., "小鹿", "方亦楷")
+ * @param {string} originalName - 角色的本名 (e.g., "小可爱", "方亦楷")
  * @returns {string} - 该角色在此群聊中的群昵称，如果找不到则返回其本名
  */
 function getDisplayNameInGroup(groupChat, originalName) {
+    // 安全检查，如果信息不全则直接返回
     if (!groupChat || !groupChat.isGroup || !originalName) {
         return originalName;
     }
-    const myNickname = groupChat.settings.myNickname || '我';
-    if (originalName === myNickname) {
-        return myNickname;
+
+    // --- 【【【核心修复就在这里！】】】 ---
+
+    // 步骤1：优先检查这个“本名”是不是【用户自己】的全局本名
+    // 用户的全局本名存储在 qzoneSettings.nickname 中
+    const userOriginalName = state.qzoneSettings.nickname || '{{user}}';
+    if (originalName === userOriginalName) {
+        // 如果是用户，就返回用户在【这个群聊中】的专属昵称
+        return groupChat.settings.myNickname || '我';
     }
+
+    // 步骤2：如果不是用户，再到群成员列表里去查找对应的AI角色
     const member = groupChat.members.find(m => m.originalName === originalName);
+    
+    // 步骤3：如果找到了AI成员，就返回TA的群昵称；如果都找不到，就返回原始名字作为保底
     return member ? member.groupNickname : originalName;
 }
-
-// ▲▲▲ 函数结束 ▲▲▲
+// ▲▲▲ 替换结束 ▲▲▲
 // ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
 /**
  * 【全新】根据角色的本名，在整个应用中查找其正确的显示名称
@@ -7410,30 +7418,7 @@ function showCustomConfirm(title, message, options = {}) {
     });
 }
 // ▲▲▲ 替换结束 ▲▲▲
-// ▼▼▼ 请将这个【助手函数】粘贴到您的JS功能函数定义区 ▼▼▼
 
-/**
- * 【全新】根据角色本名，在指定群聊中获取其正确的显示名称（群昵称）
- * @param {object} groupChat - 当前的群聊对象
- * @param {string} originalName - 角色的本名 (e.g., "小鹿", "方亦楷")
- * @returns {string} - 该角色在此群聊中的群昵称，如果找不到则返回其本名
- */
-function getDisplayNameInGroup(groupChat, originalName) {
-    if (!groupChat || !groupChat.isGroup || !originalName) {
-        return originalName;
-    }
-    // 检查是否是用户自己
-    const myNickname = groupChat.settings.myNickname || '我';
-    if (originalName === myNickname) {
-        return myNickname;
-    }
-    // 查找群成员
-    const member = groupChat.members.find(m => m.originalName === originalName);
-    // 如果找到成员，返回其群昵称，否则返回其本名作为后备
-    return member ? member.groupNickname : originalName;
-}
-
-// ▲▲▲ 函数结束 ▲▲▲
         function showCustomAlert(title, message) {
             return new Promise(resolve => {
                 modalResolve = resolve;
@@ -9969,30 +9954,50 @@ function createMessageElement(msg, chat) {
             actionButtons.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); handleWaimaiResponse(msg.timestamp, e.target.dataset.choice); }));
         }, 0);
     } else if (msg.type === 'red_packet') {
-        bubble.classList.add('is-red-packet');
-        const myNickname = chat.settings.myNickname || '我';
-        const isFinished = msg.isFullyClaimed;
-        const hasClaimed = msg.claimedBy && msg.claimedBy[myNickname];
-        let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
-        if (isFinished) cardClass = 'opened';
-        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
-        if (msg.packetType === 'direct') {
-            typeText = `专属红包: 给 ${receiverDisplayName}`;
-            if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened';
-        }
-        if (hasClaimed) {
-            const myClaimedAmount = msg.claimedBy[myNickname] || 0;
-            claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
-        } else if (isFinished) claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
-        else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
-        contentHtml = `
-            <div class="red-packet-card ${cardClass}">
-                <div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div>
-                <div class="rp-type">${typeText}</div>
-                ${claimedInfoHtml}
-            </div>
-        `;
-    } else if (msg.type === 'poll') {
+                    bubble.classList.add('is-red-packet');
+                    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+                    const isFinished = msg.isFullyClaimed;
+                    const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
+                    
+                    let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
+
+                    if (isFinished) {
+                        cardClass = 'opened';
+                    }
+
+                    // 【【【这就是核心修复！】】】
+                    // 我们现在使用 getDisplayNameInGroup 函数来获取接收者正确的群昵称
+                    if (msg.packetType === 'direct') {
+                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+                        typeText = `专属红包: 给 ${receiverDisplayName}`;
+                        // 专属红包只要被领取了，就视为'opened'
+                        if (Object.keys(msg.claimedBy || {}).length > 0) {
+                            cardClass = 'opened';
+                        }
+                    }
+                    
+                    if (hasClaimed) {
+                        const myClaimedAmount = msg.claimedBy[myOriginalName] || 0;
+                        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
+                    } else if (isFinished) {
+                        claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
+                    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
+                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+                        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
+                    }
+
+                    contentHtml = `
+                        <div class="red-packet-card ${cardClass}">
+                            <div class="rp-header">
+                                <img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon">
+                                <span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span>
+                            </div>
+                            <div class="rp-type">${typeText}</div>
+                            ${claimedInfoHtml}
+                        </div>
+                    `;
+                } else if (msg.type === 'poll') {
         bubble.classList.add('is-poll');
         const pollQuestionText = msg.question || msg.content || '(无标题投票)';
         let totalVotes = 0;
@@ -11459,6 +11464,10 @@ case 'change_avatar': {
                         claimedBy: {}, 
                         isFullyClaimed: false
                     };
+                     if (action.receiver) {
+                        aiMessage.receiverName = action.receiver;
+                        delete aiMessage.receiver; // 清理掉旧的、不一致的字段
+                    }
                     break;
                 case 'open_red_packet':
                     const packetToOpen = chat.history.find(m => m.timestamp === msgData.packet_timestamp);
@@ -18111,7 +18120,45 @@ function parseMarkdown(text) {
 
     return text;
 }
+// ▼▼▼ 【全新 | 数据修复函数】请将这个函数粘贴到您的JS功能区 ▼▼▼
+/**
+ * 自动迁移旧的、格式不正确的红包数据，将 'receiver' 字段重命名为 'receiverName'
+ */
+async function migrateOldRedPacketData() {
+    console.log("开始检查并迁移旧的红包数据...");
+    let migrationCount = 0;
+    // 直接从内存中的 state.chats 操作，效率更高
+    const allChats = Object.values(state.chats);
 
+    for (const chat of allChats) {
+        let needsDbUpdate = false;
+        for (const msg of chat.history) {
+            // 找出所有由AI发送的、带有旧 'receiver' 字段的专属红包
+            if (msg.type === 'red_packet' && msg.packetType === 'direct' && msg.role === 'assistant' && msg.hasOwnProperty('receiver') && !msg.hasOwnProperty('receiverName')) {
+                // 进行“手术”：重命名错误的字段
+                msg.receiverName = msg.receiver;
+                delete msg.receiver;
+                
+                needsDbUpdate = true; // 标记这个聊天需要被重新保存
+                migrationCount++;
+            }
+        }
+        // 如果这个聊天中有数据被修复了，就将整个更新后的聊天对象保存回数据库
+        if (needsDbUpdate) {
+            console.log(`在聊天 "${chat.name}" 中发现并修复了旧红包数据。`);
+            await db.chats.put(chat);
+        }
+    }
+
+    if (migrationCount > 0) {
+        console.log(`数据迁移完成！总共修复了 ${migrationCount} 条红包记录。`);
+        alert(`检测到并成功修复了 ${migrationCount} 条旧的红包消息！页面将自动刷新以应用更改。`);
+        location.reload(); // 强制刷新页面，确保所有显示都使用最新的正确数据
+    } else {
+        console.log("未发现需要迁移的旧红包数据。");
+    }
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
         // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -18159,6 +18206,9 @@ qzoneStickerPanelState.gridEl = document.getElementById('qzone-sticker-grid');
             window.renderWorldBookScreenProxy = renderWorldBookScreen;
 
             await loadAllDataFromDB();
+            // ▼▼▼ 【核心】在这里添加下面这行新代码 ▼▼▼
+            await migrateOldRedPacketData();
+            // ▲▲▲ 添加结束 ▲▲▲
             // ▼▼▼ 在这里粘贴新代码 ▼▼▼
             applyGlobalCss(state.globalSettings.globalCss);
             // ▲▲▲ 新代码粘贴结束 ▲▲▲
