@@ -5676,6 +5676,15 @@ input:checked + .slider:before {
 <button id="share-location-btn" class="chat-action-icon-btn action-button" title="共享位置"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
             <button id="send-poll-btn" class="chat-action-icon-btn action-button" title="发起投票"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h10"></path><path d="M6 6h.01"></path><path d="M8 12h10"></path><path d="M6 12h.01"></path><path d="M8 18h10"></path><path d="M6 18h.01"></path></svg></button>
             <button id="share-link-btn" class="chat-action-icon-btn action-button" title="分享链接"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
+<!-- ▼▼▼ 【全新】单聊专用的“拍一-拍”按钮 (Q弹图标版) ▼▼▼ -->
+<button id="pat-btn" class="chat-action-icon-btn action-button" title="拍一-拍" style="display: none;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 5.02c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14.5 11.02c0 .83-.67 1.5-1.5 1.5v0c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5v0c.83 0 1.5.67 1.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M5.5 14.52l-1.92-1.92c-.34-.34-.34-.89 0-1.23l3.58-3.58c.34-.34.89-.34 1.23 0l1.92 1.92c.34.34.34.89 0 1.23l-3.58 3.58c-.34.34-.89.34-1.23 0Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</button>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
 <button id="show-announcement-board-btn" class="chat-action-icon-btn action-button" title="群公告板" style="display: none;">
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M21.782 6.132a1 1 0 0 0-1.053-.08l-4.729 2.489a1 1 0 0 0-.5.88v4.158a1 1 0 0 0 .5.88l4.729 2.489a1 1 0 0 0 1.053-.08a1 1 0 0 0 .499-.921V7.052a1 1 0 0 0-.499-.92zm-6 3.207L11 7.05v9.9l4.782-2.281V9.339zM10 6H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6V6z"/></svg>
 </button>
@@ -9891,7 +9900,7 @@ function createMessageElement(msg, chat) {
     let contentHtml;
     // ... [此处省略了所有处理消息内容的 case, 因为它们没有变化] ...
     // ... [The case statements for message content rendering are omitted for brevity as they are unchanged] ...
-    if (msg.type === 'share_link') {
+        if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
         
         contentHtml = `
@@ -10152,20 +10161,19 @@ function createMessageElement(msg, chat) {
         if (avatarGroupEl) {
             avatarGroupEl.style.cursor = 'pointer';
 
+            // 【核心修改1】只为单聊绑定单击和双击
             if (!chat.isGroup) {
-                // 单聊：单击打开角色洞察，双击拍一拍
+                // 单聊：单击打开角色洞察
                 avatarGroupEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     showCharacterProfileModal(chat.id);
                 });
+                
+                // 【核心修改2】移除单聊头像的双击事件
+                // The dblclick listener for single chat is now removed.
 
-                avatarGroupEl.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    const characterOriginalName = chat.originalName;
-                    handleUserPat(chat.id, characterOriginalName);
-                });
             } else {
-                // 群聊：双击拍一拍
+                // 【核心修改3】群聊：保持双击拍一拍不变
                 avatarGroupEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
                     const characterOriginalName = msg.senderName;
@@ -10213,26 +10221,30 @@ async function openChat(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return; // 安全检查
 
-    // 【核心新增】在这里将未读数清零
     if (chat.unreadCount > 0) {
         chat.unreadCount = 0;
-        await db.chats.put(chat); // 别忘了把这个改变同步到数据库
-        // 我们稍后会在渲染列表时重新渲染，所以这里不需要立即重绘列表
+        await db.chats.put(chat);
     }
 
     renderChatInterface(chatId);
     showScreen('chat-interface-screen');
     window.updateListenTogetherIconProxy(state.activeChatId);
     toggleCallButtons(chat.isGroup || false);    
-// ▼▼▼ 在这里新增 ▼▼▼
-document.getElementById('show-announcement-board-btn').style.display = chat.isGroup ? 'flex' : 'none';
-// ▲▲▲ 新增结束 ▲▲▲
+    document.getElementById('show-announcement-board-btn').style.display = chat.isGroup ? 'flex' : 'none';
+    
+    // ▼▼▼ 在这里添加新的代码 ▼▼▼
+    // 根据是否为群聊，显示或隐藏新的“拍一拍”按钮
+    const patBtn = document.getElementById('pat-btn');
+    if (patBtn) {
+        patBtn.style.display = chat.isGroup ? 'none' : 'flex';
+    }
+    // ▲▲▲ 新代码添加结束 ▲▲▲
+
     if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
         console.log(`检测到好友申请待处理状态，为角色 "${chat.name}" 自动触发AI响应...`);
         triggerAiResponse();
     }
     
-    // 【核心修正】根据是否为群聊，显示或隐藏投票按钮
     document.getElementById('send-poll-btn').style.display = chat.isGroup ? 'flex' : 'none';
 }
 // ▲▲▲ 替换结束 ▲▲▲
@@ -18386,6 +18398,16 @@ applyAppIcons();
             // ==========================================================
             // --- 各种事件监听器 ---
             // ==========================================================
+// ▼▼▼ 【全新】为单聊“拍一拍”按钮绑定事件 ▼▼▼
+document.getElementById('pat-btn').addEventListener('click', () => {
+    // 确保当前在单聊中
+    if (state.activeChatId && !state.chats[state.activeChatId].isGroup) {
+        const chat = state.chats[state.activeChatId];
+        // 调用现有的拍一拍函数，并传入正确的参数
+        handleUserPat(chat.id, chat.originalName);
+    }
+});
+// ▲▲▲ 新增代码结束 ▲▲▲
 // ▼▼▼ 【这是您缺失的核心功能代码，请粘贴在这里】 ▼▼▼
 let activeAnnouncementId = null; // 用于暂存正在操作的公告ID
 
