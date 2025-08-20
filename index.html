@@ -18377,11 +18377,13 @@ function showThoughtsHistory() {
 }
 
 /**
- * 【全新】隐藏心声历史记录视图，返回主资料页
+ * 【全新 | 已修复BUG】隐藏心声历史记录视图，返回主资料页
  */
 function hideThoughtsHistory() {
     document.getElementById('profile-thoughts-history-view').style.display = 'none';
-    document.getElementById('profile-main-content').style.display = 'block';
+    
+    // 【核心修复】将 'block' 改为 'flex'，恢复其正确的弹性布局
+    document.getElementById('profile-main-content').style.display = 'flex'; 
 }
 
 /**
