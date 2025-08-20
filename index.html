@@ -6296,7 +6296,17 @@ input:checked + .slider:before {
     </div>
 </div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
-
+<!-- ▼▼▼ 【全新】视频通话消息操作菜单 ▼▼▼ -->
+<div id="call-message-actions-modal" class="modal">
+    <div id="custom-modal" style="width: 250px;">
+        <div class="custom-modal-footer">
+            <button id="edit-call-message-btn">编辑</button>
+            <button id="delete-call-message-btn" class="btn-danger">删除</button>
+            <button id="cancel-call-message-action-btn" style="margin-top: 8px; border-radius: 8px; background-color: #f0f0f0;">取消</button>
+        </div>
+    </div>
+</div>
+<!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 <!-- ▼▼▼ 【全新】外卖请求模态框 ▼▼▼ -->
 <div id="waimai-request-modal" class="modal">
     <div class="modal-content" style="width: 290px;">
@@ -6667,6 +6677,7 @@ input:checked + .slider:before {
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 <input type="file" id="ai-avatar-upload-input" accept="image/*" hidden>
 <input type="file" id="group-avatar-upload-input" accept="image/*" hidden>
+
 <script>
 // ... 其他全局变量
 let activeMessageTimestamp = null;
@@ -14688,6 +14699,7 @@ function hideIncomingCallModal() {
     document.getElementById('incoming-call-modal').classList.remove('visible');
 }
 
+// ▼▼▼ 【请用这个新版本】替换旧的 triggerAiInCallAction 函数 ▼▼▼
 async function triggerAiInCallAction(userInput = null) {
     if (!videoCallState.isActive) return;
 
@@ -14696,7 +14708,6 @@ async function triggerAiInCallAction(userInput = null) {
     const callFeed = document.getElementById('video-call-main');
     const userNickname = chat.settings.myNickname || '我';
 
-    // ▼▼▼ 在这里添加世界书读取逻辑 ▼▼▼
     let worldBookContent = '';
     if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
         const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -14707,27 +14718,28 @@ async function triggerAiInCallAction(userInput = null) {
             worldBookContent = `\n\n# 核心世界观设定 (你必须严格遵守)\n${linkedContents}\n`;
         }
     }
-    // ▲▲▲ 添加结束 ▲▲▲
 
     // 1. 如果用户有输入，先渲染并存入通话历史
     if (userInput && videoCallState.isUserParticipating) {
+        const userTimestamp = Date.now(); // 【核心修改】生成时间戳
         const userBubble = document.createElement('div');
         userBubble.className = 'call-message-bubble user-speech';
         userBubble.textContent = userInput;
+        userBubble.dataset.timestamp = userTimestamp; // 【核心修改】将时间戳存入DOM
+        addLongPressListener(userBubble, () => showCallMessageActions(userTimestamp)); // 【核心修改】绑定长按事件
         callFeed.appendChild(userBubble);
         callFeed.scrollTop = callFeed.scrollHeight;
-        videoCallState.callHistory.push({ role: 'user', content: userInput });
+        videoCallState.callHistory.push({ role: 'user', content: userInput, timestamp: userTimestamp }); // 【核心修改】将带时间戳的消息存入历史
     }
 
     // 2. 构建全新的、包含完整上下文的 System Prompt
-// 2. 构建全新的、“更安全”的系统指令，避免触发关键词
-let inCallPrompt;
-if (videoCallState.isGroupCall) {
-    const participantNames = videoCallState.participants.map(p => p.groupNickname); // 使用群昵称
-    if(videoCallState.isUserParticipating) {
-        participantNames.unshift(userNickname);
-    }
-    inCallPrompt = `
+    let inCallPrompt;
+    if (videoCallState.isGroupCall) {
+        const participantNames = videoCallState.participants.map(p => p.name);
+        if(videoCallState.isUserParticipating) {
+            participantNames.unshift(userNickname);
+        }
+        inCallPrompt = `
 # 你的任务
 你是一个群聊视频通话的导演。你的任务是扮演所有【除了用户以外】的AI角色，并以【第三人称旁观视角】来描述他们在通话中的所有动作和语言。
 # 核心规则
@@ -14766,16 +14778,13 @@ ${videoCallState.preCallContext}
     // 3. 构建发送给API的 messages 数组
     const messagesForApi = [
         { role: 'system', content: inCallPrompt },
-        // 将已有的通话历史加进去
         ...videoCallState.callHistory.map(h => ({ role: h.role, content: h.content }))
     ];
 
-    // --- 【核心修复：确保第一次调用时有内容】---
     if (videoCallState.callHistory.length === 0) {
         const firstLineTrigger = videoCallState.initiator === 'user' ? `*你按下了接听键...*` : `*对方按下了接听键...*`;
         messagesForApi.push({ role: 'user', content: firstLineTrigger });
     }
-    // --- 修复结束 ---
     
         try {
             let  isGemini = proxyUrl === GEMINI_API_URL;
@@ -14790,7 +14799,7 @@ ${videoCallState.preCallContext}
             if (!response.ok) throw new Error((await response.json()).error.message);
 
             const data = await response.json();
-            const aiResponse = getGeminiResponseText(data);
+            const aiResponse = isGemini? data.candidates[0].content.parts[0].text : data.choices[0].message.content;
 
             const connectingElement = callFeed.querySelector('em');
             if (connectingElement) connectingElement.remove();
@@ -14800,11 +14809,14 @@ ${videoCallState.preCallContext}
             const speechArray = parseAiResponse(aiResponse);
             speechArray.forEach(turn => {
                 if (!turn.name || turn.name === userNickname || !turn.speech) return;
+                const aiTimestamp = Date.now() + Math.random(); // 【核心修改】生成时间戳
                 const aiBubble = document.createElement('div');
                 aiBubble.className = 'call-message-bubble ai-speech';
                 aiBubble.innerHTML = `<strong>${turn.name}:</strong> ${turn.speech}`;
+                aiBubble.dataset.timestamp = aiTimestamp; // 【核心修改】将时间戳存入DOM
+                addLongPressListener(aiBubble, () => showCallMessageActions(aiTimestamp)); // 【核心修改】绑定长按事件
                 callFeed.appendChild(aiBubble);
-                videoCallState.callHistory.push({ role: 'assistant', content: `${turn.name}: ${turn.speech}` });
+                videoCallState.callHistory.push({ role: 'assistant', content: `${turn.name}: ${turn.speech}`, timestamp: aiTimestamp }); // 【核心修改】将带时间戳的消息存入历史
                 
                 const speaker = videoCallState.participants.find(p => p.name === turn.name);
                 if (speaker) {
@@ -14816,11 +14828,14 @@ ${videoCallState.preCallContext}
                 }
             });
         } else {
+            const aiTimestamp = Date.now(); // 【核心修改】生成时间戳
             const aiBubble = document.createElement('div');
             aiBubble.className = 'call-message-bubble ai-speech';
             aiBubble.textContent = aiResponse;
+            aiBubble.dataset.timestamp = aiTimestamp; // 【核心修改】将时间戳存入DOM
+            addLongPressListener(aiBubble, () => showCallMessageActions(aiTimestamp)); // 【核心修改】绑定长按事件
             callFeed.appendChild(aiBubble);
-            videoCallState.callHistory.push({ role: 'assistant', content: aiResponse });
+            videoCallState.callHistory.push({ role: 'assistant', content: aiResponse, timestamp: aiTimestamp }); // 【核心修改】将带时间戳的消息存入历史
 
             const speakingAvatar = document.querySelector(`.participant-avatar-wrapper .participant-avatar`);
             if(speakingAvatar) {
@@ -14841,6 +14856,7 @@ ${videoCallState.preCallContext}
         videoCallState.callHistory.push({ role: 'assistant', content: `[ERROR: ${error.message}]` });
     }
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 将这个【全新函数】粘贴到JS功能函数定义区 ▼▼▼
 function toggleCallButtons(isGroup) {
@@ -14961,7 +14977,119 @@ async function handleUserPat(chatId, characterOriginalName) {
 // ▲▲▲ 替换结束 ▲▲▲
 // ▼▼▼ 【全新】用户处理转账的核心功能函数 ▼▼▼
 
+// ▼▼▼ 【全新】视频通话消息编辑与删除功能核心代码 ▼▼▼
 
+let activeCallMessageTimestamp = null; // 用于暂存正在操作的通话消息的时间戳
+
+/**
+ * 显示视频通话消息的操作菜单
+ * @param {number} timestamp - 被长按的通话消息的时间戳
+ */
+function showCallMessageActions(timestamp) {
+    activeCallMessageTimestamp = timestamp;
+    document.getElementById('call-message-actions-modal').classList.add('visible');
+}
+
+/**
+ * 隐藏视频通话消息的操作菜单
+ */
+function hideCallMessageActions() {
+    document.getElementById('call-message-actions-modal').classList.remove('visible');
+    activeCallMessageTimestamp = null;
+}
+
+/**
+ * 打开通话消息的编辑器
+ */
+async function openCallMessageEditor() {
+    if (!activeCallMessageTimestamp) return;
+
+    const timestampToEdit = activeCallMessageTimestamp;
+    const message = videoCallState.callHistory.find(m => m.timestamp === timestampToEdit);
+    if (!message) return;
+
+    hideCallMessageActions(); // 操作前先关闭菜单
+
+    let contentForEditing = message.content;
+    // 如果是群聊中AI的发言，我们只提取发言内容本身，而不是"名字: 内容"
+    if (videoCallState.isGroupCall && message.role === 'assistant') {
+        const parts = message.content.split(': ');
+        if (parts.length > 1) {
+            contentForEditing = parts.slice(1).join(': ');
+        }
+    }
+
+    const newContent = await showCustomPrompt(
+        '编辑通话消息',
+        '在此修改内容...',
+        contentForEditing,
+        'textarea'
+    );
+
+    if (newContent !== null) {
+        await saveEditedCallMessage(timestampToEdit, newContent);
+    }
+}
+
+/**
+ * 保存在通话中编辑的消息
+ * @param {number} timestamp - 被编辑消息的时间戳
+ * @param {string} newContent - 新的消息内容
+ */
+async function saveEditedCallMessage(timestamp, newContent) {
+    const message = videoCallState.callHistory.find(m => m.timestamp === timestamp);
+    if (message) {
+        let finalContent = newContent;
+        // 如果是群聊AI发言，需要把名字重新拼接回去
+        if (videoCallState.isGroupCall && message.role === 'assistant') {
+            const parts = message.content.split(': ');
+            const senderName = parts[0];
+            finalContent = `${senderName}: ${newContent}`;
+        }
+        message.content = finalContent; // 更新通话历史记录中的内容
+
+        // 更新界面上对应的消息气泡
+        const messageBubble = document.querySelector(`.call-message-bubble[data-timestamp="${timestamp}"]`);
+        if (messageBubble) {
+            if (videoCallState.isGroupCall && message.role === 'assistant') {
+                const parts = message.content.split(': ');
+                const senderName = parts[0];
+                messageBubble.innerHTML = `<strong>${senderName}:</strong> ${newContent}`;
+            } else {
+                messageBubble.textContent = newContent;
+            }
+        }
+    }
+    await showCustomAlert('成功', '通话消息已更新！');
+}
+
+/**
+ * 在通话中删除一条消息
+ */
+async function deleteCallMessage() {
+    if (!activeCallMessageTimestamp) return;
+
+    const confirmed = await showCustomConfirm('删除消息', '确定要删除这条通话消息吗？', { confirmButtonClass: 'btn-danger' });
+    if (confirmed) {
+        const timestampToDelete = activeCallMessageTimestamp;
+        hideCallMessageActions();
+
+        // 从临时通话历史中移除
+        const messageIndex = videoCallState.callHistory.findIndex(m => m.timestamp === timestampToDelete);
+        if (messageIndex > -1) {
+            videoCallState.callHistory.splice(messageIndex, 1);
+        }
+
+        // 从界面上移除
+        const messageBubble = document.querySelector(`.call-message-bubble[data-timestamp="${timestampToDelete}"]`);
+        if (messageBubble) {
+            messageBubble.remove();
+        }
+    } else {
+        hideCallMessageActions();
+    }
+}
+// ▲▲▲ 新增代码粘贴结束 ▲▲▲
 
 /**
  * 显示处理转账的操作菜单
@@ -20941,7 +21069,12 @@ document.getElementById('cancel-create-countdown-btn').addEventListener('click',
     document.getElementById('create-countdown-modal').classList.remove('visible');
 });
 // ▲▲▲ 修复代码粘贴结束 ▲▲▲
-            // ▲▲▲ 新代码粘贴结束 ▲▲▲
+
+            // ▼▼▼ 【全新】视频通话消息操作事件绑定 ▼▼▼
+document.getElementById('edit-call-message-btn').addEventListener('click', openCallMessageEditor);
+document.getElementById('delete-call-message-btn').addEventListener('click', deleteCallMessage);
+document.getElementById('cancel-call-message-action-btn').addEventListener('click', hideCallMessageActions);
+// ▲▲▲ 新增结束 ▲▲▲
             showScreen('home-screen');
         }
 
