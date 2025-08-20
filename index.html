@@ -9256,8 +9256,8 @@ if (chat.isGroup) {
     const avatarGroupEl = item.querySelector('.avatar-group');
     if (avatarGroupEl) {
         avatarGroupEl.style.cursor = 'pointer';
-        // 使用我们新的、可靠的双击监听器
-        addDoubleTapListener(avatarGroupEl, (e) => {
+        // 将 'click' 事件改为 'dblclick'
+        avatarGroupEl.addEventListener('dblclick', (e) => {
             e.stopPropagation();
             const nameToPat = chat.isGroup ? chat.name : chat.originalName;
             handleUserPat(chat.id, nameToPat);
@@ -9301,7 +9301,9 @@ if (chat.isGroup) {
         }
     });
     return item;
-}
+}```
+
+完成以上两处修改后，保存文件并刷新页面。“拍一拍”功能现在就只会通过**双击头像**来触发了，彻底解决了误触问题。
 // ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 请用这个【带诊断功能的全新版本】替换旧的 renderChatInterface 函数 ▼▼▼
@@ -9890,6 +9892,7 @@ function createMessageElement(msg, chat) {
     
     let contentHtml;
     // ... [此处省略了所有处理消息内容的 case, 因为它们没有变化] ...
+    // ... [The case statements for message content rendering are omitted for brevity as they are unchanged] ...
     if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
         
@@ -10145,38 +10148,35 @@ function createMessageElement(msg, chat) {
     addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
     wrapper.addEventListener('click', () => { if (isSelectionMode) toggleMessageSelection(msg.timestamp); });
 
+    // ▼▼▼ 在这里开始修改 ▼▼▼
     if (!isUser) {
         const avatarGroupEl = wrapper.querySelector('.avatar-group'); 
         if (avatarGroupEl) {
             avatarGroupEl.style.cursor = 'pointer';
 
             if (!chat.isGroup) {
-                // 单聊：单击打开角色洞察
+                // 单聊：单击打开角色洞察，双击拍一拍
                 avatarGroupEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     showCharacterProfileModal(chat.id);
                 });
 
-                // ▼▼▼ 在这里开始修改 ▼▼▼
-                // 单聊和群聊都使用我们新的双击监听器来“拍一拍”
-                addDoubleTapListener(avatarGroupEl, (e) => {
+                avatarGroupEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
-                    const characterOriginalName = chat.isGroup ? msg.senderName : chat.originalName;
+                    const characterOriginalName = chat.originalName;
                     handleUserPat(chat.id, characterOriginalName);
                 });
-                // ▲▲▲ 修改结束 ▲▲▲
             } else {
-                // ▼▼▼ 在这里开始修改 ▼▼▼
-                // 群聊的头像也使用新的双击监听器
-                addDoubleTapListener(avatarGroupEl, (e) => {
+                // 群聊：双击拍一拍
+                avatarGroupEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
                     const characterOriginalName = msg.senderName;
                     handleUserPat(chat.id, characterOriginalName);
                 });
-                // ▲▲▲ 修改结束 ▲▲▲
             }
         }
     }
+    // ▲▲▲ 修改结束 ▲▲▲
 
     return wrapper;
 }
@@ -12084,47 +12084,8 @@ function toggleMessageSelection(timestamp) {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-        function addLongPressListener(element, callback) {
-    let pressTimer;
-    const startPress = (e) => {
-        if (isSelectionMode) return;
-        e.preventDefault();
-        pressTimer = window.setTimeout(() => callback(e), 500);
-    };
-    const cancelPress = () => clearTimeout(pressTimer);
-    element.addEventListener('mousedown', startPress);
-    element.addEventListener('mouseup', cancelPress);
-    element.addEventListener('mouseleave', cancelPress);
-    // 【核心修复】将 passive: true 改为 passive: false，以允许 preventDefault
-    element.addEventListener('touchstart', startPress, { passive: false });
-    element.addEventListener('touchend', cancelPress);
-    element.addEventListener('touchmove', cancelPress);
-}
-/**
- * 【全新】为元素添加一个可靠的、兼容移动端的双击（双击）事件监听器
- * @param {HTMLElement} element - 要绑定事件的DOM元素
- * @param {Function} callback - 双击时要执行的回调函数
- */
-function addDoubleTapListener(element, callback) {
-    // 使用元素的自定义属性来存储上一次点击的时间，避免使用全局变量
-    element.dataset.lastTap = 0;
-    
-    element.addEventListener('touchend', function(event) {
-        const currentTime = new Date().getTime();
-        const tapLength = currentTime - (parseInt(element.dataset.lastTap) || 0);
-        
-        // 如果两次点击间隔小于300毫秒，则视为双击
-        if (tapLength < 300 && tapLength > 0) {
-            event.preventDefault(); // 阻止浏览器触发单击等其他事件
-            callback(event); // 执行回调
-        }
-        
-        element.dataset.lastTap = currentTime;
-    });
+        function addLongPressListener(element, callback) { let pressTimer; const startPress = (e) => { if(isSelectionMode) return; e.preventDefault(); pressTimer = window.setTimeout(() => callback(e), 500); }; const cancelPress = () => clearTimeout(pressTimer); element.addEventListener('mousedown', startPress); element.addEventListener('mouseup', cancelPress); element.addEventListener('mouseleave', cancelPress); element.addEventListener('touchstart', startPress, { passive: true }); element.addEventListener('touchend', cancelPress); element.addEventListener('touchmove', cancelPress); }
 
-    // 同时保留对桌面端的 dblclick 支持
-    element.addEventListener('dblclick', callback);
-}
         async function handleListenTogetherClick() { const targetChatId = state.activeChatId; if (!targetChatId) return; if (!musicState.isActive) { startListenTogetherSession(targetChatId); return; } if (musicState.activeChatId === targetChatId) { document.getElementById('music-player-overlay').classList.add('visible'); } else { const oldChatName = state.chats[musicState.activeChatId]?.name || '未知'; const newChatName = state.chats[targetChatId]?.name || '当前'; const confirmed = await showCustomConfirm('切换听歌对象', `您正和「${oldChatName}」听歌。要结束并开始和「${newChatName}」的新会话吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await endListenTogetherSession(true); await new Promise(resolve => setTimeout(resolve, 50)); startListenTogetherSession(targetChatId); } } }
 
         async function startListenTogetherSession(chatId) { const chat = state.chats[chatId]; if (!chat) return; musicState.totalElapsedTime = chat.musicData.totalTime || 0; musicState.isActive = true; musicState.activeChatId = chatId; if (musicState.playlist.length > 0) { musicState.currentIndex = 0; } else { musicState.currentIndex = -1; } if(musicState.timerId) clearInterval(musicState.timerId); musicState.timerId = setInterval(() => { if (musicState.isPlaying) { musicState.totalElapsedTime++; updateElapsedTimeDisplay(); } }, 1000); updatePlayerUI(); updatePlaylistUI(); document.getElementById('music-player-overlay').classList.add('visible'); }
