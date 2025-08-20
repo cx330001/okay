@@ -5152,6 +5152,97 @@ input:checked + .slider:before {
     color: white;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】角色洞察弹窗样式 ▼▼▼ */
+#character-profile-modal {
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+.character-profile-content {
+    width: 320px;
+    background-color: #f0f2f5;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+#profile-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+}
+.profile-info {
+    display: flex;
+    flex-direction: column;
+}
+#profile-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1f1f1f;
+}
+#profile-id {
+    font-size: 14px;
+    color: #8a8a8a;
+}
+.profile-section {
+    padding: 15px;
+    border-radius: 12px;
+}
+.profile-section label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #a0a0a0;
+    margin-bottom: 8px;
+    display: block;
+}
+.profile-section p {
+    font-size: 15px;
+    color: #333;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap; /* 让换行符生效 */
+}
+.heart-voice {
+    background-color: #ffffff;
+}
+.random-jottings {
+    background-color: #fffef0; /* 淡黄色 */
+    position: relative;
+}
+.random-jottings::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 12px;
+    height: 12px;
+    background-color: #ff6b6b;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+#profile-enter-chat-btn {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+}
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -8830,6 +8921,12 @@ if (!chat.settings.enableAutoMemory) chat.settings.enableAutoMemory = false;
 if (!chat.settings.autoMemoryInterval) chat.settings.autoMemoryInterval = 20;
 if (!chat.longTermMemory) chat.longTermMemory = [];
 if (!chat.lastMemorySummaryTimestamp) chat.lastMemorySummaryTimestamp = 0;
+        // ▼▼▼ 在这里添加新代码 ▼▼▼
+        if (!chat.isGroup) {
+            if (typeof chat.heartfeltVoice === 'undefined') chat.heartfeltVoice = '...';
+            if (typeof chat.randomJottings === 'undefined') chat.randomJottings = '...';
+        }
+        // ▲▲▲ 新代码添加结束 ▲▲▲
         acc[chat.id] = chat;
         return acc;
     }, {});
@@ -8862,7 +8959,7 @@ if (!chat.lastMemorySummaryTimestamp) chat.lastMemorySummaryTimestamp = 0;
         await db.memories.bulkPut(memoriesToUpdate); // 一次性更新所有需要修复的日记
         console.log("日记数据升级完成！");
     }
-    // --- ▲▲▲ 数据迁移结束 ▲▲▲ ---
+    // --- ▲▲▲ 数据迁移结束 ▲▲▲
 
 // 在 loadAllDataFromDB 函数中
 state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '', secondaryProxyUrl: '', secondaryApiKey: '', secondaryModel: '' };
@@ -9155,19 +9252,18 @@ if (chat.isGroup) {
         unreadEl.style.display = 'none';
     }
     
- // ▼▼▼ 在 createChatListItem 函数中，用这个【新版本】替换旧的 avatarGroupEl 事件监听器 ▼▼▼
+    // ▼▼▼ 在这里开始修改 ▼▼▼
     const avatarGroupEl = item.querySelector('.avatar-group');
     if (avatarGroupEl) {
         avatarGroupEl.style.cursor = 'pointer';
-        avatarGroupEl.addEventListener('click', (e) => {
+        // 使用我们新的、可靠的双击监听器
+        addDoubleTapListener(avatarGroupEl, (e) => {
             e.stopPropagation();
-            // 【核心修正】现在，无论是单聊还是群聊，都传递正确的名称给拍一拍函数
-            // 单聊传递的是本名，群聊传递的是群名
             const nameToPat = chat.isGroup ? chat.name : chat.originalName;
             handleUserPat(chat.id, nameToPat);
         });
     }
-// ▲▲▲ 替换结束 ▲▲▲
+    // ▲▲▲ 修改结束 ▲▲▲
     
     const infoEl = item.querySelector('.info');
     if (infoEl) {
@@ -9764,17 +9860,11 @@ function createMessageElement(msg, chat) {
     } else { // AI 或 NPC 的消息
         if (chat.isGroup) {
             const member = chat.members.find(m => m.originalName === msg.senderName);
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-            //            这就是本次修复的核心所在！
-            //  我们在这里使用了和设置界面完全相同的逻辑来获取头像
-            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
             if (member) {
                 const characterProfile = state.chats[member.id];
-                // 优先使用成员自己独立的头像(member.avatar)，如果没有，再尝试去单聊配置里找，最后才用默认头像。
                 avatarSrc = member.avatar || (characterProfile ? characterProfile.settings.aiAvatar : defaultGroupMemberAvatar);
                 avatarFrameSrc = member.avatarFrame || (characterProfile ? characterProfile.settings.aiAvatarFrame : '');
             } else {
-                // 如果在成员列表里都找不到，就用默认头像
                 avatarSrc = defaultGroupMemberAvatar;
                 avatarFrameSrc = '';
             }
@@ -9797,13 +9887,9 @@ function createMessageElement(msg, chat) {
     }
     const hasFrameClass = avatarFrameSrc ? 'has-frame' : '';
     const avatarGroupHtml = `<div class="avatar-group ${hasFrameClass}">${avatarHtml}</div>`;
-
-    // ... 后续所有处理消息内容的代码 (contentHtml) 保持不变 ...
     
-    // =====================================================================
-    // 这部分代码省略，因为它们都是正确的，无需修改
-    // =====================================================================
     let contentHtml;
+    // ... [此处省略了所有处理消息内容的 case, 因为它们没有变化] ...
     if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
         
@@ -9966,12 +10052,9 @@ function createMessageElement(msg, chat) {
                         cardClass = 'opened';
                     }
 
-                    // 【【【这就是核心修复！】】】
-                    // 我们现在使用 getDisplayNameInGroup 函数来获取接收者正确的群昵称
                     if (msg.packetType === 'direct') {
                         const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
                         typeText = `专属红包: 给 ${receiverDisplayName}`;
-                        // 专属红包只要被领取了，就视为'opened'
                         if (Object.keys(msg.claimedBy || {}).length > 0) {
                             cardClass = 'opened';
                         }
@@ -10066,11 +10149,32 @@ function createMessageElement(msg, chat) {
         const avatarGroupEl = wrapper.querySelector('.avatar-group'); 
         if (avatarGroupEl) {
             avatarGroupEl.style.cursor = 'pointer';
-            avatarGroupEl.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const characterOriginalName = chat.isGroup ? msg.senderName : chat.originalName;
-                handleUserPat(chat.id, characterOriginalName);
-            });
+
+            if (!chat.isGroup) {
+                // 单聊：单击打开角色洞察
+                avatarGroupEl.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showCharacterProfileModal(chat.id);
+                });
+
+                // ▼▼▼ 在这里开始修改 ▼▼▼
+                // 单聊和群聊都使用我们新的双击监听器来“拍一拍”
+                addDoubleTapListener(avatarGroupEl, (e) => {
+                    e.stopPropagation();
+                    const characterOriginalName = chat.isGroup ? msg.senderName : chat.originalName;
+                    handleUserPat(chat.id, characterOriginalName);
+                });
+                // ▲▲▲ 修改结束 ▲▲▲
+            } else {
+                // ▼▼▼ 在这里开始修改 ▼▼▼
+                // 群聊的头像也使用新的双击监听器
+                addDoubleTapListener(avatarGroupEl, (e) => {
+                    e.stopPropagation();
+                    const characterOriginalName = msg.senderName;
+                    handleUserPat(chat.id, characterOriginalName);
+                });
+                // ▲▲▲ 修改结束 ▲▲▲
+            }
         }
     }
 
@@ -10800,6 +10904,11 @@ ${nameHistoryContext}
 5.  **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。比如，聊到一半你可能会说“我先去洗个澡”，然后更新你的状态。
 6.  **【【【最终手段】】】**: 只有在对话让你的角色感到不适、被冒犯或关系破裂时，你才可以使用 \`block_user\` 指令。这是一个非常严肃的操作，会中断你们的对话。
 7. **后台行为**: 你有几率在回复聊天内容的同时，执行一些“后台”操作来表现你的独立生活（发动态、评论、点赞、转发）。
+// ▼▼▼ 在这里添加新的规则 ▼▼▼
+8.  **【【【内心独白铁律】】】**: 在你生成所有其他行动指令之后，你【必须】在JSON数组的【最后】，添加一个 "update_thoughts" 指令，用来更新你角色的“心声”和“随笔”。这对于展现角色的深度至关重要。
+    - **心声 (heartfelt_voice)**: 必须是一句简短的、概括角色此刻最核心、最私密想法的话。
+    - **随笔 (random_jottings)**: 必须是一段50到100字之间、符合角色性格的文字，可以是日记、感想或思绪片段。
+// ▲▲▲ 新规则添加结束 ▲▲▲
 
 # 你的头像库
 - 你可以根据对话内容或你的心情，从下面的头像库中选择一个新头像来更换。
@@ -10839,6 +10948,9 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 -   **分享链接**: '{"type": "share_link", "title": "文章标题", "description": "文章摘要...", "source_name": "来源网站名", "content": "文章的【完整】正文内容..."}'
 -   **回应转账-接受**: '{"type": "accept_transfer", "for_timestamp": 1688888888888}'
 -   **回应转账-拒绝/退款**: '{"type": "decline_transfer", "for_timestamp": 1688888888888}'
+// ▼▼▼ 在这里添加新的指令 ▼▼▼
+-   **【【【全新】】】更新内心独白**: '{"type": "update_thoughts", "heartfelt_voice": "（角色此刻最核心、最私密的想法，一句话概括）", "random_jottings": "（一段符合角色性格的随笔、日记或摘抄，可以是对最近事件的感想，也可以是毫无关联的思绪。50-100字）"}'
+// ▲▲▲ 新指令添加结束 ▲▲▲
 
 # 关于“记录回忆”的特别说明：
 -   在对话中，如果发生了对你而言意义非凡的事件（比如用户向你表白、你们达成了某个约定、或者你度过了一个特别开心的时刻），你可以使用'create_memory'指令来“写日记”。
@@ -11053,6 +11165,18 @@ ${contextSummaryForApproval}
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
 
             switch (msgData.type) {
+// ▼▼▼ 在这里添加新的 case ▼▼▼
+case 'update_thoughts':
+    if (!chat.isGroup) { // 确保只在单聊中生效
+        if (msgData.heartfelt_voice) {
+            chat.heartfeltVoice = String(msgData.heartfelt_voice);
+        }
+        if (msgData.random_jottings) {
+            chat.randomJottings = String(msgData.random_jottings);
+        }
+    }
+    continue; // 这是一个后台操作，不需要生成可见消息，直接处理下一条指令
+// ▲▲▲ 新 case 添加结束 ▲▲▲
 case 'change_remark_name':
     if (!chat.isGroup && msgData.new_name) {
         const oldName = chat.name; 
@@ -11960,8 +12084,47 @@ function toggleMessageSelection(timestamp) {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
-        function addLongPressListener(element, callback) { let pressTimer; const startPress = (e) => { if(isSelectionMode) return; e.preventDefault(); pressTimer = window.setTimeout(() => callback(e), 500); }; const cancelPress = () => clearTimeout(pressTimer); element.addEventListener('mousedown', startPress); element.addEventListener('mouseup', cancelPress); element.addEventListener('mouseleave', cancelPress); element.addEventListener('touchstart', startPress, { passive: true }); element.addEventListener('touchend', cancelPress); element.addEventListener('touchmove', cancelPress); }
+        function addLongPressListener(element, callback) {
+    let pressTimer;
+    const startPress = (e) => {
+        if (isSelectionMode) return;
+        e.preventDefault();
+        pressTimer = window.setTimeout(() => callback(e), 500);
+    };
+    const cancelPress = () => clearTimeout(pressTimer);
+    element.addEventListener('mousedown', startPress);
+    element.addEventListener('mouseup', cancelPress);
+    element.addEventListener('mouseleave', cancelPress);
+    // 【核心修复】将 passive: true 改为 passive: false，以允许 preventDefault
+    element.addEventListener('touchstart', startPress, { passive: false });
+    element.addEventListener('touchend', cancelPress);
+    element.addEventListener('touchmove', cancelPress);
+}
+/**
+ * 【全新】为元素添加一个可靠的、兼容移动端的双击（双击）事件监听器
+ * @param {HTMLElement} element - 要绑定事件的DOM元素
+ * @param {Function} callback - 双击时要执行的回调函数
+ */
+function addDoubleTapListener(element, callback) {
+    // 使用元素的自定义属性来存储上一次点击的时间，避免使用全局变量
+    element.dataset.lastTap = 0;
+    
+    element.addEventListener('touchend', function(event) {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - (parseInt(element.dataset.lastTap) || 0);
+        
+        // 如果两次点击间隔小于300毫秒，则视为双击
+        if (tapLength < 300 && tapLength > 0) {
+            event.preventDefault(); // 阻止浏览器触发单击等其他事件
+            callback(event); // 执行回调
+        }
+        
+        element.dataset.lastTap = currentTime;
+    });
 
+    // 同时保留对桌面端的 dblclick 支持
+    element.addEventListener('dblclick', callback);
+}
         async function handleListenTogetherClick() { const targetChatId = state.activeChatId; if (!targetChatId) return; if (!musicState.isActive) { startListenTogetherSession(targetChatId); return; } if (musicState.activeChatId === targetChatId) { document.getElementById('music-player-overlay').classList.add('visible'); } else { const oldChatName = state.chats[musicState.activeChatId]?.name || '未知'; const newChatName = state.chats[targetChatId]?.name || '当前'; const confirmed = await showCustomConfirm('切换听歌对象', `您正和「${oldChatName}」听歌。要结束并开始和「${newChatName}」的新会话吗？`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await endListenTogetherSession(true); await new Promise(resolve => setTimeout(resolve, 50)); startListenTogetherSession(targetChatId); } } }
 
         async function startListenTogetherSession(chatId) { const chat = state.chats[chatId]; if (!chat) return; musicState.totalElapsedTime = chat.musicData.totalTime || 0; musicState.isActive = true; musicState.activeChatId = chatId; if (musicState.playlist.length > 0) { musicState.currentIndex = 0; } else { musicState.currentIndex = -1; } if(musicState.timerId) clearInterval(musicState.timerId); musicState.timerId = setInterval(() => { if (musicState.isPlaying) { musicState.totalElapsedTime++; updateElapsedTimeDisplay(); } }, 1000); updatePlayerUI(); updatePlaylistUI(); document.getElementById('music-player-overlay').classList.add('visible'); }
@@ -18158,7 +18321,38 @@ async function migrateOldRedPacketData() {
         console.log("未发现需要迁移的旧红包数据。");
     }
 }
+
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
+/**
+ * 【全新】显示角色洞察弹窗
+ * @param {string} chatId - 要显示的角色所在的聊天ID
+ */
+function showCharacterProfileModal(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || chat.isGroup) return;
+
+    // 填充数据
+    document.getElementById('profile-avatar').src = chat.settings.aiAvatar || defaultAvatar;
+    document.getElementById('profile-name').textContent = chat.name;
+    document.getElementById('profile-id').textContent = `ID: ${chat.originalName}`;
+    document.getElementById('profile-heartfelt-voice').textContent = chat.heartfeltVoice || '...';
+    document.getElementById('profile-random-jottings').textContent = chat.randomJottings || '...';
+    
+    const modal = document.getElementById('character-profile-modal');
+    
+    // 绑定进入聊天按钮
+    const enterChatBtn = document.getElementById('profile-enter-chat-btn');
+    // 使用克隆节点技巧，确保每次打开都绑定新的、干净的事件监听器
+    const newEnterChatBtn = enterChatBtn.cloneNode(true);
+    enterChatBtn.parentNode.replaceChild(newEnterChatBtn, enterChatBtn);
+    newEnterChatBtn.addEventListener('click', () => {
+        modal.classList.remove('visible');
+        openChat(chatId);
+    });
+
+    // 显示弹窗
+    modal.classList.add('visible');
+}
         // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -19650,6 +19844,12 @@ postsList.addEventListener('touchstart', handleSwipeStart, { passive: true }); /
 
 
             // ▼▼▼ 在 init() 函数的事件监听器区域，粘贴下面这两行 ▼▼▼
+document.getElementById('character-profile-modal').addEventListener('click', (e) => {
+    // 如果点击的是深色背景本身，而不是内容区域，就关闭弹窗
+    if (e.target.id === 'character-profile-modal') {
+        e.target.classList.remove('visible');
+    }
+});
 // ▼▼▼ 【全新】表情批量删除事件绑定 ▼▼▼
 document.getElementById('manage-stickers-btn').addEventListener('click', toggleStickerManagementMode);
 document.getElementById('delete-selected-stickers-btn').addEventListener('click', executeBatchDeleteStickers);
@@ -21160,5 +21360,28 @@ document.getElementById('cancel-call-message-action-btn').addEventListener('clic
         </div>
     </div>
 </div>
+<!-- ▼▼▼ 【全新】角色洞察弹窗 ▼▼▼ -->
+<div id="character-profile-modal" class="modal">
+    <div class="character-profile-content">
+        <div class="profile-header">
+            <img id="profile-avatar" src="">
+            <div class="profile-info">
+                <span id="profile-name"></span>
+                <span id="profile-id"></span>
+            </div>
+        </div>
+        <div class="profile-section heart-voice">
+            <label>心声</label>
+            <p id="profile-heartfelt-voice"></p>
+        </div>
+        <div class="profile-section random-jottings">
+            <label>随笔</label>
+            <p id="profile-random-jottings"></p>
+        </div>
+        <button id="profile-enter-chat-btn">进入聊天</button>
+    </div>
+</div>
+<!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
