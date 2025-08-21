@@ -6219,6 +6219,41 @@ input:checked + .slider:before {
     <div id="member-settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><span>编辑群成员</span></div><div class="modal-body">
     <div class="form-group"><label for="member-name-input">名字</label><input type="text" id="member-name-input"></div>
     <div class="form-group"><label for="member-persona-input">人设</label><textarea id="member-persona-input" rows="4"></textarea></div>
+            <!-- 【【【这就是我们新增的“挂载记忆”功能区！】】】 -->
+            <div class="form-group" id="member-memory-link-group">
+                <label>挂载聊天记忆 (可多选，仅对此角色生效)</label>
+                <div class="custom-multiselect">
+                    <div class="select-box">
+                        <span class="selected-options-text">-- 点击选择 --</span>
+                        <span class="arrow-down">▼</span>
+                    </div>
+                    <div id="member-memory-checkboxes-container" class="checkboxes-container">
+                        <!-- 聊天选项将由JS动态生成 -->
+                    </div>
+                </div>
+            </div>
+<!-- ▼▼▼ 在这里粘贴新代码 ▼▼▼ -->
+<!-- ▼▼▼ 在这里粘贴新代码 ▼▼▼ -->
+<div class="form-group">
+    <label style="display: flex; justify-content: space-between; align-items: center;">
+        <span>启用此角色的专属记忆挂载</span>
+        <input type="checkbox" id="member-memory-mount-toggle" style="width: auto; height: 20px;">
+    </label>
+</div>
+<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
+<div class.form-group id="member-world-book-link-group">
+    <label>关联世界书 (可多选，仅对此角色生效)</label>
+    <div class="custom-multiselect">
+        <div class="select-box">
+            <span class="selected-options-text">-- 点击选择 --</span>
+            <span class="arrow-down">▼</span>
+        </div>
+        <div id="member-world-book-checkboxes-container" class="checkboxes-container">
+            <!-- 世界书选项将由JS动态生成 -->
+        </div>
+    </div>
+</div>
+<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
     <div class="form-group"><label>头像</label><div class="avatar-upload"><img id="member-avatar-preview"><button onclick="document.getElementById('member-avatar-input').click()">上传头像</button><button class="change-frame-btn" data-type="member">更换头像框</button><input type="file" id="member-avatar-input" accept="image/*"></div></div>
     </div><div class="modal-footer"><button class="cancel" id="cancel-member-settings-btn">取消</button><button class="save" id="save-member-settings-btn">保存</button></div></div></div>
     
@@ -10419,6 +10454,10 @@ async function triggerAiResponse() {
         const lastMessage = chat.history.slice(-1)[0];
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
 
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        //            这就是本次修复的核心所在！
+        //  我们将通话决策的逻辑完全独立出来，并在处理后立刻返回。
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
         if (isVideoCallRequest) {
             console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
             
@@ -10463,14 +10502,66 @@ ${chat.settings.aiPersona}
                 const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
                 const responseArray = parseAiResponse(aiResponseContent);
 
-                chat.history.push(...responseArray.map(action => ({...action, isTemporary: true})));
+                // 直接处理返回的通话决策
+                let callHasBeenHandled = false;
+                for (const msgData of responseArray) {
+                    if (msgData.type === 'video_call_response') {
+                        videoCallState.isAwaitingResponse = false;
+                        if (msgData.decision === 'accept') {
+                            startVideoCall();
+                        } else {
+                            const aiMessage = { role: 'assistant', content: '对方拒绝了你的视频通话请求。', timestamp: Date.now() };
+                            chat.history.push(aiMessage);
+                            await db.chats.put(chat);
+                            showScreen('chat-interface-screen');
+                            renderChatInterface(chatId);
+                        }
+                        callHasBeenHandled = true;
+                        break;
+                    }
+                    if (msgData.type === 'group_call_response') {
+                        if (msgData.decision === 'join') {
+                            const member = chat.members.find(m => m.originalName === msgData.name);
+                            if (member && !videoCallState.participants.some(p => p.id === member.id)) {
+                                videoCallState.participants.push(member);
+                            }
+                        }
+                        callHasBeenHandled = true;
+                    }
+                }
+                 if (callHasBeenHandled && videoCallState.isGroupCall) {
+                    videoCallState.isAwaitingResponse = false;
+                    if (videoCallState.participants.length > 0) {
+                        startVideoCall();
+                    } else {
+                        videoCallState = { ...videoCallState, isAwaitingResponse: false, participants: [] };
+                        showScreen('chat-interface-screen');
+                        alert('无人接听群聊邀请。');
+                    }
+                }
 
             } catch (error) {
                 console.error("处理通话请求时API出错:", error);
                 const fallbackResponse = chat.isGroup ?
                     chat.members.map(m => ({type: "group_call_response", name: m.originalName, decision: "decline"})) :
                     [{type: "video_call_response", decision: "reject"}];
-                chat.history.push(...fallbackResponse.map(action => ({...action, isTemporary: true})));
+                // 模拟AI拒绝
+                 if (chat.isGroup) {
+                    videoCallState.isAwaitingResponse = false;
+                    videoCallState.participants = [];
+                    alert('无人接听群聊邀请。');
+                    showScreen('chat-interface-screen');
+                } else {
+                    const aiMessage = { role: 'assistant', content: '对方拒绝了你的视频通话请求。', timestamp: Date.now() };
+                    chat.history.push(aiMessage);
+                    await db.chats.put(chat);
+                    showScreen('chat-interface-screen');
+                    renderChatInterface(chatId);
+                }
+            } finally {
+                 // 无论成功失败，处理完通话请求后，都要重置状态并终止后续流程
+                setAvatarActingState(chatId, false);
+                return; // ★★★ 这就是最关键的修复点！★★★
             }
         }
 
@@ -10669,49 +10760,83 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
         if (chat.isGroup) {
-            let membersWithContacts = chat.members.map(member => {
-                const memberChat = state.chats[member.id];
-                let contactsText = "无共同好友";
-                if (memberChat && memberChat.groupId) {
-                    const friendChats = Object.values(state.chats).filter(c => 
-                        !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
-                    );
-                    if (friendChats.length > 0) {
-                        contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
-                    }
-                }
-                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
-            }).join('\n');
-            
-            const myNickname = chat.settings.myNickname || '我';
-            const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
-            
-            let announcementContext = '';
-            const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
-            if (pinnedAnnouncements.length > 0) {
-                announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
-                pinnedAnnouncements.forEach(anno => {
-                    const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
-                    if (originalMessage) {
-                        let contentText = String(originalMessage.content || '');
-                        if (originalMessage.type === 'ai_image') {
-                            contentText = `[图片内容: ${contentText}]`;
-                        }
-                        announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+// ▼▼▼ 【请用这一整块全新的代码】进行替换 ▼▼▼
+        const memoryCount = chat.settings.linkedMemoryCount || 10;
+        const membersWithMemoryAndContacts = chat.members.map(member => {
+            let contactsText = "无共同好友";
+            const memberChat = state.chats[member.id];
+            if (memberChat && memberChat.groupId) {
+                const friendChats = Object.values(state.chats).filter(c => !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId);
+                if (friendChats.length > 0) contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
+            }
+
+            let memberWorldBookContent = '';
+            if (member.linkedWorldBookIds && member.linkedWorldBookIds.length > 0) {
+                const linkedContents = member.linkedWorldBookIds.map(bookId => {
+                    const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                    return worldBook ? `\n--- 《${worldBook.name}》 ---\n${worldBook.content}` : '';
+                }).filter(Boolean).join('');
+                if (linkedContents) memberWorldBookContent = `\n[专属于“${member.groupNickname}”的世界书设定]:${linkedContents}`;
+            }
+
+            let memberMemoryContext = '';
+            if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
+                memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
+                member.linkedMemoryChatIds.forEach(linkedChatId => {
+                    const linkedChat = state.chats[linkedChatId];
+                    if (linkedChat) {
+                        const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                        memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
+                        const historyToInject = linkedChat.history.slice(-memoryCount);
+                        historyToInject.forEach(msg => {
+                            const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                            memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
+                        });
                     }
                 });
-                announcementContext += '---\n';
             }
-            const memberNames = chat.members.map(m => m.originalName);
-            const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+            
+            // ▼▼▼ 【【【这就是我们新增的日志输出！】】】 ▼▼▼
+            console.log(`正在为角色 “${member.groupNickname}” 注入专属记忆:`, memberMemoryContext);
+            // ▲▲▲ 【新增代码结束】 ▲▲▲
 
-            let groupAvatarLibraryContext = '# 可用群头像列表\n';
-            if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
-                groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
-            } else {
-                groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+            return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
+        }).join('\n');
+// ▲▲▲ 替换结束 ▲▲▲
+
+const myNickname = chat.settings.myNickname || '我';
+const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+
+let announcementContext = '';
+const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
+if (pinnedAnnouncements.length > 0) {
+    announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
+    pinnedAnnouncements.forEach(anno => {
+        const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+        if (originalMessage) {
+            let contentText = String(originalMessage.content || '');
+            if (originalMessage.type === 'ai_image') {
+                contentText = `[图片内容: ${contentText}]`;
             }
-            systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+            announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+        }
+    });
+    announcementContext += '---\n';
+}
+const memberNames = chat.members.map(m => m.originalName);
+const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+
+let groupAvatarLibraryContext = '# 可用群头像列表\n';
+if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
+    groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
+} else {
+    groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+}
+
+// 【重要】我们删除了旧的、统一的 worldBookContent 变量，因为它已被注入到每个角色中
+        systemPrompt = `
+# 你的任务
+你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 # 【【【全新】文本格式化指南】】】
@@ -10783,19 +10908,20 @@ ${forbiddenNamesContext}
 # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 - **群名称**: ${chat.name}
-${worldBookContent}
 ${musicContext}
 ${sharedContext} 
 ${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
-
 ${announcementContext}
-# 群成员列表、人设及社交背景 (至关重要！)
-你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
-${membersWithContacts}
+
+# 群成员列表、人设、世界书及【【【专属挂载记忆】】】(至关重要！)
+# 【【【全新铁律】】】你【必须】根据每个角色各自的专属记忆来决定他们的发言和行为。这些专属记忆的优先级高于普通的对话历史。当角色的专属记忆与当前群聊氛围冲突时，你应该展现出角色的内心矛盾或独特的视角。
+$ {membersWithMemoryAndContacts}
+
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+// ▲▲▲ 替换结束 ▲▲▲
 
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -13229,7 +13355,49 @@ async function triggerGroupAiAction(chatId) {
             }).join('\n');
         }
 
-        const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
+// ▼▼▼ 用下面这【一整块新代码】进行替换 ▼▼▼
+const memoryCount = chat.settings.linkedMemoryCount || 10;
+const membersWithMemoryAndContacts = chat.members.map(member => {
+    let contactsText = "无共同好友";
+    const memberChat = state.chats[member.id];
+    if (memberChat && memberChat.groupId) {
+        const friendChats = Object.values(state.chats).filter(c => !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId);
+        if (friendChats.length > 0) contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
+    }
+
+    let memberWorldBookContent = '';
+    if (member.linkedWorldBookIds && member.linkedWorldBookIds.length > 0) {
+        const linkedContents = member.linkedWorldBookIds.map(bookId => {
+            const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+            return worldBook ? `\n--- 《${worldBook.name}》 ---\n${worldBook.content}` : '';
+        }).filter(Boolean).join('');
+        if (linkedContents) memberWorldBookContent = `\n[专属于“${member.groupNickname}”的世界书设定]:${linkedContents}`;
+    }
+
+    let memberMemoryContext = '';
+    // 【【【核心修改就在这里！】】】
+    // 在挂载记忆前，先检查该角色的开关是否为开启状态
+    if (typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true) {
+        if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
+            memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
+            member.linkedMemoryChatIds.forEach(linkedChatId => {
+                const linkedChat = state.chats[linkedChatId];
+                if (linkedChat) {
+                    const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                    memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
+                    const historyToInject = linkedChat.history.slice(-memoryCount);
+                    historyToInject.forEach(msg => {
+                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                        memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
+                    });
+                }
+            });
+        }
+    }
+    
+    return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
+}).join('\n');
+// ▲▲▲ 替换结束 ▲▲▲
         let worldBookContent = '';
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -13241,44 +13409,7 @@ async function triggerGroupAiAction(chatId) {
             }
         }
 
-        let linkedMemoryContext = '';
-        const memoryCount = chat.settings.linkedMemoryCount || 10;
-        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
-                const linkedChat = state.chats[id];
-                if (!linkedChat) return null;
-                const lastMsg = linkedChat.history.slice(-1)[0];
-                return {
-                    chat: linkedChat,
-                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-                };
-            }).filter(Boolean); 
 
-            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
-            for (const item of linkedChatsWithTimestamps) {
-                const linkedChat = item.chat;
-                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-                const recentHistory = linkedChat.history.slice(-memoryCount);
-                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-                if (filteredHistory.length > 0) {
-                    filteredHistory.forEach(msg => {
-                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                        let contentText = String(msg.content);
-                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                        } else if (msg.type === 'voice_message') {
-                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                        }
-                        linkedMemoryContext += `${sender}: ${contentText}\n`;
-                    });
-                } else {
-                    linkedMemoryContext += "(暂无有效聊天记录)\n";
-                }
-            }
-        }
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
         let dynamicContext = "";
         
@@ -13349,6 +13480,7 @@ async function triggerGroupAiAction(chatId) {
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
 ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
 
+
 /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
@@ -13370,27 +13502,26 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
 -   **发起投票**: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
 -   **发起群视频**: '{"type": "group_call_request", "name": "角色本名"}'
-# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
+# 长期记忆 (最高优先级)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 # 当前群聊信息
 - **群名称**: ${chat.name}
-${worldBookContent}
-${linkedMemoryContext}
+${announcementContext}
 
-# 群成员列表及人设
-${membersList}
+# 【【【核心修改1】】】这里使用了我们新创建的、包含专属记忆的变量
+# 群成员列表、人设、世界书及【【【专属挂载记忆】】】(至关重要！)
+${membersWithMemoryAndContacts}
 
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
-
 # 最近的对话摘要 (供你参考)
 ${recentContextSummary}
 
-# 最近的动态列表 (供你参考和评论)
+# 【【【核心修改2】】】旧的统一挂载记忆变量已被删除
 ${dynamicContext}
-
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
+// ▲▲▲ 替换结束 ▲▲▲
     }
     // ★★★ 核心修复结束 ★★★
 
@@ -14538,6 +14669,9 @@ async function createNewMemberInGroup() {
         groupNickname: name.trim(),
         // 注意：avatar 和 avatarFrame 也是动态获取的，无需在此处存储
         persona: persona,
+    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+    enableMemoryMounting: true, // 新创建的角色默认开启记忆挂载
+    // ▲▲▲ 新代码粘贴结束 ▲▲▲
     };
 
     chat.members.push(newMember);
@@ -19021,22 +19155,74 @@ function openMemberEditor(memberId) {
     editingMemberId = memberId; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === memberId); 
-    if (!member) return; // 安全检查
+    if (!member) return;
 
     document.getElementById('member-name-input').value = member.groupNickname; 
     document.getElementById('member-persona-input').value = member.persona; 
     
-    // ★★★★★ 这就是【核心修复 ②】★★★★★
-    // 使用与上面完全相同的逻辑来获取并显示正确的当前头像。
     const memberAvatar = member.avatar || (state.chats[member.id] ? state.chats[member.id].settings.aiAvatar : defaultGroupMemberAvatar);
     document.getElementById('member-avatar-preview').src = memberAvatar;
 
+    // --- 【【【这是我们为“挂载记忆”新增的核心逻辑】】】 ---
+    const memorySelectBox = document.querySelector('#member-memory-link-group .select-box');
+    const memoryCheckboxesContainer = document.getElementById('member-memory-checkboxes-container');
+    memoryCheckboxesContainer.innerHTML = '';
+    const linkedMemoryIds = member.linkedMemoryChatIds || [];
+
+    Object.values(state.chats).forEach(c => {
+        if (c.id === state.activeChatId) return; // 不能挂载自己所在的群聊
+        const isChecked = linkedMemoryIds.includes(c.id);
+        const prefix = c.isGroup ? '[群聊]' : '[私聊]';
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`;
+        memoryCheckboxesContainer.appendChild(label);
+    });
+
+    function updateMemoryDisplay() {
+        const checkedBoxes = memoryCheckboxesContainer.querySelectorAll('input:checked');
+        const displayText = memorySelectBox.querySelector('.selected-options-text');
+        if (checkedBoxes.length === 0) displayText.textContent = '-- 点击选择 --';
+        else if (checkedBoxes.length > 2) displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
+        else displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
+    }
+    updateMemoryDisplay();
+    memorySelectBox.onclick = (e) => { e.stopPropagation(); memoryCheckboxesContainer.classList.toggle('visible'); memorySelectBox.classList.toggle('expanded'); };
+    memoryCheckboxesContainer.onchange = updateMemoryDisplay;
+    // --- 【挂载记忆逻辑结束】 ---
+
+
+    const worldBookSelectBox = document.querySelector('#member-world-book-link-group .select-box');
+    const worldBookCheckboxesContainer = document.getElementById('member-world-book-checkboxes-container');
+    worldBookCheckboxesContainer.innerHTML = '';
+    const linkedIds = member.linkedWorldBookIds || [];
+    if (state.worldBooks.length > 0) {
+        state.worldBooks.forEach(book => {
+            const isChecked = linkedIds.includes(book.id);
+            const label = document.createElement('label');
+            label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`;
+            worldBookCheckboxesContainer.appendChild(label);
+        });
+    }
+
+    function updateDisplay() {
+        const checkedBoxes = worldBookCheckboxesContainer.querySelectorAll('input:checked');
+        const displayText = worldBookSelectBox.querySelector('.selected-options-text');
+        if (checkedBoxes.length === 0) displayText.textContent = '-- 点击选择 --';
+        else if (checkedBoxes.length > 2) displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
+        else displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
+    }
+    updateDisplay();
+    worldBookSelectBox.onclick = (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); };
+    worldBookCheckboxesContainer.onchange = updateDisplay;
+// ▼▼▼ 在这里粘贴新代码 ▼▼▼
+document.getElementById('member-memory-mount-toggle').checked = typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true; // 默认开启
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
     document.getElementById('member-settings-modal').classList.add('visible'); 
 }
 // ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('cancel-member-settings-btn').addEventListener('click', () => { document.getElementById('member-settings-modal').classList.remove('visible'); editingMemberId = null; });
             // ▼▼▼ 将其【完整替换为】下面这段修正后的代码 ▼▼▼
-// ▼▼▼ 【最终修复版】请用这整块代码，完整替换旧的 'save-member-settings-btn' 事件监听器 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 'save-member-settings-btn' 事件监听器 ▼▼▼
 document.getElementById('save-member-settings-btn').addEventListener('click', async () => {
     if (!editingMemberId) return; 
     const chat = state.chats[state.activeChatId]; 
@@ -19050,24 +19236,28 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
     }
     member.groupNickname = newNickname; 
     member.persona = document.getElementById('member-persona-input').value; 
-    
+    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+member.enableMemoryMounting = document.getElementById('member-memory-mount-toggle').checked;
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
     const newAvatarUrl = document.getElementById('member-avatar-preview').src;
-
-    // ★★★★★ 这就是【核心修复】 ★★★★★
-    // 无论成员是“真角色”还是“纯NPC”，都【必须】将新头像URL直接保存在群聊的成员信息里。
     member.avatar = newAvatarUrl;
 
-    // 同时，如果这个成员是一个“真角色”，我们依然更新他的主配置，保持数据同步。
     const characterProfile = state.chats[member.id];
     if (characterProfile) {
         characterProfile.settings.aiAvatar = newAvatarUrl;
         await db.chats.put(characterProfile);
     }
     
-    // 将包含最新成员信息的【整个群聊对象】存回数据库，让NPC的头像得以永久保存。
+    // --- 【【【这是我们为“挂载记忆”新增的保存逻辑】】】 ---
+    const checkedMemories = document.querySelectorAll('#member-memory-checkboxes-container input:checked');
+    member.linkedMemoryChatIds = Array.from(checkedMemories).map(cb => cb.value);
+    // --- 【挂载记忆保存逻辑结束】 ---
+
+    const checkedBooks = document.querySelectorAll('#member-world-book-checkboxes-container input:checked');
+    member.linkedWorldBookIds = Array.from(checkedBooks).map(cb => cb.value);
+
     await db.chats.put(chat);
     
-    // 刷新UI并关闭弹窗
     renderGroupMemberSettings(chat.members); 
     document.getElementById('member-settings-modal').classList.remove('visible'); 
     editingMemberId = null;
