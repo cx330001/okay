@@ -10404,7 +10404,7 @@ function setAvatarActingState(chatId, isActing) {
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
 /**
- * 【V5.0 | 对话流重构版】触发AI响应的核心函数
+ * 【V5.1 | 错误处理优化版】触发AI响应的核心函数
  */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
@@ -10442,16 +10442,7 @@ async function triggerAiResponse() {
     try {
         const { proxyUrl, apiKey, model } = state.apiConfig;
         if (!proxyUrl || !apiKey || !model) {
-            alert('请先在API设置中配置反代地址、密钥并选择模型。');
-            if (chat.isGroup) {
-                if (typingIndicator) typingIndicator.style.display = 'none';
-            } else {
-                 if (chatHeaderTitle && state.chats[chatId]) {
-                    chatHeaderTitle.textContent = state.chats[chatId].name;
-                    chatHeaderTitle.classList.remove('typing-status');
-                }
-            }
-            return;
+            throw new Error('API未配置！请先在API设置中配置反代地址、密钥并选择模型。');
         }
 
         const lastMessage = chat.history.slice(-1)[0];
@@ -12148,23 +12139,26 @@ case 'change_avatar': {
         await db.chats.put(chat);
 
     } catch (error) {
-        chat.history = chat.history.filter(msg => !msg.isTemporary);
-        if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
-            chat.relationship.status = 'blocked_by_ai';
-            await showCustomAlert('申请失败', `AI在处理你的好友申请时出错了，请稍后重试。\n错误信息: ${error.message}`);
-        } else {
-            const errorContent = `[出错了: ${error.message}]`;
-            const errorMessage = { role: 'assistant', content: errorContent, timestamp: Date.now() };
-            if(chat.isGroup) errorMessage.senderName = "系统消息";
-            chat.history.push(errorMessage);
+        // --- ★★★ 这就是全新的、更优雅的错误处理！ ★★★ ---
+        console.error(`触发AI响应时发生错误:`, error);
+        
+        // 1. **不**再将错误消息写入历史记录
+        // chat.history.push(errorMessage); // <-- 这行代码被删除了！
+
+        // 2. 而是直接弹出一个临时的警告框告知用户
+        if (isViewingThisChat) { // 只在用户正看着这个聊天时弹窗，避免后台报错打扰
+            await showCustomAlert('哎呀，出错了！', `AI在思考时遇到了一个问题，没能成功回复。请检查你的API设置或网络连接。\n\n<i style="color: #888;">错误详情: ${error.message}</i>`);
         }
         
-        await db.chats.put(chat);        
-        videoCallState.isAwaitingResponse = false;
-
-        if(document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId) {
-            renderChatInterface(chatId);
+        // 3. 同样要处理好友申请失败的特殊情况
+        if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
+            chat.relationship.status = 'blocked_by_ai';
+            await db.chats.put(chat);
+            renderChatInterface(chatId); // 刷新UI以显示状态变化
         }
+        
+        // 4. 重置视频通话状态
+        videoCallState.isAwaitingResponse = false;
     } finally {
         setAvatarActingState(chatId, false);
 
@@ -21726,4 +21720,3 @@ document.getElementById('cancel-call-message-action-btn').addEventListener('clic
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
