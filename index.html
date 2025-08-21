@@ -10403,6 +10403,9 @@ function setAvatarActingState(chatId, isActing) {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
+/**
+ * 【V5.0 | 对话流重构版】触发AI响应的核心函数
+ */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -10454,10 +10457,6 @@ async function triggerAiResponse() {
         const lastMessage = chat.history.slice(-1)[0];
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
 
-        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-        //            这就是本次修复的核心所在！
-        //  我们将通话决策的逻辑完全独立出来，并在处理后立刻返回。
-        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
         if (isVideoCallRequest) {
             console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
             
@@ -10502,7 +10501,6 @@ ${chat.settings.aiPersona}
                 const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
                 const responseArray = parseAiResponse(aiResponseContent);
 
-                // 直接处理返回的通话决策
                 let callHasBeenHandled = false;
                 for (const msgData of responseArray) {
                     if (msgData.type === 'video_call_response') {
@@ -10545,7 +10543,6 @@ ${chat.settings.aiPersona}
                 const fallbackResponse = chat.isGroup ?
                     chat.members.map(m => ({type: "group_call_response", name: m.originalName, decision: "decline"})) :
                     [{type: "video_call_response", decision: "reject"}];
-                // 模拟AI拒绝
                  if (chat.isGroup) {
                     videoCallState.isAwaitingResponse = false;
                     videoCallState.participants = [];
@@ -10559,9 +10556,8 @@ ${chat.settings.aiPersona}
                     renderChatInterface(chatId);
                 }
             } finally {
-                 // 无论成功失败，处理完通话请求后，都要重置状态并终止后续流程
                 setAvatarActingState(chatId, false);
-                return; // ★★★ 这就是最关键的修复点！★★★
+                return;
             }
         }
 
@@ -10760,7 +10756,6 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
         if (chat.isGroup) {
-// ▼▼▼ 【请用这一整块全新的代码】进行替换 ▼▼▼
         const memoryCount = chat.settings.linkedMemoryCount || 10;
         const membersWithMemoryAndContacts = chat.members.map(member => {
             let contactsText = "无共同好友";
@@ -10780,29 +10775,28 @@ ${formattedHistory}
             }
 
             let memberMemoryContext = '';
-            if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
-                memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
-                member.linkedMemoryChatIds.forEach(linkedChatId => {
-                    const linkedChat = state.chats[linkedChatId];
-                    if (linkedChat) {
-                        const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                        memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
-                        const historyToInject = linkedChat.history.slice(-memoryCount);
-                        historyToInject.forEach(msg => {
-                            const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                            memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
-                        });
-                    }
-                });
+            if (typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true) {
+                if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
+                    memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
+                    member.linkedMemoryChatIds.forEach(linkedChatId => {
+                        const linkedChat = state.chats[linkedChatId];
+                        if (linkedChat) {
+                            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                            memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
+                            const historyToInject = linkedChat.history.slice(-memoryCount);
+                            historyToInject.forEach(msg => {
+                                const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                                memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
+                            });
+                        }
+                    });
+                }
             }
             
-            // ▼▼▼ 【【【这就是我们新增的日志输出！】】】 ▼▼▼
             console.log(`正在为角色 “${member.groupNickname}” 注入专属记忆:`, memberMemoryContext);
-            // ▲▲▲ 【新增代码结束】 ▲▲▲
 
             return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
         }).join('\n');
-// ▲▲▲ 替换结束 ▲▲▲
 
 const myNickname = chat.settings.myNickname || '我';
 const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
@@ -10833,12 +10827,16 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
     groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
 }
 
-// 【重要】我们删除了旧的、统一的 worldBookContent 变量，因为它已被注入到每个角色中
-        systemPrompt = `
+systemPrompt = `
 # 你的任务
 你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
+# 【【【对话节奏铁律 (至关重要！)】】】
+1.  **【【【模拟真人】】】**: 为了让对话更真实、更有“活人感”，你【必须】让同一个角色在一次回复中，连续发送【多条】短消息，就像真人在聊天时连续打字一样。
+2.  **【【【打破常规】】】**: 你【绝对不能】陷入“一人一句”的机械回复模式。群聊是动态的，有时一个角色可能会因为情绪激动或思考深入而连续说好几句话。
+3.  **【【【角色互动】】】**: 角色之间【必须】互相交流！他们可以互相提问、吐槽、附和或反驳，而不仅仅是回应用户的最后一条消息。这非常重要！
+4.  **【【【示例】】】**: 假设小B刚刚说完话，正确的对话流可能是这样的：\`[{"type": "text", "name": "角色A的本名", "content": "等一下！"}, {"type": "text", "name": "角色A的本名", "content": "@[[角色B的本名]] 你刚才说要去哪？"}, {"type": "text", "name": "角色C的本名", "content": "他要去打游戏啦，别管他。"}, {"type": "text", "name": "角色A的本名", "content": "不行，说好了今天一起的！"}]\` 这个例子展示了角色A的连续发言，以及角色C对角色A的直接回应，这才是生动的群聊。
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
 - \`**粗体文本**\` 会显示为 **粗体文本**。
@@ -10921,7 +10919,6 @@ $ {membersWithMemoryAndContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-// ▲▲▲ 替换结束 ▲▲▲
 
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -11115,11 +11112,9 @@ ${nameHistoryContext}
 5.  **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。比如，聊到一半你可能会说“我先去洗个澡”，然后更新你的状态。
 6.  **【【【最终手段】】】**: 只有在对话让你的角色感到不适、被冒犯或关系破裂时，你才可以使用 \`block_user\` 指令。这是一个非常严肃的操作，会中断你们的对话。
 7. **后台行为**: 你有几率在回复聊天内容的同时，执行一些“后台”操作来表现你的独立生活（发动态、评论、点赞、转发）。
-// ▼▼▼ 在这里添加新的规则 ▼▼▼
 8.  **【【【内心独白铁律】】】**: 在你生成所有其他行动指令之后，你【必须】在JSON数组的【最后】，添加一个 "update_thoughts" 指令，用来更新你角色的“心声”和“随笔”。这对于展现角色的深度至关重要。
     - **心声 (heartfelt_voice)**: 必须是一句简短的、概括角色此刻最核心、最私密想法的话。
     - **随笔 (random_jottings)**: 必须是一段50到100字之间、符合角色性格的文字，可以是日记、感想或思绪片段。
-// ▲▲▲ 新规则添加结束 ▲▲▲
 
 # 你的头像库
 - 你可以根据对话内容或你的心情，从下面的头像库中选择一个新头像来更换。
@@ -11159,9 +11154,7 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 -   **分享链接**: '{"type": "share_link", "title": "文章标题", "description": "文章摘要...", "source_name": "来源网站名", "content": "文章的【完整】正文内容..."}'
 -   **回应转账-接受**: '{"type": "accept_transfer", "for_timestamp": 1688888888888}'
 -   **回应转账-拒绝/退款**: '{"type": "decline_transfer", "for_timestamp": 1688888888888}'
-// ▼▼▼ 在这里添加新的指令 ▼▼▼
 -   **【【【全新】】】更新内心独白**: '{"type": "update_thoughts", "heartfelt_voice": "（角色此刻最核心、最私密的想法，一句话概括）", "random_jottings": "（一段符合角色性格的随笔、日记或摘抄，可以是对最近事件的感想，也可以是毫无关联的思绪。50-100字）"}'
-// ▲▲▲ 新指令添加结束 ▲▲▲
 
 # 关于“记录回忆”的特别说明：
 -   在对话中，如果发生了对你而言意义非凡的事件（比如用户向你表白、你们达成了某个约定、或者你度过了一个特别开心的时刻），你可以使用'create_memory'指令来“写日记”。
@@ -11376,7 +11369,6 @@ ${contextSummaryForApproval}
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
 
             switch (msgData.type) {
-// ▼▼▼ 在这里添加新的 case ▼▼▼
 case 'update_thoughts':
     if (!chat.isGroup) {
         if (msgData.heartfelt_voice) {
@@ -11385,7 +11377,6 @@ case 'update_thoughts':
         if (msgData.random_jottings) {
             chat.randomJottings = String(msgData.random_jottings);
         }
-        // 【核心】将新的心声和随笔存入历史记录
         if (!Array.isArray(chat.thoughtsHistory)) {
             chat.thoughtsHistory = [];
         }
@@ -11394,13 +11385,11 @@ case 'update_thoughts':
             randomJottings: chat.randomJottings,
             timestamp: Date.now()
         });
-        // 保持历史记录长度，防止无限增长
         if (chat.thoughtsHistory.length > 50) {
             chat.thoughtsHistory.shift();
         }
     }
     continue;
-// ▲▲▲ 新 case 添加结束 ▲▲▲
 case 'change_remark_name':
     if (!chat.isGroup && msgData.new_name) {
         const oldName = chat.name; 
@@ -13287,16 +13276,17 @@ case 'change_avatar': {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
+/**
+ * 【V4.0 | 对话节奏优化版】AI在群聊中的独立行动决策
+ */
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
-    // 【【【核心修改1：从群聊设置中读取冷却时间】】】
     const groupActionCooldownMinutes = chat.settings.actionCooldownMinutes || 10;
 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
-        // 【【【核心修改2：使用新的变量进行判断】】】
         if (minutesSinceLastAction < groupActionCooldownMinutes) {
             console.log(`群聊 "${chat.name}" 处于行动冷却中，本次独立行动跳过。`);
             return;
@@ -13310,14 +13300,11 @@ async function triggerGroupAiAction(chatId) {
     const myNickname = chat.settings.myNickname || '我';
     const now = new Date();
     
-    // ★★★ 核心修复开始 ★★★
     let systemPrompt;
     
-    // 1. 检查最近的消息，看是否有未领完的红包
-    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5); // 检查最近5条
+    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5);
     const unclaimedPacket = recentHistory.find(m => m.type === 'red_packet' && !m.isFullyClaimed);
 
-    // 2. 如果找到了未领完的红包，就生成一个专门的“抢红包”指令
     if (unclaimedPacket) {
         const senderDisplayName = getDisplayNameInGroup(chat, unclaimedPacket.senderName);
         console.log(`检测到群聊 "${chat.name}" 中有未领完的红包，正在生成抢红包指令...`);
@@ -13334,7 +13321,6 @@ async function triggerGroupAiAction(chatId) {
 现在，请立即执行抢红包操作！
 `;
     } else {
-        // 3. 如果没有红包事件，才执行原来的通用聊天逻辑
         const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
         let timeContextText = "群里已经安静很久了。";
         if (lastMessage) {
@@ -13355,7 +13341,6 @@ async function triggerGroupAiAction(chatId) {
             }).join('\n');
         }
 
-// ▼▼▼ 用下面这【一整块新代码】进行替换 ▼▼▼
 const memoryCount = chat.settings.linkedMemoryCount || 10;
 const membersWithMemoryAndContacts = chat.members.map(member => {
     let contactsText = "无共同好友";
@@ -13375,8 +13360,6 @@ const membersWithMemoryAndContacts = chat.members.map(member => {
     }
 
     let memberMemoryContext = '';
-    // 【【【核心修改就在这里！】】】
-    // 在挂载记忆前，先检查该角色的开关是否为开启状态
     if (typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true) {
         if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
             memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
@@ -13397,7 +13380,6 @@ const membersWithMemoryAndContacts = chat.members.map(member => {
     
     return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
 }).join('\n');
-// ▲▲▲ 替换结束 ▲▲▲
         let worldBookContent = '';
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -13480,18 +13462,10 @@ const membersWithMemoryAndContacts = chat.members.map(member => {
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
 ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
 
-
-/* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
-# 【【【全新】文本格式化指南】】】
-在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-- \`**粗体文本**\` 会显示为 **粗体文本**。
-- \`*斜体文本*\` 会显示为 *斜体文本*。
-- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-
-【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
-/* ▲▲▲ 替换结束 ▲▲▲ */
+# 对话节奏指南 (至关重要！)
+1.  **模拟真人**: 为了让对话更真实，你可以让【同一个角色】在一次回复中，连续发送【多条】短消息，就像真人在连续打字一样。
+2.  **避免机械**: 绝对不要陷入“一人一句”的机械模式。有时一个角色可能会因为激动或思考而连续说好几句话。
+3.  **【示例】**: \`[{"type": "text", "name": "角色A", "content": "哇！"}, {"type": "text", "name": "角色A", "content": "这是什么？"}, {"type": "text", "name": "小B", "content": "看起来好棒！"}]\`
 
 # 核心规则
 你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
@@ -13506,9 +13480,7 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 # 当前群聊信息
 - **群名称**: ${chat.name}
-${announcementContext}
 
-# 【【【核心修改1】】】这里使用了我们新创建的、包含专属记忆的变量
 # 群成员列表、人设、世界书及【【【专属挂载记忆】】】(至关重要！)
 ${membersWithMemoryAndContacts}
 
@@ -13517,14 +13489,11 @@ ${membersWithMemoryAndContacts}
 # 最近的对话摘要 (供你参考)
 ${recentContextSummary}
 
-# 【【【核心修改2】】】旧的统一挂载记忆变量已被删除
 ${dynamicContext}
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
-// ▲▲▲ 替换结束 ▲▲▲
     }
-    // ★★★ 核心修复结束 ★★★
-
+    
     try {
         const messagesPayload = [{ role: 'user', content: systemPrompt }];
         let isGemini = proxyUrl === GEMINI_API_URL;
@@ -13565,12 +13534,9 @@ ${dynamicContext}
             let aiMessage = null;
             const baseMessage = { role: 'assistant', senderName: action.name, timestamp: actionTimestamp++ };
 
-            // ★★★ 核心修复：处理 open_red_packet 指令 ★★★
             if (action.type === 'open_red_packet') {
                 const packetToOpen = chat.history.find(m => m.timestamp === action.packet_timestamp);
-                // 确保红包存在、没领完、且这个角色还没领过
                 if (packetToOpen && !packetToOpen.isFullyClaimed && !(packetToOpen.claimedBy && packetToOpen.claimedBy[action.name])) {
-                    // (这里的抢红包逻辑和用户抢红包的逻辑是完全一样的)
                     let claimedAmountAI = 0;
                     const remainingAmount = packetToOpen.totalAmount - Object.values(packetToOpen.claimedBy || {}).reduce((sum, val) => sum + val, 0);
                     const remainingCount = packetToOpen.count - Object.keys(packetToOpen.claimedBy || {}).length;
@@ -13586,7 +13552,6 @@ ${dynamicContext}
                         if (!packetToOpen.claimedBy) packetToOpen.claimedBy = {};
                         packetToOpen.claimedBy[action.name] = claimedAmountAI;
 
-                        // 创建对用户可见的系统消息
                         chat.history.push({
                             role: 'system',
                             type: 'pat_message',
@@ -13594,18 +13559,15 @@ ${dynamicContext}
                             timestamp: Date.now()
                         });
                         
-                        // 创建对AI隐藏的、告知结果的消息
                         let hiddenContentForAI = `[系统提示：你 (${senderDisplayName}) 成功抢到了 ${claimedAmountAI.toFixed(2)} 元。`;
                         if (Object.keys(packetToOpen.claimedBy).length >= packetToOpen.count) {
                             packetToOpen.isFullyClaimed = true;
-                            // 告知红包领完了
                             chat.history.push({
                                 role: 'system',
                                 type: 'pat_message',
                                 content: `${getDisplayNameInGroup(chat, packetToOpen.senderName)} 的红包已被领完`,
                                 timestamp: Date.now() + 1
                             });
-                            // 找出并告知手气王是谁
                             let luckyKing = { name: '', amount: -1 };
                             Object.entries(packetToOpen.claimedBy).forEach(([name, amount]) => {
                                 if (amount > luckyKing.amount) {
@@ -13626,10 +13588,9 @@ ${dynamicContext}
                         });
                     }
                 }
-                hasPerformedMajorAction = true; // 标记有重要行动
-                continue; // 处理完抢红包后，跳过本次循环，等待下一次tick来发表评论
+                hasPerformedMajorAction = true;
+                continue;
             }
-            // ★★★ 修复结束 ★★★
 
             switch (action.type) {
                 case 'qzone_post':
@@ -13715,7 +13676,6 @@ ${dynamicContext}
         renderChatList();
     }
 }
-
 
 
 
