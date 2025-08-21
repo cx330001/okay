@@ -10404,7 +10404,7 @@ function setAvatarActingState(chatId, isActing) {
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
 /**
- * 【V5.1 | 错误处理优化版】触发AI响应的核心函数
+ * 【V5.3 | 表情包菜单版】触发AI响应的核心函数
  */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
@@ -10449,6 +10449,7 @@ async function triggerAiResponse() {
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
 
         if (isVideoCallRequest) {
+            // ... (视频通话逻辑保持不变，此处省略以保持简洁)
             console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
             
             let callDecisionPrompt;
@@ -10553,6 +10554,7 @@ ${chat.settings.aiPersona}
         }
 
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
+            // ... (好友申请逻辑保持不变，此处省略)
             console.log(`为角色 "${chat.name}" 触发带理由的好友申请决策流程...`);
             const contextSummary = chat.history
                 .filter(m => !m.isHidden)
@@ -10618,6 +10620,7 @@ ${contextSummary || "（无有效对话记录）"}
             return; 
         }
 
+        // ... (systemPrompt 的其他部分构建逻辑保持不变，此处省略)
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
         let worldBookContent = '';
@@ -10818,16 +10821,31 @@ if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length 
     groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
 }
 
+// ▼▼▼ 【核心修改】在这里开始重构群聊的系统指令 ▼▼▼
+
+// 1. 生成表情包菜单
+let stickerListContext = '';
+if (state.userStickers && state.userStickers.length > 0) {
+    stickerListContext += '\n# 可用表情包列表 (你的表情包“菜单”)\n';
+    stickerListContext += '当你想要发送表情时，【必须】从下面的列表中【完整复制粘贴】一个JSON对象，并只修改"name"字段为你的角色本名。';
+    stickerListContext += state.userStickers.map(sticker => 
+        `- ${sticker.name}: \`{"type": "sticker", "name": "角色本名", "url": "${sticker.url}", "meaning": "${sticker.name}"}\``
+    ).join('\n');
+} else {
+    stickerListContext = '\n# 可用表情包列表\n- (你的表情包是空的，无法发送表情)';
+}
+
 systemPrompt = `
 # 你的任务
 你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
-# 【【【对话节奏铁律 (至关重要！)】】】
+# 【【【对话节奏与风格铁律 (至关重要！)】】】
 1.  **【【【模拟真人】】】**: 为了让对话更真实、更有“活人感”，你【必须】让同一个角色在一次回复中，连续发送【多条】短消息，就像真人在聊天时连续打字一样。
 2.  **【【【打破常规】】】**: 你【绝对不能】陷入“一人一句”的机械回复模式。群聊是动态的，有时一个角色可能会因为情绪激动或思考深入而连续说好几句话。
 3.  **【【【角色互动】】】**: 角色之间【必须】互相交流！他们可以互相提问、吐槽、附和或反驳，而不仅仅是回应用户的最后一条消息。这非常重要！
-4.  **【【【示例】】】**: 假设小B刚刚说完话，正确的对话流可能是这样的：\`[{"type": "text", "name": "角色A的本名", "content": "等一下！"}, {"type": "text", "name": "角色A的本名", "content": "@[[角色B的本名]] 你刚才说要去哪？"}, {"type": "text", "name": "角色C的本名", "content": "他要去打游戏啦，别管他。"}, {"type": "text", "name": "角色A的本名", "content": "不行，说好了今天一起的！"}]\` 这个例子展示了角色A的连续发言，以及角色C对角色A的直接回应，这才是生动的群聊。
+4.  **【【【多用表情】】】**: 不要忘记你拥有发送表情包的能力！在对话中频繁使用表情包来表达情绪、调节气氛，会让角色更加生动。
+5.  **【【【全新示例】】】**: 假设小B刚刚说完话，一个生动的对话流应该是这样的：\`[{"type": "text", "name": "角色A的本名", "content": "等一下！"}, {"type": "sticker", "name": "角色A的本名", "url": "https://files.catbox.moe/or8qf4.png", "meaning": "大惊失色"}, {"type": "text", "name": "角色C的本名", "content": "他要去打游戏啦，别管他。"}, {"type": "text", "name": "角色A的本名", "content": "不行，说好了今天一起的！"}]\` 这个例子展示了角色A连续使用【文字+表情】来表达强烈情绪，以及角色C对角色A的直接回应。
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
 - \`**粗体文本**\` 会显示为 **粗体文本**。
@@ -10867,7 +10885,6 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
 -   **【【【全新】】】切换歌曲**: '{"type": "change_music", "name": "你的角色本名", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
-- 发送表情: '{"type": "sticker", "name": "角色本名", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
 -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "图片的详细文字描述"}'
 -   **发送语音**: '{"type": "voice_message", "name": "角色本名", "content": "语音的文字内容"}'
 -   **发起外卖代付**: '{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
@@ -10886,7 +10903,7 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 -   **修改群头像**: '{"type": "change_group_avatar", "name": "你的角色本名", "avatar_name": "头像名"}' (头像名必须从下面的“可用群头像列表”中选择)
 # 如何区分图片与表情:
 -   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
--   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
+-   **表情 (sticker)**: 【【【全新铁律】】】你【必须】从下方的“可用表情包列表”中【完整复制粘贴】一个JSON对象来发送表情，【绝对不能】自己编造URL！
 # 如何处理群内的外卖代付请求:
 1.  **发起请求**: 当【你扮演的某个角色】想要某样东西，并希望【群里的其他人（包括用户）】为Ta付款时，你可以使用这个指令。例如：'{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
 2.  **响应请求**: 当历史记录中出现【其他成员】发起的 "waimai_request" 请求时，你可以根据自己扮演的角色的性格和与发起人的关系，决定是否为Ta买单。
@@ -10900,7 +10917,8 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 ${musicContext}
 ${sharedContext} 
 ${linkedMemoryContext}
-${groupAvatarLibraryContext} 
+${groupAvatarLibraryContext}
+${stickerListContext} 
 ${announcementContext}
 
 # 群成员列表、人设、世界书及【【【专属挂载记忆】】】(至关重要！)
@@ -10910,8 +10928,10 @@ $ {membersWithMemoryAndContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+// ▲▲▲ 核心修改结束 ▲▲▲
 
             messagesPayload = historySlice.map(msg => {
+                 // ... (这部分的消息格式化逻辑保持不变)
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
                 let prefix = `${sender}`;
                 prefix += ` (Timestamp: ${msg.timestamp})`;
@@ -10979,6 +10999,7 @@ $ {membersWithMemoryAndContacts}
             }).filter(Boolean);
 
         } else {
+             // ... (单聊的 systemPrompt 构建逻辑保持不变)
             let nameHistoryContext = '';
             if (chat.nameHistory && chat.nameHistory.length > 0) {
                 nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
@@ -12139,25 +12160,18 @@ case 'change_avatar': {
         await db.chats.put(chat);
 
     } catch (error) {
-        // --- ★★★ 这就是全新的、更优雅的错误处理！ ★★★ ---
         console.error(`触发AI响应时发生错误:`, error);
         
-        // 1. **不**再将错误消息写入历史记录
-        // chat.history.push(errorMessage); // <-- 这行代码被删除了！
-
-        // 2. 而是直接弹出一个临时的警告框告知用户
-        if (isViewingThisChat) { // 只在用户正看着这个聊天时弹窗，避免后台报错打扰
+        if (isViewingThisChat) {
             await showCustomAlert('哎呀，出错了！', `AI在思考时遇到了一个问题，没能成功回复。请检查你的API设置或网络连接。\n\n<i style="color: #888;">错误详情: ${error.message}</i>`);
         }
         
-        // 3. 同样要处理好友申请失败的特殊情况
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
             chat.relationship.status = 'blocked_by_ai';
             await db.chats.put(chat);
-            renderChatInterface(chatId); // 刷新UI以显示状态变化
+            renderChatInterface(chatId);
         }
         
-        // 4. 重置视频通话状态
         videoCallState.isAwaitingResponse = false;
     } finally {
         setAvatarActingState(chatId, false);
