@@ -12089,23 +12089,33 @@ case 'change_avatar': {
         await db.chats.put(chat);
 
     } catch (error) {
+        // ★★★★★ 这就是唯一的、核心的修改！ ★★★★★
+        
+        // 1. 移除所有修改和保存聊天记录的代码
         chat.history = chat.history.filter(msg => !msg.isTemporary);
+        
+        // 2. 检查是否是特殊情况（好友申请），如果是，则按原逻辑处理
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
             chat.relationship.status = 'blocked_by_ai';
             await showCustomAlert('申请失败', `AI在处理你的好友申请时出错了，请稍后重试。\n错误信息: ${error.message}`);
         } else {
-            const errorContent = `[出错了: ${error.message}]`;
-            const errorMessage = { role: 'assistant', content: errorContent, timestamp: Date.now() };
-            if(chat.isGroup) errorMessage.senderName = "系统消息";
-            chat.history.push(errorMessage);
+            // 3. 【核心】对于所有其他情况，只弹出错误提示框，不修改聊天记录
+            await showCustomAlert(
+                'API 调用失败', 
+                `发生了一个错误，AI未能成功响应。\n\n错误详情:\n${error.message}`
+            );
         }
         
-        await db.chats.put(chat);        
+        // 4. 不再向数据库保存注入了错误消息的chat对象，但如果好友申请状态变了，还是要保存
+        if (!chat.isGroup && chat.relationship?.status === 'blocked_by_ai') {
+             await db.chats.put(chat);        
+        }
+       
         videoCallState.isAwaitingResponse = false;
 
-        if(document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId) {
-            renderChatInterface(chatId);
-        }
+        // 5. 不再调用 renderChatInterface，因为它会重绘整个界面，
+        // 我们只想让 "正在输入" 状态消失，这在 finally 块中已经处理了。
+
     } finally {
         setAvatarActingState(chatId, false);
 
