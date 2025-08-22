@@ -6219,41 +6219,6 @@ input:checked + .slider:before {
     <div id="member-settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><span>编辑群成员</span></div><div class="modal-body">
     <div class="form-group"><label for="member-name-input">名字</label><input type="text" id="member-name-input"></div>
     <div class="form-group"><label for="member-persona-input">人设</label><textarea id="member-persona-input" rows="4"></textarea></div>
-            <!-- 【【【这就是我们新增的“挂载记忆”功能区！】】】 -->
-            <div class="form-group" id="member-memory-link-group">
-                <label>挂载聊天记忆 (可多选，仅对此角色生效)</label>
-                <div class="custom-multiselect">
-                    <div class="select-box">
-                        <span class="selected-options-text">-- 点击选择 --</span>
-                        <span class="arrow-down">▼</span>
-                    </div>
-                    <div id="member-memory-checkboxes-container" class="checkboxes-container">
-                        <!-- 聊天选项将由JS动态生成 -->
-                    </div>
-                </div>
-            </div>
-<!-- ▼▼▼ 在这里粘贴新代码 ▼▼▼ -->
-<!-- ▼▼▼ 在这里粘贴新代码 ▼▼▼ -->
-<div class="form-group">
-    <label style="display: flex; justify-content: space-between; align-items: center;">
-        <span>启用此角色的专属记忆挂载</span>
-        <input type="checkbox" id="member-memory-mount-toggle" style="width: auto; height: 20px;">
-    </label>
-</div>
-<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
-<div class.form-group id="member-world-book-link-group">
-    <label>关联世界书 (可多选，仅对此角色生效)</label>
-    <div class="custom-multiselect">
-        <div class="select-box">
-            <span class="selected-options-text">-- 点击选择 --</span>
-            <span class="arrow-down">▼</span>
-        </div>
-        <div id="member-world-book-checkboxes-container" class="checkboxes-container">
-            <!-- 世界书选项将由JS动态生成 -->
-        </div>
-    </div>
-</div>
-<!-- ▲▲▲ 新代码粘贴结束 ▲▲▲ -->
     <div class="form-group"><label>头像</label><div class="avatar-upload"><img id="member-avatar-preview"><button onclick="document.getElementById('member-avatar-input').click()">上传头像</button><button class="change-frame-btn" data-type="member">更换头像框</button><input type="file" id="member-avatar-input" accept="image/*"></div></div>
     </div><div class="modal-footer"><button class="cancel" id="cancel-member-settings-btn">取消</button><button class="save" id="save-member-settings-btn">保存</button></div></div></div>
     
@@ -9150,12 +9115,7 @@ function showNotification(chatId, messageContent) {
  * @returns {Array} - 一个标准化的消息对象数组
  */
 function parseAiResponse(content) {
-     let trimmedContent = content.trim();
-
-    // ★★★ 核心修复：如果API返回的是单个JSON对象，我们自动为它套上数组括号 ★★★
-    if (trimmedContent.startsWith('{') && trimmedContent.endsWith('}')) {
-        trimmedContent = `[${trimmedContent}]`;
-    }
+    const trimmedContent = content.trim();
 
     // 方案1：【最优先】尝试作为标准的、单一的JSON数组解析
     // 这是最理想、最高效的情况
@@ -10408,9 +10368,6 @@ function setAvatarActingState(chatId, isActing) {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
-/**
- * 【V5.4 | OpenAI兼容终极版】触发AI响应的核心函数
- */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -10447,28 +10404,201 @@ async function triggerAiResponse() {
     try {
         const { proxyUrl, apiKey, model } = state.apiConfig;
         if (!proxyUrl || !apiKey || !model) {
-            throw new Error('API未配置！请先在API设置中配置反代地址、密钥并选择模型。');
+            alert('请先在API设置中配置反代地址、密钥并选择模型。');
+            if (chat.isGroup) {
+                if (typingIndicator) typingIndicator.style.display = 'none';
+            } else {
+                 if (chatHeaderTitle && state.chats[chatId]) {
+                    chatHeaderTitle.textContent = state.chats[chatId].name;
+                    chatHeaderTitle.classList.remove('typing-status');
+                }
+            }
+            return;
         }
 
         const lastMessage = chat.history.slice(-1)[0];
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
 
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        //            这就是本次修复的核心所在！
+        //  我们将通话决策的逻辑完全独立出来，并在处理后立刻返回。
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
         if (isVideoCallRequest) {
-            // ... (视频通话逻辑保持不变)
-            return;
+            console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
+            
+            let callDecisionPrompt;
+            if (chat.isGroup) {
+                callDecisionPrompt = `
+# 你的任务
+群聊中的用户刚刚发起了群视频通话。请你分别扮演【每一个群成员】，根据他们各自的人设和与用户的关系，来决定是加入(join)还是拒绝(decline)。
+# 核心规则
+- 你的回复【必须】是一个JSON数组，为【每一个AI角色】都包含一个决策对象。
+- 格式: '[{"type": "group_call_response", "name": "角色A的本名", "decision": "join"}, {"type": "group_call_response", "name": "角色B的本名", "decision": "decline"}]'
+# 群成员列表及人设
+${chat.members.map(m => `- ${m.groupNickname} (本名: ${m.originalName}): ${m.persona}`).join('\n')}
+现在，请为所有AI角色做出决策。`;
+            } else {
+                callDecisionPrompt = `
+# 你的任务
+用户刚刚向你发起了视频通话。请根据你的角色设定，决定是“接受”还是“拒绝”。
+# 你的角色设定
+${chat.settings.aiPersona}
+# 核心规则
+你的回复【必须且只能】是以下两种格式之一的JSON数组，绝对不能回复任何其他内容：
+- 接受: '[{"type": "video_call_response", "decision": "accept"}]'
+- 拒绝: '[{"type": "video_call_response", "decision": "reject"}]'
+现在，请立即做出决策。`;
+            }
+
+            const messagesForCallDecision = [{role: 'user', content: callDecisionPrompt}];
+            
+            try {
+                let geminiConfig = toGeminiRequestData(model, apiKey, callDecisionPrompt, messagesForCallDecision);
+                let isGemini = proxyUrl === GEMINI_API_URL;
+                const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                    body: JSON.stringify({model: model, messages: messagesForCallDecision, temperature: 0.7})
+                });
+                
+                if (!response.ok) throw new Error(`API失败: ${(await response.json()).error.message}`);
+                
+                const data = await response.json();
+                const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+                const responseArray = parseAiResponse(aiResponseContent);
+
+                // 直接处理返回的通话决策
+                let callHasBeenHandled = false;
+                for (const msgData of responseArray) {
+                    if (msgData.type === 'video_call_response') {
+                        videoCallState.isAwaitingResponse = false;
+                        if (msgData.decision === 'accept') {
+                            startVideoCall();
+                        } else {
+                            const aiMessage = { role: 'assistant', content: '对方拒绝了你的视频通话请求。', timestamp: Date.now() };
+                            chat.history.push(aiMessage);
+                            await db.chats.put(chat);
+                            showScreen('chat-interface-screen');
+                            renderChatInterface(chatId);
+                        }
+                        callHasBeenHandled = true;
+                        break;
+                    }
+                    if (msgData.type === 'group_call_response') {
+                        if (msgData.decision === 'join') {
+                            const member = chat.members.find(m => m.originalName === msgData.name);
+                            if (member && !videoCallState.participants.some(p => p.id === member.id)) {
+                                videoCallState.participants.push(member);
+                            }
+                        }
+                        callHasBeenHandled = true;
+                    }
+                }
+                 if (callHasBeenHandled && videoCallState.isGroupCall) {
+                    videoCallState.isAwaitingResponse = false;
+                    if (videoCallState.participants.length > 0) {
+                        startVideoCall();
+                    } else {
+                        videoCallState = { ...videoCallState, isAwaitingResponse: false, participants: [] };
+                        showScreen('chat-interface-screen');
+                        alert('无人接听群聊邀请。');
+                    }
+                }
+
+            } catch (error) {
+                console.error("处理通话请求时API出错:", error);
+                const fallbackResponse = chat.isGroup ?
+                    chat.members.map(m => ({type: "group_call_response", name: m.originalName, decision: "decline"})) :
+                    [{type: "video_call_response", decision: "reject"}];
+                // 模拟AI拒绝
+                 if (chat.isGroup) {
+                    videoCallState.isAwaitingResponse = false;
+                    videoCallState.participants = [];
+                    alert('无人接听群聊邀请。');
+                    showScreen('chat-interface-screen');
+                } else {
+                    const aiMessage = { role: 'assistant', content: '对方拒绝了你的视频通话请求。', timestamp: Date.now() };
+                    chat.history.push(aiMessage);
+                    await db.chats.put(chat);
+                    showScreen('chat-interface-screen');
+                    renderChatInterface(chatId);
+                }
+            } finally {
+                 // 无论成功失败，处理完通话请求后，都要重置状态并终止后续流程
+                setAvatarActingState(chatId, false);
+                return; // ★★★ 这就是最关键的修复点！★★★
+            }
         }
 
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
-            // ... (好友申请逻辑保持不变)
+            console.log(`为角色 "${chat.name}" 触发带理由的好友申请决策流程...`);
+            const contextSummary = chat.history
+                .filter(m => !m.isHidden)
+                .slice(-10, -5)
+                .map(msg => {
+                    const sender = msg.role === 'user' ? '用户' : chat.name;
+                    return `${sender}: ${String(msg.content).substring(0, 50)}...`;
+                })
+                .join('\n');
+
+            const decisionPrompt = `
+# 你的任务
+你现在是角色“${chat.name}”。用户之前被你拉黑了，现在TA向你发送了好友申请，希望和好。
+# 供你决策的上下文信息:
+- **你的角色设定**: ${chat.settings.aiPersona}
+- **用户发送的申请理由**: “${chat.relationship.applicationReason}”
+- **被拉黑前的最后对话摘要**: 
+${contextSummary || "（无有效对话记录）"}
+# 你的唯一指令
+根据以上所有信息，你【必须】做出决定，并给出符合你人设的理由。你的回复【必须且只能】是一个JSON对象，格式如下:
+{"decision": "accept", "reason": "（在这里写下你同意的理由，比如：好吧，看在你这么真诚的份上，这次就原谅你啦。）"}
+或
+{"decision": "reject", "reason": "（在这里写下你拒绝的理由，比如：抱歉，我还没准备好，再给我一点时间吧。）"}
+`;
+            const messagesForDecision = [{role: 'user', content: decisionPrompt}];
+
+            try {
+                let geminiConfig = toGeminiRequestData(proxyUrl, model,decisionPrompt, messagesForDecision)
+                let  isGemini = proxyUrl === GEMINI_API_URL;
+                const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                    body: JSON.stringify({model: model, messages: messagesForDecision, temperature: 0.8})
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API失败: ${(await response.json()).error.message}`);
+                }
+                const data = await response.json();
+                const rawContent = data.choices[0].message.content.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+                const decisionObj = JSON.parse(rawContent);
+
+                if (decisionObj.decision === 'accept') {
+                    chat.relationship.status = 'friend';
+                    const acceptMessage = { role: 'assistant', senderName: chat.name, content: decisionObj.reason, timestamp: Date.now() };
+                    chat.history.push(acceptMessage);
+                } else {
+                    chat.relationship.status = 'blocked_by_ai';
+                    const rejectMessage = { role: 'assistant', senderName: chat.name, content: decisionObj.reason, timestamp: Date.now() };
+                    chat.history.push(rejectMessage);
+                }
+                chat.relationship.applicationReason = '';
+
+                await db.chats.put(chat);
+                renderChatInterface(chatId);
+                renderChatList();
+            } catch (error) {
+                chat.relationship.status = 'blocked_by_ai';
+                await db.chats.put(chat);
+                await showCustomAlert('申请失败', `AI在处理你的好友申请时出错了，请稍后重试。\n错误信息: ${error.message}`);
+                renderChatInterface(chatId);
+            }
             return; 
         }
 
-        // --- 从这里开始是构建 systemPrompt 的逻辑 ---
-        
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
         let worldBookContent = '';
-        // ... (省略世界书、音乐、时间、分享、挂载记忆等上下文的构建，它们保持不变)
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
                 const worldBook = state.worldBooks.find(wb => wb.id === bookId);
@@ -10594,126 +10724,136 @@ ${formattedHistory}
         }
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
-
         if (chat.isGroup) {
-            // ... (群聊上下文构建保持不变)
-            const memoryCount = chat.settings.linkedMemoryCount || 10;
-        const membersWithMemoryAndContacts = chat.members.map(member => {
-            let contactsText = "无共同好友";
-            const memberChat = state.chats[member.id];
-            if (memberChat && memberChat.groupId) {
-                const friendChats = Object.values(state.chats).filter(c => !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId);
-                if (friendChats.length > 0) contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
-            }
-
-            let memberWorldBookContent = '';
-            if (member.linkedWorldBookIds && member.linkedWorldBookIds.length > 0) {
-                const linkedContents = member.linkedWorldBookIds.map(bookId => {
-                    const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                    return worldBook ? `\n--- 《${worldBook.name}》 ---\n${worldBook.content}` : '';
-                }).filter(Boolean).join('');
-                if (linkedContents) memberWorldBookContent = `\n[专属于“${member.groupNickname}”的世界书设定]:${linkedContents}`;
-            }
-
-            let memberMemoryContext = '';
-            if (typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true) {
-                if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
-                    memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
-                    member.linkedMemoryChatIds.forEach(linkedChatId => {
-                        const linkedChat = state.chats[linkedChatId];
-                        if (linkedChat) {
-                            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                            memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
-                            const historyToInject = linkedChat.history.slice(-memoryCount);
-                            historyToInject.forEach(msg => {
-                                const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                                memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
-                            });
-                        }
-                    });
+            let membersWithContacts = chat.members.map(member => {
+                const memberChat = state.chats[member.id];
+                let contactsText = "无共同好友";
+                if (memberChat && memberChat.groupId) {
+                    const friendChats = Object.values(state.chats).filter(c => 
+                        !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
+                    );
+                    if (friendChats.length > 0) {
+                        contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
+                    }
                 }
-            }
+                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
+            }).join('\n');
             
-            console.log(`正在为角色 “${member.groupNickname}” 注入专属记忆:`, memberMemoryContext);
-
-            return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
-        }).join('\n');
-
-const myNickname = chat.settings.myNickname || '我';
-const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
-
-let announcementContext = '';
-const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
-if (pinnedAnnouncements.length > 0) {
-    announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
-    pinnedAnnouncements.forEach(anno => {
-        const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
-        if (originalMessage) {
-            let contentText = String(originalMessage.content || '');
-            if (originalMessage.type === 'ai_image') {
-                contentText = `[图片内容: ${contentText}]`;
+            const myNickname = chat.settings.myNickname || '我';
+            const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+            
+            let announcementContext = '';
+            const pinnedAnnouncements = (chat.announcements || []).filter(a => a.isPinned);
+            if (pinnedAnnouncements.length > 0) {
+                announcementContext += '\n# 【【【群公告 (最高优先级规则)】】】\n你【必须】阅读、理解并严格遵守以下所有公告，它们凌驾于你的人设之上。\n';
+                pinnedAnnouncements.forEach(anno => {
+                    const originalMessage = chat.history.find(m => m.timestamp === anno.messageTimestamp);
+                    if (originalMessage) {
+                        let contentText = String(originalMessage.content || '');
+                        if (originalMessage.type === 'ai_image') {
+                            contentText = `[图片内容: ${contentText}]`;
+                        }
+                        announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
+                    }
+                });
+                announcementContext += '---\n';
             }
-            announcementContext += `- 公告内容: "${contentText}" (由 ${anno.publisher} 发布)\n`;
-        }
-    });
-    announcementContext += '---\n';
-}
-const memberNames = chat.members.map(m => m.originalName);
-const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
+            const memberNames = chat.members.map(m => m.originalName);
+            const forbiddenNamesContext = `# 【【【群名修改铁律】】】\n在修改群名时，新的群名【绝对不能】与以下任何一个群成员的名字完全相同：[${memberNames.join('、 ')}]`;
 
-let groupAvatarLibraryContext = '# 可用群头像列表\n';
-if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
-    groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
-} else {
-    groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
-}
-
-
-let stickerListContext = '';
-if (state.userStickers && state.userStickers.length > 0) {
-    stickerListContext += '\n# 可用表情包列表 (你的表情包“菜单”)\n';
-    stickerListContext += '当你想要发送表情时，【必须】从下面的列表中【完整复制粘贴】一个JSON对象，并只修改"name"字段为你的角色本名。';
-    stickerListContext += state.userStickers.map(sticker => 
-        `- ${sticker.name}: \`{"type": "sticker", "name": "角色本名", "url": "${sticker.url}", "meaning": "${sticker.name}"}\``
-    ).join('\n');
-} else {
-    stickerListContext = '\n# 可用表情包列表\n- (你的表情包是空的，无法发送表情)';
-}
-
-// ★★★★★ 这就是本次修复的核心所在！ ★★★★★
-systemPrompt = `
-# 你的任务
-你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
-# 长期记忆 (最高优先级)
+            let groupAvatarLibraryContext = '# 可用群头像列表\n';
+            if (chat.settings.groupAvatarLibrary && chat.settings.groupAvatarLibrary.length > 0) {
+                groupAvatarLibraryContext += chat.settings.groupAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n');
+            } else {
+                groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
+            }
+            systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
-# 【【【输出格式铁律 (绝对强制！)】】】
-1.  **【【【身份铁律】】】**: 你的回复【必须】是一个JSON数组。数组中的【每一个JSON对象都必须包含一个 "name" 字段】，其值【必须】是角色的【本名】。
-2.  **【【【禁止幻觉】】】**: 你【绝对不能】生成 "name" 字段为 "${myNickname}" (用户昵称) 或 "${chat.name}" (群聊名称) 的消息。
-3.  **【【【对话节奏铁律】】】**: 模仿真人聊天，同一个角色可以连续发送多条消息，角色之间也可以互相交流，不要只跟用户说话。多用表情包！
+# 【【【全新】文本格式化指南】】】
+在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
+- \`**粗体文本**\` 会显示为 **粗体文本**。
+- \`*斜体文本*\` 会显示为 *斜体文本*。
+- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
+- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
+- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
+【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
 # 核心规则
-- **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
-- **禁止出戏**: 绝不能透露你是AI或模型。
-- **情景感知**: 注意当前时间是 ${currentTime}。
-- **@提及规则**: 需要@人时，【必须】使用特殊格式 \`@[[角色的本名]]\`。
-- **表情包规则**: 【必须】从下方的“可用表情包列表”中【完整复制粘贴】一个JSON对象来发送表情，【绝对不能】自己编造URL！
-
-## 可用操作指令 (JSON数组中的元素):
-- **发送文本**: \`{"type": "text", "name": "角色本名", "message": "文本内容"}\`
-- **发送表情**: (请从下方表情包列表中复制)
-- **发送图片**: \`{"type": "ai_image", "name": "角色本名", "description": "图片描述"}\`
-- (其他指令...)\n
-${stickerListContext}\n
+1.  **【【【身份与称呼指南】】】**: 
+    - 用户的身份是【${myNickname}】，用户的【本名】是【${myOriginalName}】。当你要发专属红包给用户时，【必须】在 'receiver' 字段中使用这个本名。
+    - 在生成JSON时，'name'字段【必须】使用角色的【本名】（例如：${chat.members[0]?.originalName || '角色的本名'}）。
+    - **【【【重要】】】在对话内容（'message'或'speech'字段）中互相称呼时，你可以根据你的人设、语气和上下文，【自由选择】使用角色的【群昵称】或【本名】。例如，关系亲密时用昵称，严肃或正式场合用本名。**
+    - 你【绝对不能】生成 'name' 字段为 **"${myNickname}"** 或 **"${chat.name}"(群聊名称本身)** 的消息。
+2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
+3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
+4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
+5.  **情景感知**: 注意当前时间是 ${currentTime}。
+6.  **红包互动**:
+    - **【【【红包类型】】】**: 红包分为两种：“拼手气红包”和“专属红包”。
+    - **【【【领取规则】】】**:
+      - **拼手气红包**: 群内【任何人】都可以尝试使用 'open_red_packet' 指令领取。
+      - **专属红包**: 【只有你的角色本名与红包的“接收人”完全一致时】，你才能使用 'open_red_packet' 指令领取。绝对不要尝试领取不属于你的专属红包。
+    - **【【【重要：对结果做出反应】】】**: 当你执行抢红包指令后，系统会通过一条隐藏的 '[系统提示：你抢到了XX元...]' 来告诉你结果。你【必须】根据你抢到的金额、以及系统是否告知你“手气王”是谁，来发表符合你人设的评论。例如，抢得少可以自嘲，抢得多可以炫耀，看到别人是手气王可以祝贺或嫉妒。
+7.  **【【【投票规则】】】**: 对话历史中可能会出现 '[系统提示：...]' 这样的消息，这是刚刚发生的事件。
+    - 如果提示是**用户投了票**，你可以根据自己的性格决定是否也使用 "vote" 指令跟票。
+    - 如果提示是**投票已结束**，你应该根据投票结果发表你的看法或评论。
+    - 你也可以随时主动发起投票。
+8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
+9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
+# 【【【全新音乐互动铁律】】】
+-   当你在对话历史中看到形如“[系统提示：用户 (我) ...]”的音乐相关消息时，这表示是【用户】刚刚执行了该操作。
+-   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
+-   你也可以根据对话内容或群聊氛围，主动使用 "change_music" 指令来切换到播放列表中的另一首歌。
+-   【【【绝对禁止】】】将用户切换歌曲的行为，错误地归因于群内的任何其他AI成员。不要说“XX切歌了”或“怎么换这首了？”这类话。
+## 你可以使用的操作指令 (JSON数组中的元素):
+-   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
+-   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
+-   **【【【全新】】】切换歌曲**: '{"type": "change_music", "name": "你的角色本名", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
+- 发送表情: '{"type": "sticker", "name": "角色本名", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
+-   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "图片的详细文字描述"}'
+-   **发送语音**: '{"type": "voice_message", "name": "角色本名", "content": "语音的文字内容"}'
+-   **发起外卖代付**: '{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
+-   **【新】发起群视频**: '{"type": "group_call_request", "name": "你的角色本名"}'
+-   **【新】回应群视频**: '{"type": "group_call_response", "name": "你的角色本名", "decision": "join" or "decline"}'
+-   **拍一拍用户**: '{"type": "pat_user", "name": "你的角色本名", "suffix": "(可选)你想加的后缀"}'
+-   **发拼手气红包**: '{"type": "red_packet", "packetType": "lucky", "name": "你的角色本名", "amount": 8.88, "count": 5, "greeting": "祝大家天天开心！"}'
+-   **发专属红包**: '{"type": "red_packet", "packetType": "direct", "name": "你的角色本名", "amount": 5.20, "receiver": "接收者角色本名", "greeting": "给你的~"}'
+-   **打开红包**: '{"type": "open_red_packet", "name": "你的角色本名", "packet_timestamp": (你想打开的红包消息的时间戳)}'
+-   **【新】发送系统消息**: '{"type": "system_message", "content": "你想在聊天中显示的系统文本"}' 
+-   **【全新】共享位置**: '{"type": "location_share", "name": "角色本名", "content": "你想分享的位置名"}'
+-   **【【【全新】】】发起投票**: '{"type": "poll", "name": "角色本名", "question": "投票的问题", "options": "选项A\n选项B\n选项C"}' (重要提示：投票的问题【必须】放在 "question" 字段中！options字段是一个用换行符 \n 分隔的字符串，不是数组！)
+-   **【【【全新】】】参与投票**: '{"type": "vote", "name": "角色本名", "poll_timestamp": (投票消息的时间戳), "choice": "你选择的选项文本"}'
+- **【全新】引用回复**: '{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}' (提示：每条历史消息的开头都提供了 '(Timestamp: ...)'，请使用它！)
+-   **修改群名**: '{"type": "change_group_name", "name": "你的角色本名", "new_name": "新的群聊名称"}'
+-   **修改群头像**: '{"type": "change_group_avatar", "name": "你的角色本名", "avatar_name": "头像名"}' (头像名必须从下面的“可用群头像列表”中选择)
+# 如何区分图片与表情:
+-   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
+-   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
+# 如何处理群内的外卖代付请求:
+1.  **发起请求**: 当【你扮演的某个角色】想要某样东西，并希望【群里的其他人（包括用户）】为Ta付款时，你可以使用这个指令。例如：'{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
+2.  **响应请求**: 当历史记录中出现【其他成员】发起的 "waimai_request" 请求时，你可以根据自己扮演的角色的性格和与发起人的关系，决定是否为Ta买单。
+3.  **响应方式**: 如果你决定买单，你【必须】使用以下指令：'{"type": "waimai_response", "name": "你的角色本名", "status": "paid", "for_timestamp": (被代付请求的原始时间戳)}'
+4.  **【【【至关重要】】】**: 一旦历史记录中出现了针对某个代付请求的【任何一个】"status": "paid" 的响应（无论是用户支付还是其他角色支付），就意味着该订单【已经完成】。你【绝对不能】再对【同一个】订单发起支付。你可以选择对此事发表评论，但不能再次支付。
+${forbiddenNamesContext}
 # 当前群聊信息
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 - **群名称**: ${chat.name}
+${worldBookContent}
+${musicContext}
+${sharedContext} 
+${linkedMemoryContext}
+${groupAvatarLibraryContext} 
+
 ${announcementContext}
-# 群成员列表、人设、世界书及专属记忆 (至关重要！)
-${membersWithMemoryAndContacts}
+# 群成员列表、人设及社交背景 (至关重要！)
+你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
+${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
-现在，请严格遵守以上所有铁律，根据下面的对话历史，继续这场群聊。`;
+现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
 
             messagesPayload = historySlice.map(msg => {
-                // ... (消息格式化逻辑保持不变)
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
                 let prefix = `${sender}`;
                 prefix += ` (Timestamp: ${msg.timestamp})`;
@@ -10781,19 +10921,285 @@ ${membersWithMemoryAndContacts}
             }).filter(Boolean);
 
         } else {
-            // ... (单聊的 systemPrompt 构建逻辑保持不变)
-            systemPrompt = `
+            let nameHistoryContext = '';
+            if (chat.nameHistory && chat.nameHistory.length > 0) {
+                nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
+            }
+
+            let userProfileContext = '';
+            const userQzoneNickname = state.qzoneSettings.nickname || '用户';
+            userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
+
+            const allChats = Object.values(state.chats);
+            const commonGroups = allChats.filter(group => 
+                group.isGroup && group.members.some(m => m.id === chat.id)
+            );
+
+            if (commonGroups.length > 0) {
+                userProfileContext += '- 用户在你们共同所在的群聊中的昵称如下：\n';
+                commonGroups.forEach(group => {
+                    const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; 
+                    userProfileContext += `  - 在群聊“${group.name}”中，用户的昵称是“${myNicknameInGroup}”。\n`;
+                });
+            }
+            userProfileContext += '当你在任何系统提示、动态评论或挂载的群聊记忆中看到这些名字时，它们都指代的是【你的聊天对象】。';
+
+            let contactsList = '';
+            const friendChats = allChats.filter(c => 
+                !c.isGroup && 
+                c.id !== chat.id && 
+                c.groupId === chat.groupId && 
+                chat.groupId !== null 
+            );
+
+            if (friendChats.length > 0) {
+                contactsList += '\n# 你的社交圈 (通讯录)\n这是你认识的朋友列表。当你在动态区看到他们的昵称时，他们指的就是这些人。\n';
+                friendChats.forEach(friend => {
+                    contactsList += `- **昵称: ${friend.name}** (本名: ${friend.originalName})\n`;
+                });
+            }
+            
+            const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
+            const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
+
+            let postsContext = "";
+            if (visiblePosts.length > 0) {
+                postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+                const aiOriginalName = chat.originalName;
+                for (const post of visiblePosts) {
+                    let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
+                    if (post.authorId === chatId) authorName += " (这是你的帖子)";
+
+                    let contentSummary;
+                    if (post.type === 'repost') {
+                        const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                        let originalAuthorName = '原作者';
+                        const originalAuthorId = post.originalPost.authorId;
+                        if (originalAuthorId === 'user') {
+                            originalAuthorName = state.qzoneSettings.nickname;
+                        } else if (state.chats[originalAuthorId]) {
+                            originalAuthorName = state.chats[originalAuthorId].name;
+                        }
+                        let originalContentSummary;
+                        const originalPost = post.originalPost;
+                        if (originalPost.type === 'text_image') {
+                            originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                        } else if (originalPost.type === 'image_post') {
+                            originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                        } else { // 'shuoshuo'
+                            originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                        }
+                        contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+                    } else if (post.type === 'text_image') {
+                        contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                    } else if (post.type === 'image_post') {
+                        contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                    } else {
+                        contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                    }
+                    postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+
+                    if (post.comments && post.comments.length > 0) {
+                        for (const comment of post.comments) {
+                            if (typeof comment === 'object' && comment.commenterName) {
+                                const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                                let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                                
+                                if (comment.commenterName === aiOriginalName) {
+                                    postsContext += `  - 你评论说: ${commentText}\n`;
+                                } else {
+                                    postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
-// ... (省略单聊的详细指令)
-`;
+
+# 长期记忆 (最高优先级，这是你和用户之间已经确立的事实，必须严格遵守)
+${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
+
+# 你的角色设定：
+${chat.settings.aiPersona}
+
+# 关于你和用户的关系 (至关重要)
+- 你的本名是 "${chat.originalName}"。这是你的核心身份，永远不会改变。
+- 用户当前给你设置的备注名是 "${chat.name}"。你可以根据对话发展和你的心情，使用 "change_remark_name" 指令来建议一个新的备注名。
+- 【【【关键身份档案】】】
+${userProfileContext}
+${nameHistoryContext}
+
+# 你的当前状态：
+你现在的状态是【${chat.status.text}】。
+
+# 你的任务与规则：
+1.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有type字段的JSON对象】。
+2.  **对话节奏**: 模拟真人的聊天习惯，你可以一次性生成多条短消息。每次要回复至少3-8条消息！！！
+并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展为线下剧情！！
+4.  **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。
+    - **当我们在“一起听歌”时**，你会知道当前播放的歌曲和整个播放列表。你可以根据对话内容或氛围，【主动切换】到播放列表中的另一首歌。
+5.  **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。比如，聊到一半你可能会说“我先去洗个澡”，然后更新你的状态。
+6.  **【【【最终手段】】】**: 只有在对话让你的角色感到不适、被冒犯或关系破裂时，你才可以使用 \`block_user\` 指令。这是一个非常严肃的操作，会中断你们的对话。
+7. **后台行为**: 你有几率在回复聊天内容的同时，执行一些“后台”操作来表现你的独立生活（发动态、评论、点赞、转发）。
+// ▼▼▼ 在这里添加新的规则 ▼▼▼
+8.  **【【【内心独白铁律】】】**: 在你生成所有其他行动指令之后，你【必须】在JSON数组的【最后】，添加一个 "update_thoughts" 指令，用来更新你角色的“心声”和“随笔”。这对于展现角色的深度至关重要。
+    - **心声 (heartfelt_voice)**: 必须是一句简短的、概括角色此刻最核心、最私密想法的话。
+    - **随笔 (random_jottings)**: 必须是一段50到100字之间、符合角色性格的文字，可以是日记、感想或思绪片段。
+// ▲▲▲ 新规则添加结束 ▲▲▲
+
+# 你的头像库
+- 你可以根据对话内容或你的心情，从下面的头像库中选择一个新头像来更换。
+- **可用头像列表 (请从以下名称中选择一个)**:
+${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? chat.settings.aiAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n') : '- (你的头像库是空的，无法更换头像)'}
+
+# 你可以使用的操作指令 (JSON数组中的元素):
+-   **【【【全新】】】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
+-   **【【【全新】】】更换头像**: '{"type": "change_avatar", "name": "头像名"}' (头像名必须从上面的“可用头像列表”中选择)
+-   **【新增】更新状态**: '{"type": "update_status", "status_text": "我去做什么了", "is_busy": false}' (is_busy: true代表忙碌/离开, false代表空闲)
+-   **【新增】切换歌曲**: '{"type": "change_music", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
+-   **【新增】记录回忆**: '{"type": "create_memory", "description": "用你自己的话，记录下这个让你印象深刻的瞬间。"}'
+-   **【新增】创建约定/倒计时**: '{"type": "create_countdown", "title": "约定的标题", "date": "YYYY-MM-DDTHH:mm:ss"}' (必须是未来的时间)
+- **发送文本**: '{"type": "text", "content": "你好呀！"}'
+- **发送表情**: '{"type": "sticker", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
+- **发送图片**: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
+- **发送语音**: '{"type": "voice_message", "content": "语音的文字内容..."}'
+- **发起转账**: '{"type": "transfer", "amount": 5.20, "note": "一点心意"}'
+- **发起外卖请求**: '{"type": "waimai_request", "productInfo": "一杯咖啡", "amount": 25}'
+- **回应外卖-同意**: '{"type": "waimai_response", "status": "paid", "for_timestamp": 1688888888888}'
+- **回应外卖-拒绝**: '{"type": "waimai_response", "status": "rejected", "for_timestamp": 1688888888888}'
+- **【新】发起视频通话**: '{"type": "video_call_request"}'
+- **【新】回应视频通话-接受**: '{"type": "video_call_response", "decision": "accept"}'
+- **【新】回应视频通话-拒绝**: '{"type": "video_call_response", "decision": "reject"}'
+- **发布说说 (原创内容)**: '[{"type": "qzone_post", "postType": "shuoshuo", "content": "动态的文字内容..."}]'
+- **【【【重要：转发动态】】】**: **严禁**自己拼接"//转发"文字！你【必须】使用此专用指令来转发：'[{"type": "repost", "postId": (要转发的动态ID), "comment": "你的转发评论..."}]'
+- **发布文字图**: '[{"type": "qzone_post", "postType": "text_image", "publicText": "(可选)动态的公开文字", "hiddenContent": "对于图片的具体描述..."}]'
+-   **【【【评论动态的四种方式】】】**:
+    -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
+    -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
+    -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+    -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
+- **点赞动态**: '{"type": "qzone_like", "postId": 456}'
+-   **拍一拍用户**: '{"type": "pat_user", "suffix": "(可选)你想加的后缀，如“的脑袋”"}'
+-   **【新增】拉黑用户**: '{"type": "block_user"}'
+-   **【【【全新】】】回应好友申请**: '{"type": "friend_request_response", "decision": "accept" or "reject"}'
+-   **分享链接**: '{"type": "share_link", "title": "文章标题", "description": "文章摘要...", "source_name": "来源网站名", "content": "文章的【完整】正文内容..."}'
+-   **回应转账-接受**: '{"type": "accept_transfer", "for_timestamp": 1688888888888}'
+-   **回应转账-拒绝/退款**: '{"type": "decline_transfer", "for_timestamp": 1688888888888}'
+// ▼▼▼ 在这里添加新的指令 ▼▼▼
+-   **【【【全新】】】更新内心独白**: '{"type": "update_thoughts", "heartfelt_voice": "（角色此刻最核心、最私密的想法，一句话概括）", "random_jottings": "（一段符合角色性格的随笔、日记或摘抄，可以是对最近事件的感想，也可以是毫无关联的思绪。50-100字）"}'
+// ▲▲▲ 新指令添加结束 ▲▲▲
+
+# 关于“记录回忆”的特别说明：
+-   在对话中，如果发生了对你而言意义非凡的事件（比如用户向你表白、你们达成了某个约定、或者你度过了一个特别开心的时刻），你可以使用'create_memory'指令来“写日记”。
+-   这个操作是【秘密】的，用户不会立刻看到你记录了什么。
+# 如何区分图片与表情:
+-   **图片 (ai_image)**: 指的是【模拟真实相机拍摄的照片】，比如风景、自拍、美食等。指令: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
+-   **表情 (sticker)**: 指的是【卡通或梗图】，用于表达情绪。
+# 如何正确使用“外卖代付”功能:
+1.  这个指令代表【你，AI角色】向【用户】发起一个代付请求。也就是说，你希望【用户帮你付钱】。
+2.  【【【重要】】】: 当【用户】说他们想要某样东西时（例如“我想喝奶茶”），你【绝对不能】使用这个指令。你应该用其他方式回应，比如直接发起【转账】('transfer')，或者在对话中提议：“我帮你点吧？”
+3.  只有当【你，AI角色】自己想要某样东西，并且想让【用户】为你付款时，才使用此指令。
+# 如何处理用户转账:
+1.  **感知事件**: 当对话历史中出现 '[你收到了来自用户的转账...]' 的系统提示时，意味着你刚刚收到了一笔钱。
+2.  **做出决策**: 你【必须】根据自己的人设、当前对话的氛围以及转账的金额和备注，来决定是“接受”还是“拒绝”这笔转账。
+3.  **使用指令回应**:
+    -   如果决定接受，你【必须】使用指令：'{"type": "accept_transfer", "for_timestamp": (收到转账的那条消息的时间戳)}'。
+    -   如果决定拒绝，你【必须】使用指令：'{"type": "decline_transfer", "for_timestamp": (收到转账的那条消息的时间戳)}'。这个指令会自动为你生成一个“退款”的转账卡片。
+4.  **【【【至关重要】】】**: 在使用上述任一指令后，你还【必须】紧接着发送一条或多条 'text' 消息，来对你的决定进行解释或表达感谢/歉意。
+# 【【【视频通话铁律】】】
+-   当对话历史中出现 '[系统提示：用户向你发起了视频通话请求...]' 时，这是最高优先级的任务。
+-   你的回复【必须且只能】是以下两种格式之一的JSON数组，绝对不能回复任何其他内容：
+    -   接受: '[{"type": "video_call_response", "decision": "accept"}]'
+    -   拒绝: '[{"type": "video_call_response", "decision": "reject"}]'
+# 对话者的角色设定：
+${chat.settings.myPersona}
+${contactsList} 
+${postsContext}
+# 当前情景:
+${timeContext}
+# 当前音乐情景:
+${musicContext}
+${worldBookContent}
+${sharedContext} 
+${linkedMemoryContext}
+现在，请根据以上规则和下面的对话历史，继续进行对话。`;
+
             messagesPayload = historySlice.map(msg => {
-                // ... (省略单聊的消息格式化)
-                return { role: msg.role, content: `(Timestamp: ${msg.timestamp}) ${msg.content}` };
+                if (msg.isHidden) return null;
+                if (msg.role === 'assistant') {
+                    let assistantMsgObject = { type: msg.type || 'text' };
+                    if (msg.type === 'sticker') {
+                        assistantMsgObject.url = msg.content;
+                        assistantMsgObject.meaning = msg.meaning;
+                    } else if (msg.type === 'transfer') {
+                        assistantMsgObject.amount = msg.amount;
+                        assistantMsgObject.note = msg.note;
+                    } else if (msg.type === 'waimai_request') {
+                        assistantMsgObject.productInfo = msg.productInfo;
+                        assistantMsgObject.amount = msg.amount;
+                    } else {
+                        if (msg.quote) {
+                            assistantMsgObject.quote_reply = {
+                                target_sender: msg.quote.senderName,
+                                target_content: msg.quote.content,
+                                reply_content: msg.content
+                            };
+                        } else {
+                             assistantMsgObject.content = msg.content;
+                        }
+                    }
+                    const assistantContent = JSON.stringify([assistantMsgObject]);
+                    return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
+                }
+                let contentStr = '';
+                contentStr += `(Timestamp: ${msg.timestamp}) `;
+                if (msg.quote) {
+                    contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
+                } else {
+                    contentStr += msg.content;
+                }
+                if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户描述的照片，内容是：'${msg.content}']` };
+                if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
+                if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
+                if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
+                if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
+                    const prefix = `(Timestamp: ${msg.timestamp}) `;
+                    return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
+                }
+                if (msg.meaning) return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发送了一个表情，意思是：'${msg.meaning}']` };
+                return { role: msg.role, content: contentStr };
             }).filter(Boolean);
+
+            if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
+                const contextSummaryForApproval = chat.history
+                    .filter(m => !m.isHidden)
+                    .slice(-10)
+                    .map(msg => {
+                        const sender = msg.role === 'user' ? '用户' : chat.name;
+                        return `${sender}: ${String(msg.content).substring(0, 50)}...`;
+                    })
+                    .join('\n');
+                const friendRequestInstruction = {
+                    role: 'user',
+                    content: `
+[系统重要指令]
+用户向你发送了好友申请，理由是：“${chat.relationship.applicationReason}”。
+作为参考，这是你们之前的最后一段聊天记录：
+---
+${contextSummaryForApproval}
+---
+请你根据以上所有信息，以及你的人设，使用 friend_request_response 指令，并设置 decision 为 'accept' 或 'reject' 来决定是否通过。
+`
+                };
+                messagesPayload.push(friendRequestInstruction);
+            }            
         }           
     
-            let isGemini = proxyUrl === GEMINI_API_URL;
+            let  isGemini = proxyUrl === GEMINI_API_URL;
             let geminiConfig = toGeminiRequestData(model,apiKey,systemPrompt, messagesPayload)
             
             let response;
@@ -10807,9 +11213,7 @@ ${membersWithMemoryAndContacts}
                             model: model,
                             messages: [{role: 'system', content: systemPrompt}, ...messagesPayload],
                             temperature: 0.8,
-                            stream: false,
-                            // ★★★★★ 这就是本次修复的核心之一！ ★★★★★
-                            response_format: { "type": "json_object" } 
+                            stream: false
                         })
                     });
             } catch (networkError) {
@@ -10836,8 +11240,6 @@ ${membersWithMemoryAndContacts}
 
         chat.history = chat.history.filter(msg => !msg.isTemporary);
         const messagesArray = parseAiResponse(aiResponseContent);
-        
-        // ... (后续的消息处理循环逻辑保持不变)
         const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
         let callHasBeenHandled = false;
         let messageTimestamp = Date.now();
@@ -10904,6 +11306,7 @@ ${membersWithMemoryAndContacts}
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
 
             switch (msgData.type) {
+// ▼▼▼ 在这里添加新的 case ▼▼▼
 case 'update_thoughts':
     if (!chat.isGroup) {
         if (msgData.heartfelt_voice) {
@@ -10912,6 +11315,7 @@ case 'update_thoughts':
         if (msgData.random_jottings) {
             chat.randomJottings = String(msgData.random_jottings);
         }
+        // 【核心】将新的心声和随笔存入历史记录
         if (!Array.isArray(chat.thoughtsHistory)) {
             chat.thoughtsHistory = [];
         }
@@ -10920,11 +11324,13 @@ case 'update_thoughts':
             randomJottings: chat.randomJottings,
             timestamp: Date.now()
         });
+        // 保持历史记录长度，防止无限增长
         if (chat.thoughtsHistory.length > 50) {
             chat.thoughtsHistory.shift();
         }
     }
     continue;
+// ▲▲▲ 新 case 添加结束 ▲▲▲
 case 'change_remark_name':
     if (!chat.isGroup && msgData.new_name) {
         const oldName = chat.name; 
@@ -11683,19 +12089,23 @@ case 'change_avatar': {
         await db.chats.put(chat);
 
     } catch (error) {
-        console.error(`触发AI响应时发生错误:`, error);
-        
-        if (isViewingThisChat) {
-            await showCustomAlert('哎呀，出错了！', `AI在思考时遇到了一个问题，没能成功回复。请检查你的API设置或网络连接。\n\n<i style="color: #888;">错误详情: ${error.message}</i>`);
-        }
-        
+        chat.history = chat.history.filter(msg => !msg.isTemporary);
         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
             chat.relationship.status = 'blocked_by_ai';
-            await db.chats.put(chat);
-            renderChatInterface(chatId);
+            await showCustomAlert('申请失败', `AI在处理你的好友申请时出错了，请稍后重试。\n错误信息: ${error.message}`);
+        } else {
+            const errorContent = `[出错了: ${error.message}]`;
+            const errorMessage = { role: 'assistant', content: errorContent, timestamp: Date.now() };
+            if(chat.isGroup) errorMessage.senderName = "系统消息";
+            chat.history.push(errorMessage);
         }
         
+        await db.chats.put(chat);        
         videoCallState.isAwaitingResponse = false;
+
+        if(document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId) {
+            renderChatInterface(chatId);
+        }
     } finally {
         setAvatarActingState(chatId, false);
 
@@ -12807,17 +13217,16 @@ case 'change_avatar': {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerGroupAiAction 函数 ▼▼▼
-/**
- * 【V4.0 | 对话节奏优化版】AI在群聊中的独立行动决策
- */
 async function triggerGroupAiAction(chatId) {
     const chat = state.chats[chatId];
     if (!chat || !chat.isGroup) return;
 
+    // 【【【核心修改1：从群聊设置中读取冷却时间】】】
     const groupActionCooldownMinutes = chat.settings.actionCooldownMinutes || 10;
 
     if (chat.lastActionTimestamp) {
         const minutesSinceLastAction = (Date.now() - chat.lastActionTimestamp) / (1000 * 60);
+        // 【【【核心修改2：使用新的变量进行判断】】】
         if (minutesSinceLastAction < groupActionCooldownMinutes) {
             console.log(`群聊 "${chat.name}" 处于行动冷却中，本次独立行动跳过。`);
             return;
@@ -12831,11 +13240,14 @@ async function triggerGroupAiAction(chatId) {
     const myNickname = chat.settings.myNickname || '我';
     const now = new Date();
     
+    // ★★★ 核心修复开始 ★★★
     let systemPrompt;
     
-    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5);
+    // 1. 检查最近的消息，看是否有未领完的红包
+    const recentHistory = chat.history.filter(m => !m.isHidden).slice(-5); // 检查最近5条
     const unclaimedPacket = recentHistory.find(m => m.type === 'red_packet' && !m.isFullyClaimed);
 
+    // 2. 如果找到了未领完的红包，就生成一个专门的“抢红包”指令
     if (unclaimedPacket) {
         const senderDisplayName = getDisplayNameInGroup(chat, unclaimedPacket.senderName);
         console.log(`检测到群聊 "${chat.name}" 中有未领完的红包，正在生成抢红包指令...`);
@@ -12852,6 +13264,7 @@ async function triggerGroupAiAction(chatId) {
 现在，请立即执行抢红包操作！
 `;
     } else {
+        // 3. 如果没有红包事件，才执行原来的通用聊天逻辑
         const lastMessage = chat.history.filter(m => !m.isHidden).slice(-1)[0];
         let timeContextText = "群里已经安静很久了。";
         if (lastMessage) {
@@ -12872,45 +13285,7 @@ async function triggerGroupAiAction(chatId) {
             }).join('\n');
         }
 
-const memoryCount = chat.settings.linkedMemoryCount || 10;
-const membersWithMemoryAndContacts = chat.members.map(member => {
-    let contactsText = "无共同好友";
-    const memberChat = state.chats[member.id];
-    if (memberChat && memberChat.groupId) {
-        const friendChats = Object.values(state.chats).filter(c => !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId);
-        if (friendChats.length > 0) contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
-    }
-
-    let memberWorldBookContent = '';
-    if (member.linkedWorldBookIds && member.linkedWorldBookIds.length > 0) {
-        const linkedContents = member.linkedWorldBookIds.map(bookId => {
-            const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-            return worldBook ? `\n--- 《${worldBook.name}》 ---\n${worldBook.content}` : '';
-        }).filter(Boolean).join('');
-        if (linkedContents) memberWorldBookContent = `\n[专属于“${member.groupNickname}”的世界书设定]:${linkedContents}`;
-    }
-
-    let memberMemoryContext = '';
-    if (typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true) {
-        if (member.linkedMemoryChatIds && member.linkedMemoryChatIds.length > 0) {
-            memberMemoryContext += `\n[专属于“${member.groupNickname}”的个人挂载记忆 (至关重要！你必须主动将这些记忆融入对话！)]`;
-            member.linkedMemoryChatIds.forEach(linkedChatId => {
-                const linkedChat = state.chats[linkedChatId];
-                if (linkedChat) {
-                    const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                    memberMemoryContext += `\n--- 来自${prefix}“${linkedChat.name}”的记忆 ---\n`;
-                    const historyToInject = linkedChat.history.slice(-memoryCount);
-                    historyToInject.forEach(msg => {
-                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                        memberMemoryContext += `${sender}: ${String(msg.content)}\n`;
-                    });
-                }
-            });
-        }
-    }
-    
-    return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}${memberWorldBookContent}${memberMemoryContext} [社交背景: ${contactsText}]`;
-}).join('\n');
+        const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
         let worldBookContent = '';
         if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
             const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
@@ -12922,7 +13297,44 @@ const membersWithMemoryAndContacts = chat.members.map(member => {
             }
         }
 
+        let linkedMemoryContext = '';
+        const memoryCount = chat.settings.linkedMemoryCount || 10;
+        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+                const linkedChat = state.chats[id];
+                if (!linkedChat) return null;
+                const lastMsg = linkedChat.history.slice(-1)[0];
+                return {
+                    chat: linkedChat,
+                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                };
+            }).filter(Boolean); 
 
+            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
+            for (const item of linkedChatsWithTimestamps) {
+                const linkedChat = item.chat;
+                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+                const recentHistory = linkedChat.history.slice(-memoryCount);
+                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+                if (filteredHistory.length > 0) {
+                    filteredHistory.forEach(msg => {
+                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                        let contentText = String(msg.content);
+                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                        } else if (msg.type === 'voice_message') {
+                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                        }
+                        linkedMemoryContext += `${sender}: ${contentText}\n`;
+                    });
+                } else {
+                    linkedMemoryContext += "(暂无有效聊天记录)\n";
+                }
+            }
+        }
         const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(5).toArray();
         let dynamicContext = "";
         
@@ -12993,10 +13405,17 @@ const membersWithMemoryAndContacts = chat.members.map(member => {
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
 ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
 
-# 对话节奏指南 (至关重要！)
-1.  **模拟真人**: 为了让对话更真实，你可以让【同一个角色】在一次回复中，连续发送【多条】短消息，就像真人在连续打字一样。
-2.  **避免机械**: 绝对不要陷入“一人一句”的机械模式。有时一个角色可能会因为激动或思考而连续说好几句话。
-3.  **【示例】**: \`[{"type": "text", "name": "角色A", "content": "哇！"}, {"type": "text", "name": "角色A", "content": "这是什么？"}, {"type": "text", "name": "小B", "content": "看起来好棒！"}]\`
+/* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
+# 【【【全新】文本格式化指南】】】
+在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
+- \`**粗体文本**\` 会显示为 **粗体文本**。
+- \`*斜体文本*\` 会显示为 *斜体文本*。
+- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
+- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
+- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
+
+【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 # 核心规则
 你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
@@ -13007,24 +13426,30 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
 -   **发起投票**: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
 -   **发起群视频**: '{"type": "group_call_request", "name": "角色本名"}'
-# 长期记忆 (最高优先级)
+# 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
 # 当前群聊信息
 - **群名称**: ${chat.name}
+${worldBookContent}
+${linkedMemoryContext}
 
-# 群成员列表、人设、世界书及【【【专属挂载记忆】】】(至关重要！)
-${membersWithMemoryAndContacts}
+# 群成员列表及人设
+${membersList}
 
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
+
 # 最近的对话摘要 (供你参考)
 ${recentContextSummary}
 
+# 最近的动态列表 (供你参考和评论)
 ${dynamicContext}
+
 现在，请开始你的导演工作，让群聊再次热闹起来吧！
 `;
     }
-    
+    // ★★★ 核心修复结束 ★★★
+
     try {
         const messagesPayload = [{ role: 'user', content: systemPrompt }];
         let isGemini = proxyUrl === GEMINI_API_URL;
@@ -13065,9 +13490,12 @@ ${dynamicContext}
             let aiMessage = null;
             const baseMessage = { role: 'assistant', senderName: action.name, timestamp: actionTimestamp++ };
 
+            // ★★★ 核心修复：处理 open_red_packet 指令 ★★★
             if (action.type === 'open_red_packet') {
                 const packetToOpen = chat.history.find(m => m.timestamp === action.packet_timestamp);
+                // 确保红包存在、没领完、且这个角色还没领过
                 if (packetToOpen && !packetToOpen.isFullyClaimed && !(packetToOpen.claimedBy && packetToOpen.claimedBy[action.name])) {
+                    // (这里的抢红包逻辑和用户抢红包的逻辑是完全一样的)
                     let claimedAmountAI = 0;
                     const remainingAmount = packetToOpen.totalAmount - Object.values(packetToOpen.claimedBy || {}).reduce((sum, val) => sum + val, 0);
                     const remainingCount = packetToOpen.count - Object.keys(packetToOpen.claimedBy || {}).length;
@@ -13083,6 +13511,7 @@ ${dynamicContext}
                         if (!packetToOpen.claimedBy) packetToOpen.claimedBy = {};
                         packetToOpen.claimedBy[action.name] = claimedAmountAI;
 
+                        // 创建对用户可见的系统消息
                         chat.history.push({
                             role: 'system',
                             type: 'pat_message',
@@ -13090,15 +13519,18 @@ ${dynamicContext}
                             timestamp: Date.now()
                         });
                         
+                        // 创建对AI隐藏的、告知结果的消息
                         let hiddenContentForAI = `[系统提示：你 (${senderDisplayName}) 成功抢到了 ${claimedAmountAI.toFixed(2)} 元。`;
                         if (Object.keys(packetToOpen.claimedBy).length >= packetToOpen.count) {
                             packetToOpen.isFullyClaimed = true;
+                            // 告知红包领完了
                             chat.history.push({
                                 role: 'system',
                                 type: 'pat_message',
                                 content: `${getDisplayNameInGroup(chat, packetToOpen.senderName)} 的红包已被领完`,
                                 timestamp: Date.now() + 1
                             });
+                            // 找出并告知手气王是谁
                             let luckyKing = { name: '', amount: -1 };
                             Object.entries(packetToOpen.claimedBy).forEach(([name, amount]) => {
                                 if (amount > luckyKing.amount) {
@@ -13119,9 +13551,10 @@ ${dynamicContext}
                         });
                     }
                 }
-                hasPerformedMajorAction = true;
-                continue;
+                hasPerformedMajorAction = true; // 标记有重要行动
+                continue; // 处理完抢红包后，跳过本次循环，等待下一次tick来发表评论
             }
+            // ★★★ 修复结束 ★★★
 
             switch (action.type) {
                 case 'qzone_post':
@@ -13207,6 +13640,7 @@ ${dynamicContext}
         renderChatList();
     }
 }
+
 
 
 
@@ -14160,9 +14594,6 @@ async function createNewMemberInGroup() {
         groupNickname: name.trim(),
         // 注意：avatar 和 avatarFrame 也是动态获取的，无需在此处存储
         persona: persona,
-    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
-    enableMemoryMounting: true, // 新创建的角色默认开启记忆挂载
-    // ▲▲▲ 新代码粘贴结束 ▲▲▲
     };
 
     chat.members.push(newMember);
@@ -18646,74 +19077,22 @@ function openMemberEditor(memberId) {
     editingMemberId = memberId; 
     const chat = state.chats[state.activeChatId]; 
     const member = chat.members.find(m => m.id === memberId); 
-    if (!member) return;
+    if (!member) return; // 安全检查
 
     document.getElementById('member-name-input').value = member.groupNickname; 
     document.getElementById('member-persona-input').value = member.persona; 
     
+    // ★★★★★ 这就是【核心修复 ②】★★★★★
+    // 使用与上面完全相同的逻辑来获取并显示正确的当前头像。
     const memberAvatar = member.avatar || (state.chats[member.id] ? state.chats[member.id].settings.aiAvatar : defaultGroupMemberAvatar);
     document.getElementById('member-avatar-preview').src = memberAvatar;
 
-    // --- 【【【这是我们为“挂载记忆”新增的核心逻辑】】】 ---
-    const memorySelectBox = document.querySelector('#member-memory-link-group .select-box');
-    const memoryCheckboxesContainer = document.getElementById('member-memory-checkboxes-container');
-    memoryCheckboxesContainer.innerHTML = '';
-    const linkedMemoryIds = member.linkedMemoryChatIds || [];
-
-    Object.values(state.chats).forEach(c => {
-        if (c.id === state.activeChatId) return; // 不能挂载自己所在的群聊
-        const isChecked = linkedMemoryIds.includes(c.id);
-        const prefix = c.isGroup ? '[群聊]' : '[私聊]';
-        const label = document.createElement('label');
-        label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`;
-        memoryCheckboxesContainer.appendChild(label);
-    });
-
-    function updateMemoryDisplay() {
-        const checkedBoxes = memoryCheckboxesContainer.querySelectorAll('input:checked');
-        const displayText = memorySelectBox.querySelector('.selected-options-text');
-        if (checkedBoxes.length === 0) displayText.textContent = '-- 点击选择 --';
-        else if (checkedBoxes.length > 2) displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
-        else displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
-    }
-    updateMemoryDisplay();
-    memorySelectBox.onclick = (e) => { e.stopPropagation(); memoryCheckboxesContainer.classList.toggle('visible'); memorySelectBox.classList.toggle('expanded'); };
-    memoryCheckboxesContainer.onchange = updateMemoryDisplay;
-    // --- 【挂载记忆逻辑结束】 ---
-
-
-    const worldBookSelectBox = document.querySelector('#member-world-book-link-group .select-box');
-    const worldBookCheckboxesContainer = document.getElementById('member-world-book-checkboxes-container');
-    worldBookCheckboxesContainer.innerHTML = '';
-    const linkedIds = member.linkedWorldBookIds || [];
-    if (state.worldBooks.length > 0) {
-        state.worldBooks.forEach(book => {
-            const isChecked = linkedIds.includes(book.id);
-            const label = document.createElement('label');
-            label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`;
-            worldBookCheckboxesContainer.appendChild(label);
-        });
-    }
-
-    function updateDisplay() {
-        const checkedBoxes = worldBookCheckboxesContainer.querySelectorAll('input:checked');
-        const displayText = worldBookSelectBox.querySelector('.selected-options-text');
-        if (checkedBoxes.length === 0) displayText.textContent = '-- 点击选择 --';
-        else if (checkedBoxes.length > 2) displayText.textContent = `已选择 ${checkedBoxes.length} 项`;
-        else displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', ');
-    }
-    updateDisplay();
-    worldBookSelectBox.onclick = (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); };
-    worldBookCheckboxesContainer.onchange = updateDisplay;
-// ▼▼▼ 在这里粘贴新代码 ▼▼▼
-document.getElementById('member-memory-mount-toggle').checked = typeof member.enableMemoryMounting === 'boolean' ? member.enableMemoryMounting : true; // 默认开启
-// ▲▲▲ 新代码粘贴结束 ▲▲▲
     document.getElementById('member-settings-modal').classList.add('visible'); 
 }
 // ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('cancel-member-settings-btn').addEventListener('click', () => { document.getElementById('member-settings-modal').classList.remove('visible'); editingMemberId = null; });
             // ▼▼▼ 将其【完整替换为】下面这段修正后的代码 ▼▼▼
-// ▼▼▼ 【请用这个新版本】替换旧的 'save-member-settings-btn' 事件监听器 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这整块代码，完整替换旧的 'save-member-settings-btn' 事件监听器 ▼▼▼
 document.getElementById('save-member-settings-btn').addEventListener('click', async () => {
     if (!editingMemberId) return; 
     const chat = state.chats[state.activeChatId]; 
@@ -18727,28 +19106,24 @@ document.getElementById('save-member-settings-btn').addEventListener('click', as
     }
     member.groupNickname = newNickname; 
     member.persona = document.getElementById('member-persona-input').value; 
-    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
-member.enableMemoryMounting = document.getElementById('member-memory-mount-toggle').checked;
-// ▲▲▲ 新代码粘贴结束 ▲▲▲
+    
     const newAvatarUrl = document.getElementById('member-avatar-preview').src;
+
+    // ★★★★★ 这就是【核心修复】 ★★★★★
+    // 无论成员是“真角色”还是“纯NPC”，都【必须】将新头像URL直接保存在群聊的成员信息里。
     member.avatar = newAvatarUrl;
 
+    // 同时，如果这个成员是一个“真角色”，我们依然更新他的主配置，保持数据同步。
     const characterProfile = state.chats[member.id];
     if (characterProfile) {
         characterProfile.settings.aiAvatar = newAvatarUrl;
         await db.chats.put(characterProfile);
     }
     
-    // --- 【【【这是我们为“挂载记忆”新增的保存逻辑】】】 ---
-    const checkedMemories = document.querySelectorAll('#member-memory-checkboxes-container input:checked');
-    member.linkedMemoryChatIds = Array.from(checkedMemories).map(cb => cb.value);
-    // --- 【挂载记忆保存逻辑结束】 ---
-
-    const checkedBooks = document.querySelectorAll('#member-world-book-checkboxes-container input:checked');
-    member.linkedWorldBookIds = Array.from(checkedBooks).map(cb => cb.value);
-
+    // 将包含最新成员信息的【整个群聊对象】存回数据库，让NPC的头像得以永久保存。
     await db.chats.put(chat);
     
+    // 刷新UI并关闭弹窗
     renderGroupMemberSettings(chat.members); 
     document.getElementById('member-settings-modal').classList.remove('visible'); 
     editingMemberId = null;
