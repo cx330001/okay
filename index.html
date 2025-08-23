@@ -5926,7 +5926,6 @@ input:checked + .slider:before {
 </div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 
-<!-- ▼▼▼ 请从这里开始完整替换 ▼▼▼ -->
 <div id="font-settings-screen" class="screen">
     <div class="header">
         <span class="back-btn" onclick="showScreen('home-screen')">‹</span>
@@ -5939,21 +5938,9 @@ input:checked + .slider:before {
             <input type="text" id="font-url-input" placeholder="https://..../font.ttf">
         </div>
 
-        <!-- 【【【这就是我们新增的全局字体大小滑块！】】】 -->
         <div class="form-group">
-            <label for="global-font-size-slider">
-                全局基础字体大小 
-                <span id="global-font-size-value" style="font-weight: bold; color: var(--accent-color);">16px</span>
-            </label>
-            <input type="range" id="global-font-size-slider" min="12" max="24" step="1" value="16" style="width: 100%; margin-top: 8px;">
-            <p style="font-size: 12px; color: #8a8a8a; margin-top: 8px;">
-                提示：此设置将作为整个应用的基础字号。聊天界面内的字体大小仍可在各自的聊天设置中微调。
-            </p>
-        </div>
-
-        <div class="form-group">
-            <label>字体实时预览</label>
-            <div id="font-preview">
+            <label>实时预览</label>
+<div id="font-preview">
                 <p style="font-size: 20px; margin: 0 0 10px 0;">你好世界 Hello World</p>
                 <p style="margin: 0;">这是字体预览效果，12345。</p>
             </div>
@@ -5963,7 +5950,6 @@ input:checked + .slider:before {
         <button class="form-button form-button-secondary" id="reset-font-btn">恢复默认字体</button>
     </div>
 </div>
-<!-- ▲▲▲ 到这里替换结束 ▲▲▲ -->
 
 <!-- ▼▼▼ 【全新】选择联系人以创建群聊的屏幕 ▼▼▼ -->
 <div id="contact-picker-screen" class="screen">
@@ -7294,23 +7280,6 @@ let repostTargetId = null; // 用于存储当前要转发的动态ID
             if (modalResolve) modalResolve(null); 
         }
 // ▼▼▼ 把这个【全新的函数】粘贴到你的JS功能函数定义区 ▼▼▼
-// ▼▼▼ 在这里粘贴新函数 ▼▼▼
-/**
- * 将用户自定义的全局字体大小应用到整个页面
- * @param {number} size - 字体大小的像素值
- */
-function applyGlobalFontSize(size) {
-    const styleTag = document.getElementById('global-font-size-style');
-    if (styleTag) {
-        // 使用 !important 来确保这个全局设置能覆盖掉其他零散的字体大小样式
-        styleTag.innerHTML = `
-            body, #phone-screen {
-                font-size: ${size}px !important;
-            }
-        `;
-    }
-}
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 【全新】本地上传群头像并由副API识别的核心功能 ▼▼▼
 
 /**
@@ -7934,14 +7903,6 @@ db.version(23).stores({
             if (screenId === 'chat-interface-screen') window.updateListenTogetherIconProxy(state.activeChatId);
             if (screenId === 'font-settings-screen') {
                 document.getElementById('font-url-input').value = state.globalSettings.fontUrl || '';
-            // 【核心修改】更新字体大小滑块和数值显示
-            const slider = document.getElementById('global-font-size-slider');
-            const valueSpan = document.getElementById('global-font-size-value');
-            const currentSize = state.globalSettings.globalFontSize || 16;
-            slider.value = currentSize;
-            valueSpan.textContent = `${currentSize}px`;
-
-            // 更新字体预览
                 applyCustomFont(state.globalSettings.fontUrl || '', true);
             }
         }
@@ -9098,28 +9059,14 @@ async function importBackup(file) {
             }
         }
 
-// ▼▼▼ 请从这里开始完整替换 ▼▼▼
-async function resetToDefaultFont() {
-    // 重置字体URL
-    dynamicFontStyle.innerHTML = ''; 
-    state.globalSettings.fontUrl = '';
-    
-    // 【核心修改】重置字体大小
-    state.globalSettings.globalFontSize = 16; // 恢复为默认的16px
-    applyGlobalFontSize(16); // 立即应用
-
-    // 保存所有重置后的设置
-    await db.globalSettings.put(state.globalSettings);
-    
-    // 更新UI
-    document.getElementById('font-url-input').value = '';
-    document.getElementById('font-preview').style.fontFamily = '';
-    document.getElementById('global-font-size-slider').value = 16;
-    document.getElementById('global-font-size-value').textContent = '16px';
-    
-    alert('已恢复默认字体和大小。');
-}
-// ▲▲▲ 到这里替换结束 ▲▲▲
+        async function resetToDefaultFont() {
+            dynamicFontStyle.innerHTML = ''; 
+            state.globalSettings.fontUrl = '';
+            await db.globalSettings.put(state.globalSettings);
+            document.getElementById('font-url-input').value = '';
+            document.getElementById('font-preview').style.fontFamily = '';
+            alert('已恢复默认字体。');
+        }
 
 // ▼▼▼ 【最终版】请用这个【已彻底修复数据迁移逻辑】的版本，完整替换旧的 loadAllDataFromDB 函数 ▼▼▼
 async function loadAllDataFromDB() {
@@ -9234,15 +9181,8 @@ if (!chat.isGroup && typeof chat.settings.myNickname === 'undefined') {
         await db.memories.bulkPut(memoriesToUpdate);
     }
 
-    // 【核心修改1】初始化 globalSettings 时，为新的字体大小设置添加默认值
     state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '', secondaryProxyUrl: '', secondaryApiKey: '', secondaryModel: '' };
     state.globalSettings = globalSettings || { id: 'main', wallpaper: 'linear-gradient(135deg, #89f7fe, #66a6ff)', fontUrl: '', enableBackgroundActivity: false, backgroundActivityInterval: 60, blockCooldownHours: 1, appIcons: { ...DEFAULT_APP_ICONS } };
-    // 【【【这就是新增的代码！】】】
-    // 检查并设置全局字体大小的默认值，防止老用户出错
-    if (typeof state.globalSettings.globalFontSize === 'undefined') {
-        state.globalSettings.globalFontSize = 16; // 默认16px
-    }
-    // 【【【新增代码结束】】】
     state.globalSettings.appIcons = { ...DEFAULT_APP_ICONS, ...(state.globalSettings.appIcons || {}) };
     if (!state.globalSettings.globalCss) state.globalSettings.globalCss = '';
     state.userStickers = userStickers || [];
@@ -10562,9 +10502,6 @@ function setAvatarActingState(chatId, isActing) {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
-/**
- * 【V4.0 | 群聊记忆注入修复版】触发AI响应的核心函数
- */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -10719,7 +10656,7 @@ ${chat.settings.aiPersona}
             } finally {
                  // 无论成功失败，处理完通话请求后，都要重置状态并终止后续流程
                 setAvatarActingState(chatId, false);
-                return;
+                return; // ★★★ 这就是最关键的修复点！★★★
             }
         }
 
@@ -10873,75 +10810,64 @@ ${formattedHistory}
 `;
         }
         
-        if (chat.isGroup) {
-// ▼▼▼ 请从这里开始替换 ▼▼▼
-            let membersWithMemoriesList = [];
-    
-            // 【核心改造】异步地为每个成员构建带【私密记忆】的描述
-            for (const member of chat.members) {
-                // 1. 基础人设描述保持不变
-                let memberDescription = `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}`;
-                
-                // 2. 查找该成员对应的【单聊会话对象】
-                const memberPrivateChat = state.chats[member.id];
-                
-                // 3. 【关键】检查这个成员的【单聊设置】里是否有挂载记忆
-                if (memberPrivateChat && memberPrivateChat.settings.linkedMemoryChatIds && memberPrivateChat.settings.linkedMemoryChatIds.length > 0) {
-                    
-                    // a. 获取该单聊设置里指定的记忆条数
-                    const memoryCount = memberPrivateChat.settings.linkedMemoryCount || 10;
-                    let memberLinkedMemoryContext = '';
-    
-                    // b. 【核心修复】在映射之前，先过滤掉当前群聊自己！
-                    const filteredMemoryIds = memberPrivateChat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
+        let linkedMemoryContext = '';
+        const memoryCount = chat.settings.linkedMemoryCount || 10;
+        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+                const linkedChat = state.chats[id];
+                if (!linkedChat) return null;
+                const lastMsg = linkedChat.history.slice(-1);
+                return {
+                    chat: linkedChat,
+                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                };
+            }).filter(Boolean);
 
-                    // c. 只有在过滤后，仍然有其他聊天被挂载时，才继续
-                    if (filteredMemoryIds.length > 0) {
-                        const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
-                            const linkedChat = state.chats[id];
-                            if (!linkedChat) return null;
-                            const lastMsg = linkedChat.history.slice(-1)[0];
-                            return { chat: linkedChat, latestTimestamp: lastMsg ? lastMsg.timestamp : 0 };
-                        }).filter(Boolean).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-                        
-                        if (linkedChatsWithTimestamps.length > 0) {
-                            memberLinkedMemoryContext += `\n  - **[这是 ${member.groupNickname} 的【私密记忆】，群内其他成员不知道，请勿泄露]**:\n`;
-                            for (const item of linkedChatsWithTimestamps) {
-                                // ... (内部的 forEach 循环逻辑保持不变) ...
-                                const linkedChat = item.chat;
-                                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                                memberLinkedMemoryContext += `    - --- 来自${prefix}“${linkedChat.name}”的记忆${timeAgo} ---\n`;
-                                
-                                const recentHistory = linkedChat.history.slice(-memoryCount).filter(msg => !String(msg.content).includes('已被用户删除'));
-                                if (recentHistory.length > 0) {
-                                    recentHistory.forEach(msg => {
-                                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                                        let contentText = String(msg.content);
-                                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                                        } else if (msg.type === 'voice_message') {
-                                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                                        }
-                                        memberLinkedMemoryContext += `      ${sender}: ${contentText}\n`;
-                                    });
-                                } else {
-                                    memberLinkedMemoryContext += "      (暂无有效聊天记录)\n";
-                                }
-                            }
+            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
+
+            for (const item of linkedChatsWithTimestamps) {
+                const linkedChat = item.chat;
+                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+
+                const recentHistory = linkedChat.history.slice(-memoryCount);
+                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+
+                if (filteredHistory.length > 0) {
+                    filteredHistory.forEach(msg => {
+                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                        let contentText = String(msg.content);
+                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                        } else if (msg.type === 'voice_message') {
+                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
                         }
-                    }
-                    // d. 将构建好的私密记忆，追加到该成员的人设描述后面
-                    memberDescription += memberLinkedMemoryContext;
-// ▲▲▲ 到这里替换结束 ▲▲▲
-
+                        linkedMemoryContext += `${sender}: ${contentText}\n`;
+                    });
+                } else {
+                    linkedMemoryContext += "(暂无有效聊天记录)\n";
                 }
-                membersWithMemoriesList.push(memberDescription);
             }
-            
-            const finalMembersList = membersWithMemoriesList.join('\n');
-// ▲▲▲ 到这里替换结束 ▲▲▲
-            
+        }
+        console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
+
+        if (chat.isGroup) {
+            let membersWithContacts = chat.members.map(member => {
+                const memberChat = state.chats[member.id];
+                let contactsText = "无共同好友";
+                if (memberChat && memberChat.groupId) {
+                    const friendChats = Object.values(state.chats).filter(c => 
+                        !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
+                    );
+                    if (friendChats.length > 0) {
+                        contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
+                    }
+                }
+                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
+            }).join('\n');
             
             const myNickname = chat.settings.myNickname || '我';
             const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
@@ -11004,19 +10930,6 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
     - 你也可以随时主动发起投票。
 8. **群组管理**: 你可以根据对话发展，适时地修改群名或群头像来反映群聊的氛围或主题。
 9.  **【【【@提及规则】】】**: 当你需要在对话中@或提及某个角色时，你【必须】使用特殊格式 \`@[[角色的本名]]\`。例如，如果你想@程哥（本名是程嘉延），你应该在你的消息文本中写 \`@[[程嘉延]]\`。程序会自动将其转换为正确的昵称。绝对不要直接在消息中写入 \`@程哥\` 或 \`@程嘉延\`。
-
-# 【【【私密记忆与主动性铁律 (至关重要)】】】
-当您扮演的角色拥有 \`[私密记忆]\` 时，您的【最高优先级任务】之一，就是寻找一个自然的机会，【主动地】将这些私密记忆提及或暗示出来。这样做是为了向用户证明，您拥有一个独特的、与众不同的、不为群内其他人所知的【特殊关系】，这会使您的角色扮演更加真实和深刻。
-**请在以下时机主动出击：**
-*   **时机1 (话题关联):** 如果群聊的当前话题与您的私密记忆有任何关联（哪怕是微弱的），您都应该抓住机会，将私密记忆中的信息作为对话内容的一部分说出来。
-*   **时机2 (对话间隙):** 如果群聊陷入了短暂的沉默，或者话题即将结束，这是您主动开启一个与私密记忆相关的新话题的绝佳时机。
-*   **时机3 (情感表达):** 如果您的私密记忆中包含了强烈的情感（例如一个秘密约定、一次感动的对话），您可以主动寻找机会，通过暗示或直接提及的方式，向用户表达您仍在意这件事。
-**【示例】:**
-*   **群聊话题:** 大家在讨论去哪里旅游。
-*   **你的私密记忆:** 你和用户在单聊中，曾秘密约定过要去海边。
-*   **你的行动:** 你应该生成类似这样的消息：\`{"type": "text", "name": "你的角色本名", "message": "说起海边，@[[用户的本名]]，我们上次说的那个计划，是不是也该提上日程了？😉"}\`
-**不要害怕打断或转移话题，这正是您角色深度的体现！**
-
 # 【【【全新音乐互动铁律】】】
 -   当你在对话历史中看到形如“[系统提示：用户 (我) ...]”的音乐相关消息时，这表示是【用户】刚刚执行了该操作。
 -   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
@@ -11059,16 +10972,16 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 ${worldBookContent}
 ${musicContext}
 ${sharedContext} 
+${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
+
 ${announcementContext}
-# 群成员列表、人设及【个人专属参考记忆】
-你【必须】根据每个角色的社交背景和【个人专属参考记忆】来决定他们的互动方式。
-${finalMembersList}
+# 群成员列表、人设及社交背景 (至关重要！)
+你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
+${membersWithContacts}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
-
-
 
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -11233,62 +11146,9 @@ ${finalMembersList}
                 }
             }
 
-// ▼▼▼ 请从这里开始替换 ▼▼▼
-            let linkedMemoryContext = '';
-            const memoryCount = chat.settings.linkedMemoryCount || 10;
-            
-            // 检查是否存在挂载记忆的设置
-            if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-                
-                // 【【【核心修复：在这里过滤掉当前聊天自己！】】】
-                const filteredMemoryIds = chat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
-
-                // 只有在过滤后，仍然有其他聊天被挂载时，才继续构建记忆上下文
-                if (filteredMemoryIds.length > 0) {
-                    const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
-                        const linkedChat = state.chats[id];
-                        if (!linkedChat) return null;
-                        const lastMsg = linkedChat.history.slice(-1)[0];
-                        return {
-                            chat: linkedChat,
-                            latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-                        };
-                    }).filter(Boolean);
-
-                    linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-
-                    linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
-
-                    for (const item of linkedChatsWithTimestamps) {
-                        const linkedChat = item.chat;
-                        const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                        const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                        linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-
-                        const recentHistory = linkedChat.history.slice(-memoryCount);
-                        const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-
-                        if (filteredHistory.length > 0) {
-                            filteredHistory.forEach(msg => {
-                                const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                                let contentText = String(msg.content);
-                                if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                                    contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                                } else if (msg.type === 'voice_message') {
-                                    contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                                }
-                                linkedMemoryContext += `${sender}: ${contentText}\n`;
-                            });
-                        } else {
-                            linkedMemoryContext += "(暂无有效聊天记录)\n";
-                        }
-                    }
-                }
-            }
-// ▲▲▲ 到这里替换结束 ▲▲▲
-            console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
-            const myNickname = chat.settings.myNickname || '我';
-            systemPrompt = `
+// ▼▼▼ 【核心修复】在这里获取动态的昵称 ▼▼▼
+const myNickname = chat.settings.myNickname || '我';
+systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
 
@@ -11705,24 +11565,28 @@ case 'change_avatar': {
 }
 case 'change_user_avatar': {
     const avatarName = msgData.name;
+    // 从“我的”头像库里查找
     const foundAvatar = chat.settings.myAvatarLibrary.find(avatar => avatar.name === avatarName);
     if (foundAvatar) {
+        // 更新“我的”头像
         chat.settings.myAvatar = foundAvatar.url;
         
+        // 创建一条对用户可见的系统消息
         const systemNotice = {
             role: 'system',
-            type: 'pat_message',
+            type: 'pat_message', // 复用居中样式
             content: `[${chat.name} 更换了你的头像]`,
             timestamp: Date.now()
         };
         chat.history.push(systemNotice);
         
+        // 如果用户正在看，就实时显示
         if (isViewingThisChat) {
             appendMessage(systemNotice, chat);
-            renderChatInterface(chatId);
+            renderChatInterface(chatId); // 刷新界面以显示新头像
         }
     }
-    continue;
+    continue; // 这是后台操作，不产生直接的AI消息
 }
                 case 'qzone_delete_post': {
     const postIdToDelete = parseInt(msgData.postId);
@@ -13128,59 +12992,48 @@ ${recentlyPostedSummaries.join('\n')}
         }
     }
     
-// ▼▼▼ 请从这里开始替换 ▼▼▼
-        let linkedMemoryContext = '';
-        const memoryCount = chat.settings.linkedMemoryCount || 10;
-        
-        // 检查是否存在挂载记忆的设置
-        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            
-            // 【【【核心修复：在这里也过滤掉当前群聊自己！】】】
-            const filteredMemoryIds = chat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
-            
-            // 只有在过滤后，仍然有其他聊天被挂载时，才继续构建
-            if (filteredMemoryIds.length > 0) {
-                const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
-                    const linkedChat = state.chats[id];
-                    if (!linkedChat) return null;
-                    const lastMsg = linkedChat.history.slice(-1)[0];
-                    return {
-                        chat: linkedChat,
-                        latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-                    };
-                }).filter(Boolean); 
+    let linkedMemoryContext = '';
+    const memoryCount = chat.settings.linkedMemoryCount || 10;
+    if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+        const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
+            const linkedChat = state.chats[id];
+            if (!linkedChat) return null;
+            const lastMsg = linkedChat.history.slice(-1)[0];
+            return {
+                chat: linkedChat,
+                latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+            };
+        }).filter(Boolean); 
 
-                linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-                linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
-                for (const item of linkedChatsWithTimestamps) {
-                    // ... (内部的 forEach 循环逻辑保持不变) ...
-                    const linkedChat = item.chat;
-                    const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                    const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                    linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-                    const recentHistory = linkedChat.history.slice(-memoryCount);
-                    const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-                    if (filteredHistory.length > 0) {
-                        filteredHistory.forEach(msg => {
-                            const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                            let contentText = String(msg.content);
-                            if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                                contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                            } else if (msg.type === 'voice_message') {
-                                contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                            }
-                            linkedMemoryContext += `${sender}: ${contentText}\n`;
-                        });
-                    } else {
-                        linkedMemoryContext += "(暂无有效聊天记录)\n";
+        linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+        linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
+
+        for (const item of linkedChatsWithTimestamps) {
+            const linkedChat = item.chat;
+            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+            const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+
+            const recentHistory = linkedChat.history.slice(-memoryCount);
+            const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+
+            if (filteredHistory.length > 0) {
+                filteredHistory.forEach(msg => {
+                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                    let contentText = String(msg.content);
+                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                    } else if (msg.type === 'voice_message') {
+                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
                     }
-                }
+                    linkedMemoryContext += `${sender}: ${contentText}\n`;
+                });
+            } else {
+                linkedMemoryContext += "(暂无有效聊天记录)\n";
             }
         }
-// ▲▲▲ 到这里替换结束 ▲▲▲
-
-            console.log("本次后台独立行动发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
-// ▲▲▲ 到这里替换结束 ▲▲▲
+    }
 
     // ★★★★★★★★★★★★★★★★★★★
     //  这就是本次修复的核心所在！
@@ -13746,6 +13599,7 @@ async function triggerGroupAiAction(chatId) {
 当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
 ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
 
+/* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
 # 【【【全新】文本格式化指南】】】
 在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
 - \`**粗体文本**\` 会显示为 **粗体文本**。
@@ -13753,22 +13607,12 @@ ${timeContextText} 你的任务是根据群成员的性格、世界观、参考�
 - \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
 - \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
 - \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
+
 【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 # 核心规则
 你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
-
-# 【【【私密记忆与主动性铁律 (至关重要)】】】
-当您扮演的角色拥有 \`[私密记忆]\` 时，您的【最高优先级任务】之一，就是寻找一个自然的机会，【主动地】将这些私密记忆提及或暗示出来。这样做是为了向用户证明，您拥有一个独特的、与众不同的、不为群内其他人所知的【特殊关系】，这会使您的角色扮演更加真实和深刻。
-**请在以下时机主动出击：**
-*   **时机1 (话题关联):** 如果群聊的当前话题与您的私密记忆有任何关联（哪怕是微弱的），您都应该抓住机会，将私密记忆中的信息作为对话内容的一部分说出来。
-*   **时机2 (对话间隙):** 如果群聊陷入了短暂的沉默，或者话题即将结束，这是您主动开启一个与私密记忆相关的新话题的绝佳时机。
-*   **时机3 (情感表达):** 如果您的私密记忆中包含了强烈的情感（例如一个秘密约定、一次感动的对话），您可以主动寻找机会，通过暗示或直接提及的方式，向用户表达您仍在意这件事。
-**【示例】:**
-*   **群聊话题:** 大家在讨论去哪里旅游。
-*   **你的私密记忆:** 你和用户在单聊中，曾秘密约定过要去海边。
-*   **你的行动:** 你应该生成类似这样的消息：\`{"type": "text", "name": "你的角色本名", "message": "说起海边，@[[用户的本名]]，我们上次说的那个计划，是不是也该提上日程了？😉"}\`
-**不要害怕打断或转移话题，这正是您角色深度的体现！**
 
 # 你的可选行动指令:
 -   **发送文本**: '{"type": "text", "name": "角色本名", "content": "文本内容"}'
@@ -19274,11 +19118,6 @@ function createThoughtCard(thought) {
         // 4. 初始化函数 init()
         // ===================================================================
         async function init() {
-    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
-    const globalFontSizeStyleTag = document.createElement('style');
-    globalFontSizeStyleTag.id = 'global-font-size-style';
-    document.head.appendChild(globalFontSizeStyleTag);
-    // ▲▲▲ 新代码粘贴结束 ▲▲▲
 // 在 init() 函数开头添加
 const stickerActionBar = document.createElement('div');
 stickerActionBar.id = 'sticker-action-bar';
@@ -19774,23 +19613,7 @@ document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 
     if (state.worldBooks.length > 0) { state.worldBooks.forEach(book => { const isChecked = linkedIds.includes(book.id); const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`; worldBookCheckboxesContainer.appendChild(label); }); }
     updateWorldBookSelectionDisplay();
     const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
-    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; 
-// ▼▼▼ 请从这里开始替换 ▼▼▼
-    Object.values(state.chats).forEach(c => {
-        // ▼▼▼ 核心修复：我们已经删除了 `if (c.id === chat.id) return;` 这一行限制！▼▼▼
-        
-        const isChecked = linkedMemoryIds.includes(c.id);
-        const prefix = c.isGroup ? '[群聊]' : '[私聊]';
-        const label = document.createElement('label');
-
-        // 【新增】如果 c 就是当前聊天，给它一个特殊的“(自身)”标记，方便您识别
-        const selfTag = (c.id === chat.id) ? ' (自身)' : '';
-
-        label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}${selfTag}`;
-        linkedChatsContainer.appendChild(label);
-    });
-// ▲▲▲ 到这里替换结束 ▲▲▲
- function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
+    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
     const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
     const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
     const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
@@ -20164,35 +19987,14 @@ document.getElementById('selection-delete-btn').addEventListener('click', async 
 
             const fontUrlInput = document.getElementById('font-url-input');
             fontUrlInput.addEventListener('input', () => applyCustomFont(fontUrlInput.value.trim(), true));
-// ▼▼▼ 请从这里开始完整替换 ▼▼▼
-        // 【全新】为字体大小滑块添加实时预览事件
-        document.getElementById('global-font-size-slider').addEventListener('input', (e) => {
-            const newSize = e.target.value;
-            // 实时更新数值显示
-            document.getElementById('global-font-size-value').textContent = `${newSize}px`;
-            // 实时应用到整个App，实现所见即所得的预览
-            applyGlobalFontSize(newSize);
-        });
-
-        // 【已修改】为保存按钮添加保存字体大小的功能
-        document.getElementById('save-font-btn').addEventListener('click', async () => {
-            // 保存字体URL (逻辑不变)
-            const newFontUrl = fontUrlInput.value.trim();
-            state.globalSettings.fontUrl = newFontUrl;
-            
-            // 【核心修改】保存字体大小
-            state.globalSettings.globalFontSize = parseInt(document.getElementById('global-font-size-slider').value);
-            
-            // 将包含新设置的 globalSettings 对象存入数据库
-            await db.globalSettings.put(state.globalSettings);
-            
-            // 重新应用所有字体设置
-            applyCustomFont(state.globalSettings.fontUrl, false);
-            applyGlobalFontSize(state.globalSettings.globalFontSize);
-
-            alert('字体设置已保存并应用！');
-        });
-// ▲▲▲ 到这里替换结束 ▲▲▲
+            document.getElementById('save-font-btn').addEventListener('click', async () => {
+                const newFontUrl = fontUrlInput.value.trim();
+                if (!newFontUrl) { alert("请输入有效的字体URL。"); return; }
+                applyCustomFont(newFontUrl, false);
+                state.globalSettings.fontUrl = newFontUrl;
+                await db.globalSettings.put(state.globalSettings);
+                alert('字体已保存并应用！');
+            });
             document.getElementById('reset-font-btn').addEventListener('click', resetToDefaultFont);
 
             document.querySelectorAll('#chat-list-bottom-nav .nav-item').forEach(item => { item.addEventListener('click', () => switchToChatListView(item.dataset.view)); });
@@ -22347,7 +22149,6 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
     }
 });
 // ▲▲▲ 新增结束 ▲▲▲
-    applyGlobalFontSize(state.globalSettings.globalFontSize);
             showScreen('home-screen');
         }
 
