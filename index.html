@@ -6061,7 +6061,12 @@ input:checked + .slider:before {
     </div>
   
     <div id="chat-settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><span>聊天设置</span></div><div class="modal-body"><div class="form-group" id="chat-name-group"><label for="chat-name-input">备注名 / 群名</label><input type="text" id="chat-name-input"></div>
-
+<!-- ▼▼▼ 在这里粘贴新的HTML代码 ▼▼▼ -->
+<div class="form-group" id="my-nickname-group">
+    <label for="my-nickname-input">我的昵称</label>
+    <input type="text" id="my-nickname-input">
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
     <!-- ▼▼▼ 请将这段新代码粘贴到“备注名”输入框的 form-group 之后 ▼▼▼ -->
     <div class="form-group" id="assign-group-section" style="display: none;"> <!-- 默认隐藏，只对单聊显示 -->
         <label for="assign-group-select">好友分组</label>
@@ -6161,7 +6166,19 @@ input:checked + .slider:before {
     <input type="text" id="ai-original-name-input">
 </div>
 <!-- ▲▲▲ 新增 HTML 结束 ▲▲▲ --><div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div><div class="form-group" id="ai-avatar-group"><label>对方头像</label><div class="avatar-upload"><img id="ai-avatar-preview"><button onclick="document.getElementById('ai-avatar-input').click()">上传对方头像</button><button id="manage-ai-avatar-library-btn">管理头像库</button><button class="change-frame-btn" data-type="ai">更换头像框</button>
-<input type="file" id="ai-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group"><label>我的头像</label><div class="avatar-upload"><img id="my-avatar-preview"><button onclick="document.getElementById('my-avatar-input').click()">上传我的头像</button><button class="change-frame-btn" data-type="my">更换头像框</button><button id="open-persona-library-btn">预设</button><input type="file" id="my-avatar-input" accept="image/*"></div></div><div class="form-group" id="group-members-group"><label>群成员人设</label><div id="group-members-settings"></div>
+<input type="file" id="ai-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group">
+    <label>我的头像</label>
+    <div class="avatar-upload">
+        <img id="my-avatar-preview">
+        <button onclick="document.getElementById('my-avatar-input').click()">上传我的头像</button>
+        <!-- 【【【新增】】】管理“我”的头像库的按钮 -->
+        <button id="manage-my-avatar-library-btn">管理头像库</button>
+        <button class="change-frame-btn" data-type="my">更换头像框</button>
+        <button id="open-persona-library-btn">预设</button>
+        <input type="file" id="my-avatar-input" accept="image/*">
+    </div>
+</div>
+<div class="form-group" id="group-members-group"><label>群成员人设</label><div id="group-members-settings"></div>
 
     <!-- 【新增】管理成员按钮 -->
     <button id="manage-members-btn" class="form-button form-button-secondary" style="margin-top: 15px;">管理群成员</button></div>
@@ -6696,6 +6713,28 @@ input:checked + .slider:before {
     </div>
 </div>
 
+<!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
+<!-- ▼▼▼ 【全新】“我的”头像库管理模态框 ▼▼▼ -->
+<div id="my-avatar-library-modal" class="modal">
+    <div class="modal-content" style="height: 70%;">
+        <div class="modal-header">
+            <span id="my-avatar-library-title">我的头像库</span>
+            <div class="header-actions">
+                <button id="add-my-avatar-batch-btn" class="action-button">批量</button>
+                <button id="add-my-avatar-url-btn" class="action-button">URL</button>
+                <button id="add-my-avatar-upload-btn" class="action-button">上传</button>
+            </div>
+        </div>
+        <div class="modal-body" style="padding: 15px;">
+            <div id="my-avatar-library-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 15px;">
+                <!-- “我的”头像库内容将由JS动态生成 -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="save" id="close-my-avatar-library-btn" style="width: 100%;">关闭</button>
+        </div>
+    </div>
+</div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 <div id="group-avatar-library-modal" class="modal">
     <div class="modal-content" style="height: 70%;">
@@ -9043,6 +9082,9 @@ async function loadAllDataFromDB() {
     ]);
 
     chatsArr.forEach(chat => {
+if (!chat.isGroup && !chat.settings.myAvatarLibrary) {
+    chat.settings.myAvatarLibrary = [];
+}
         if (!chat.isGroup && typeof chat.originalName === 'undefined') {
             chat.originalName = chat.name;
         }
@@ -9071,7 +9113,12 @@ async function loadAllDataFromDB() {
         if (!chat.musicData) chat.musicData = { totalTime: 0 };
         if (chat.settings && chat.settings.linkedWorldBookId && !chat.settings.linkedWorldBookIds) { chat.settings.linkedWorldBookIds = [chat.settings.linkedWorldBookId]; delete chat.settings.linkedWorldBookId; }
         if (typeof chat.isPinned === 'undefined') chat.isPinned = false;
-
+// ▼▼▼ 在这里粘贴新代码 ▼▼▼
+// 为所有单聊添加 “我的备注名” 字段，并设置默认值
+if (!chat.isGroup && typeof chat.settings.myNickname === 'undefined') {
+    chat.settings.myNickname = '我';
+}
+// ▲▲▲ 新增代码结束 ▲▲▲
         if (chat.isGroup && chat.members) {
             let needsUpdate = false;
             chatsArr.forEach(c => {
@@ -10002,7 +10049,11 @@ function createMessageElement(msg, chat) {
         return wrapper;
     }
 
+    // --- 从这里开始是核心修改 ---
+
     const isUser = msg.role === 'user';
+    const myNickname = chat.settings.myNickname || '我'; // 【核心】获取专属昵称
+
     const wrapper = document.createElement('div');
     wrapper.className = `message-wrapper ${isUser ? 'user' : 'ai'}`;
 
@@ -10027,7 +10078,7 @@ function createMessageElement(msg, chat) {
     if (isUser) {
         avatarSrc = chat.settings.myAvatar || (chat.isGroup ? defaultMyGroupAvatar : defaultAvatar);
         avatarFrameSrc = chat.settings.myAvatarFrame || '';
-    } else { // AI 或 NPC 的消息
+    } else {
         if (chat.isGroup) {
             const member = chat.members.find(m => m.originalName === msg.senderName);
             if (member) {
@@ -10038,7 +10089,7 @@ function createMessageElement(msg, chat) {
                 avatarSrc = defaultGroupMemberAvatar;
                 avatarFrameSrc = '';
             }
-        } else { // 单聊AI
+        } else {
             avatarSrc = chat.settings.aiAvatar || defaultAvatar;
             avatarFrameSrc = chat.settings.aiAvatarFrame || '';
         }
@@ -10450,13 +10501,12 @@ function setAvatarActingState(chatId, isActing) {
 
 
 
-// ▼▼▼ 【最终导演模式版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
     const chat = state.chats[state.activeChatId];
 
-    // ... (从这里开始，到 try { ... } 之前的所有代码都保持不变)
     const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
 
     setAvatarActingState(chatId, true);
@@ -10500,12 +10550,9 @@ async function triggerAiResponse() {
             return;
         }
 
-        const lastMessage = chat.history.slice(-1)[0];
+        const lastMessage = chat.history.slice(-1);
         const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
         
-        // ... (此处省略所有处理视频通话、好友申请、构建 systemPrompt 的逻辑，因为它们都不需要修改)
-        // ... (The logic for handling video calls, friend requests, and building the systemPrompt is omitted as it remains unchanged)
-
         if (isVideoCallRequest) {
             console.log(`检测到视频通话请求，为角色 "${chat.name}" 触发专属决策流程...`);
             
@@ -10547,7 +10594,7 @@ ${chat.settings.aiPersona}
                 if (!response.ok) throw new Error(`API失败: ${(await response.json()).error.message}`);
                 
                 const data = await response.json();
-                const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+                const aiResponseContent = isGemini ? getGeminiResponseText(data) : data.choices.message.content;
                 const responseArray = parseAiResponse(aiResponseContent);
 
                 // 直接处理返回的通话决策
@@ -10653,7 +10700,7 @@ ${contextSummary || "（无有效对话记录）"}
                     throw new Error(`API失败: ${(await response.json()).error.message}`);
                 }
                 const data = await response.json();
-                const rawContent = data.choices[0].message.content.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+                const rawContent = data.choices.message.content.replace(/^```json\s*/, '').replace(/```$/, '').trim();
                 const decisionObj = JSON.parse(rawContent);
 
                 if (decisionObj.decision === 'accept') {
@@ -10716,7 +10763,7 @@ ${contextSummary || "（无有效对话记录）"}
         const historySlice = chat.history.slice(-maxMemory);
 
         let timeContext = `\n- **当前时间**: ${currentTime}`;
-        const lastAiMessage = historySlice.filter(m => m.role === 'assistant' && !m.isHidden).slice(-1)[0];
+        const lastAiMessage = historySlice.filter(m => m.role === 'assistant' && !m.isHidden).slice(-1);
         if (lastAiMessage) {
             const lastTime = new Date(lastAiMessage.timestamp);
             const diffMinutes = Math.floor((now - lastTime) / (1000 * 60));
@@ -10769,7 +10816,7 @@ ${formattedHistory}
             const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
                 const linkedChat = state.chats[id];
                 if (!linkedChat) return null;
-                const lastMsg = linkedChat.history.slice(-1)[0];
+                const lastMsg = linkedChat.history.slice(-1);
                 return {
                     chat: linkedChat,
                     latestTimestamp: lastMsg ? lastMsg.timestamp : 0
@@ -11099,6 +11146,8 @@ ${membersWithContacts}
                 }
             }
 
+// ▼▼▼ 【核心修复】在这里获取动态的昵称 ▼▼▼
+const myNickname = chat.settings.myNickname || '我';
 systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
@@ -11112,6 +11161,9 @@ ${chat.settings.aiPersona}
 # 关于你和用户的关系 (至关重要)
 - 你的本名是 "${chat.originalName}"。这是你的核心身份，永远不会改变。
 - 用户当前给你设置的备注名是 "${chat.name}"。你可以根据对话发展和你的心情，使用 "change_remark_name" 指令来建议一个新的备注名。
+
+- 你当前对用户的专属称呼是 “${myNickname}”。你可以根据你们的关系进展，使用 "change_user_nickname" 指令来修改这个称呼，让它变得更亲密或疏远。
+
 - 【【【关键身份档案】】】
 ${userProfileContext}
 ${nameHistoryContext}
@@ -11128,20 +11180,25 @@ ${nameHistoryContext}
 5.  **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。比如，聊到一半你可能会说“我先去洗个澡”，然后更新你的状态。
 6.  **【【【最终手段】】】**: 只有在对话让你的角色感到不适、被冒犯或关系破裂时，你才可以使用 \`block_user\` 指令。这是一个非常严肃的操作，会中断你们的对话。
 7. **后台行为**: 你有几率在回复聊天内容的同时，执行一些“后台”操作来表现你的独立生活（发动态、评论、点赞、转发）。
-// ▼▼▼ 在这里添加新的规则 ▼▼▼
 8.  **【【【内心独白铁律】】】**: 在你生成所有其他行动指令之后，你【必须】在JSON数组的【最后】，添加一个 "update_thoughts" 指令，用来更新你角色的“心声”和“随笔”。这对于展现角色的深度至关重要。
     - **心声 (heartfelt_voice)**: 必须是一句简短的、概括角色此刻最核心、最私密想法的话。
     - **随笔 (random_jottings)**: 必须是一段50到100字之间、符合角色性格的文字，可以是日记、感想或思绪片段。
-// ▲▲▲ 新规则添加结束 ▲▲▲
 
 # 你的头像库
 - 你可以根据对话内容或你的心情，从下面的头像库中选择一个新头像来更换。
 - **可用头像列表 (请从以下名称中选择一个)**:
 ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? chat.settings.aiAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n') : '- (你的头像库是空的，无法更换头像)'}
 
+# 用户的头像库 (你可以为用户更换头像)
+- 这是用户的可用头像列表，你可以根据对话发展，使用 'change_user_avatar' 指令来为用户更换一个更合适的头像。
+- **用户可用头像列表 (请从以下名称中选择一个)**:
+${chat.settings.myAvatarLibrary && chat.settings.myAvatarLibrary.length > 0 ? chat.settings.myAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n') : '- (用户的头像库是空的，无法为Ta更换头像)'}
+
 # 你可以使用的操作指令 (JSON数组中的元素):
+-   **【【【全新】】】修改你对用户的称呼**: '{"type": "change_user_nickname", "new_name": "你想用的新称呼"}'
 -   **【【【全新】】】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
 -   **【【【全新】】】更换头像**: '{"type": "change_avatar", "name": "头像名"}' (头像名必须从上面的“可用头像列表”中选择)
+-   **【【【全新】】】更换用户头像**: '{"type": "change_user_avatar", "name": "头像名"}' (头像名必须从上面的“用户可用头像列表”中选择)
 -   **【新增】更新状态**: '{"type": "update_status", "status_text": "我去做什么了", "is_busy": false}' (is_busy: true代表忙碌/离开, false代表空闲)
 -   **【新增】切换歌曲**: '{"type": "change_music", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
 -   **【新增】记录回忆**: '{"type": "create_memory", "description": "用你自己的话，记录下这个让你印象深刻的瞬间。"}'
@@ -11172,9 +11229,7 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 -   **分享链接**: '{"type": "share_link", "title": "文章标题", "description": "文章摘要...", "source_name": "来源网站名", "content": "文章的【完整】正文内容..."}'
 -   **回应转账-接受**: '{"type": "accept_transfer", "for_timestamp": 1688888888888}'
 -   **回应转账-拒绝/退款**: '{"type": "decline_transfer", "for_timestamp": 1688888888888}'
-// ▼▼▼ 在这里添加新的指令 ▼▼▼
 -   **【【【全新】】】更新内心独白**: '{"type": "update_thoughts", "heartfelt_voice": "（角色此刻最核心、最私密的想法，一句话概括）", "random_jottings": "（一段符合角色性格的随笔、日记或摘抄，可以是对最近事件的感想，也可以是毫无关联的思绪。50-100字）"}'
-// ▲▲▲ 新指令添加结束 ▲▲▲
 
 # 关于“记录回忆”的特别说明：
 -   在对话中，如果发生了对你而言意义非凡的事件（比如用户向你表白、你们达成了某个约定、或者你度过了一个特别开心的时刻），你可以使用'create_memory'指令来“写日记”。
@@ -11249,7 +11304,7 @@ ${linkedMemoryContext}
                 if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
                 if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
                 if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
-                if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
+                if (Array.isArray(msg.content) && msg.content?.type === 'image_url') {
                     const prefix = `(Timestamp: ${msg.timestamp}) `;
                     return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
                 }
@@ -11321,11 +11376,8 @@ ${contextSummaryForApproval}
             const data = await response.json();
             const aiResponseContent = getGeminiResponseText(data); 
 
-        // ▼▼▼ 【核心修改1】在这里捕获原始响应 ▼▼▼
         lastRawAiResponse = aiResponseContent;
-        lastResponseTimestamps = []; // 清空上一轮的时间戳记录
-        // ▲▲▲ 修改结束 ▲▲▲
-
+        lastResponseTimestamps = [];
         chat.history = chat.history.filter(msg => !msg.isTemporary);
         const messagesArray = parseAiResponse(aiResponseContent);
         const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
@@ -11336,7 +11388,6 @@ ${contextSummaryForApproval}
 
         for (const msgData of messagesArray) {
             
-            // ... (此处省略所有处理消息的 case 逻辑, 因为它们不变)
             if (chat.isGroup && msgData.name && msgData.name === chat.name) {
                 console.error(`AI幻觉已被拦截！试图使用群名 ("${chat.name}") 作为角色名。消息内容:`, msgData);
                 continue;
@@ -11396,9 +11447,7 @@ ${contextSummaryForApproval}
             const currentMessageTimestamp = messageTimestamp++;
             const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: currentMessageTimestamp };
             
-            // ▼▼▼ 【核心修改2】在创建消息时，记录其时间戳 ▼▼▼
             lastResponseTimestamps.push(currentMessageTimestamp);
-            // ▲▲▲ 修改结束 ▲▲▲
 
             switch (msgData.type) {
                 case 'update_thoughts':
@@ -11409,7 +11458,6 @@ ${contextSummaryForApproval}
                         if (msgData.random_jottings) {
                             chat.randomJottings = String(msgData.random_jottings);
                         }
-                        // 【核心】将新的心声和随笔存入历史记录
                         if (!Array.isArray(chat.thoughtsHistory)) {
                             chat.thoughtsHistory = [];
                         }
@@ -11418,13 +11466,39 @@ ${contextSummaryForApproval}
                             randomJottings: chat.randomJottings,
                             timestamp: Date.now()
                         });
-                        // 保持历史记录长度，防止无限增长
                         if (chat.thoughtsHistory.length > 50) {
                             chat.thoughtsHistory.shift();
                         }
                     }
-                    continue; // 这是内部状态更新，不产生消息
-                // ... (省略所有 case, 它们的代码不变, 只是 baseMessage 的 timestamp 需要更新)
+                    continue;
+        case 'change_user_nickname':
+        if (!chat.isGroup && msgData.new_name) {
+            const newNickname = msgData.new_name.trim();
+            if (newNickname) {
+                chat.settings.myNickname = newNickname;
+
+                const systemMessage = {
+                    role: 'system',
+                    type: 'pat_message',
+                    content: `“${chat.name}” 将对你的称呼修改为 “${newNickname}”`,
+                    timestamp: messageTimestamp++
+                };
+                chat.history.push(systemMessage);
+
+                const hiddenMemoryMessage = {
+                    role: 'system',
+                    content: `[系统提示：你刚刚成功将对用户的称呼修改为了“${newNickname}”。]`,
+                    timestamp: messageTimestamp++,
+                    isHidden: true
+                };
+                chat.history.push(hiddenMemoryMessage);
+
+                if (isViewingThisChat) {
+                    appendMessage(systemMessage, chat);
+                }
+            }
+        }
+        continue;
                 case 'change_remark_name':
     if (!chat.isGroup && msgData.new_name) {
         const oldName = chat.name; 
@@ -11488,6 +11562,31 @@ case 'change_avatar': {
         }
     }
     continue;
+}
+case 'change_user_avatar': {
+    const avatarName = msgData.name;
+    // 从“我的”头像库里查找
+    const foundAvatar = chat.settings.myAvatarLibrary.find(avatar => avatar.name === avatarName);
+    if (foundAvatar) {
+        // 更新“我的”头像
+        chat.settings.myAvatar = foundAvatar.url;
+        
+        // 创建一条对用户可见的系统消息
+        const systemNotice = {
+            role: 'system',
+            type: 'pat_message', // 复用居中样式
+            content: `[${chat.name} 更换了你的头像]`,
+            timestamp: Date.now()
+        };
+        chat.history.push(systemNotice);
+        
+        // 如果用户正在看，就实时显示
+        if (isViewingThisChat) {
+            appendMessage(systemNotice, chat);
+            renderChatInterface(chatId); // 刷新界面以显示新头像
+        }
+    }
+    continue; // 这是后台操作，不产生直接的AI消息
 }
                 case 'qzone_delete_post': {
     const postIdToDelete = parseInt(msgData.postId);
@@ -11818,19 +11917,19 @@ case 'change_avatar': {
                         }
                     }
                     continue;
-                case 'red_packet':
-                    aiMessage = {
-                        ...baseMessage,
-                        ...msgData,
-                        totalAmount: msgData.amount, 
-                        claimedBy: {}, 
-                        isFullyClaimed: false
-                    };
-                     if (action.receiver) {
-                        aiMessage.receiverName = action.receiver;
-                        delete aiMessage.receiver;
-                    }
-                    break;
+case 'red_packet':
+    aiMessage = {
+        ...baseMessage,
+        ...msgData,
+        totalAmount: msgData.amount, 
+        claimedBy: {}, 
+        isFullyClaimed: false
+    };
+    if (msgData.receiver) {
+        aiMessage.receiverName = msgData.receiver;
+        delete aiMessage.receiver;
+    }
+    break;
                 case 'open_red_packet':
                     const packetToOpen = chat.history.find(m => m.timestamp === msgData.packet_timestamp);
                     
@@ -16416,6 +16515,166 @@ function closeAiAvatarLibraryModal() {
 }
 
 // ▲▲▲ 新函数粘贴结束 ▲▲▲
+
+// ▼▼▼ 【全新】“我的”头像库管理功能函数 ▼▼▼
+
+/**
+ * 打开“我的”头像库管理模态框
+ */
+function openMyAvatarLibraryModal() {
+    if (!state.activeChatId) return;
+    const chat = state.chats[state.activeChatId];
+    document.getElementById('my-avatar-library-title').textContent = `“${chat.settings.myNickname || '我'}”的头像库`;
+    renderMyAvatarLibrary();
+    document.getElementById('my-avatar-library-modal').classList.add('visible');
+}
+
+/**
+ * 渲染“我的”头像库的内容
+ */
+function renderMyAvatarLibrary() {
+    const grid = document.getElementById('my-avatar-library-grid');
+    grid.innerHTML = '';
+    const chat = state.chats[state.activeChatId];
+    const library = chat.settings.myAvatarLibrary || [];
+
+    if (library.length === 0) {
+        grid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1 / -1; text-align: center;">这个头像库还是空的，点击右上角“添加”吧！</p>';
+        return;
+    }
+
+    library.forEach((avatar, index) => {
+        const item = document.createElement('div');
+        item.className = 'sticker-item'; // 复用表情面板的样式
+        item.style.backgroundImage = `url(${avatar.url})`;
+        item.title = avatar.name;
+
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '×';
+        deleteBtn.style.display = 'block'; // 总是显示删除按钮
+        deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const confirmed = await showCustomConfirm('删除头像', `确定要从你的头像库中删除“${avatar.name}”吗？`, { confirmButtonClass: 'btn-danger' });
+            if (confirmed) {
+                chat.settings.myAvatarLibrary.splice(index, 1);
+                await db.chats.put(chat);
+                renderMyAvatarLibrary();
+            }
+        };
+        item.appendChild(deleteBtn);
+        grid.appendChild(item);
+    });
+}
+
+/**
+ * 向“我的”头像库中通过URL添加新头像
+ */
+async function addAvatarToMyLibraryFromURL() {
+    const name = await showCustomPrompt("添加头像", "请为这个头像起个名字（例如：开心、哭泣）");
+    if (!name || !name.trim()) return;
+
+    const url = await showCustomPrompt("添加头像", "请输入头像的图片URL", "", "url");
+    if (!url || !url.trim().startsWith('http')) {
+        alert("请输入有效的图片URL！");
+        return;
+    }
+    
+    const chat = state.chats[state.activeChatId];
+    if (!chat.settings.myAvatarLibrary) {
+        chat.settings.myAvatarLibrary = [];
+    }
+
+    chat.settings.myAvatarLibrary.push({ name: name.trim(), url: url.trim() });
+    await db.chats.put(chat);
+    renderMyAvatarLibrary();
+}
+
+/**
+ * 处理本地上传头像到“我的”头像库
+ */
+async function handleLocalMyAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const base64Url = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(file);
+    });
+
+    const name = await showCustomPrompt("命名头像", "请为这个新头像命名");
+    if (!name || !name.trim()) return;
+
+    const chat = state.chats[state.activeChatId];
+    if (!chat.settings.myAvatarLibrary) {
+        chat.settings.myAvatarLibrary = [];
+    }
+    chat.settings.myAvatarLibrary.push({ name: name.trim(), url: base64Url });
+    
+    await db.chats.put(chat);
+    renderMyAvatarLibrary();
+    event.target.value = null; // 清空以便下次选择
+}
+
+/**
+ * 批量导入头像到“我的”头像库
+ */
+async function handleBatchImportForMyAvatar(text) {
+    const chat = state.chats[state.activeChatId];
+    if (!chat) return;
+
+    const lines = text.trim().split('\n');
+    const newAvatars = [];
+    const baseUrl = 'https://files.catbox.moe/';
+    let errorCount = 0;
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (!trimmedLine || trimmedLine.includes('http') || trimmedLine.includes('填入')) continue;
+        
+        let name = null, code = null;
+        const noSpaceMatch = trimmedLine.match(/^([\u4e00-\u9fa5]+)([a-zA-Z0-9]+\..+)$/);
+        
+        if (noSpaceMatch) {
+            name = noSpaceMatch[1];
+            code = noSpaceMatch[2];
+        } else {
+            const parts = trimmedLine.split(/\s+/);
+            if (parts.length >= 2) {
+                code = parts.pop();
+                name = parts.join(' ');
+            }
+        }
+
+        if (name && code && code.includes('.')) {
+            newAvatars.push({ name: name, url: baseUrl + code });
+        } else {
+            errorCount++;
+        }
+    }
+
+    if (errorCount > 0) await showCustomAlert('部分导入失败', `有 ${errorCount} 行的格式不正确，已被跳过。`);
+    
+    if (newAvatars.length > 0) {
+        if (!chat.settings.myAvatarLibrary) chat.settings.myAvatarLibrary = [];
+        chat.settings.myAvatarLibrary.push(...newAvatars);
+        await db.chats.put(chat);
+        renderMyAvatarLibrary();
+        await showCustomAlert('导入成功', `已成功批量导入 ${newAvatars.length} 个新头像！`);
+    } else if (errorCount === 0) {
+        alert("没有找到可导入的内容。");
+    }
+}
+
+/**
+ * 关闭“我的”头像库管理模态框
+ */
+function closeMyAvatarLibraryModal() {
+    document.getElementById('my-avatar-library-modal').classList.remove('visible');
+}
+
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 【全新】群头像库管理功能函数 ▼▼▼
 
 /**
@@ -19293,6 +19552,7 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
     document.getElementById('my-persona-group').style.display = 'block';
     document.getElementById('my-avatar-group').style.display = 'block';
     document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
+document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
     document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
     document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
@@ -19330,6 +19590,7 @@ document.getElementById('chat-settings-btn').addEventListener('click', async () 
         document.getElementById('ai-original-name-input').value = chat.originalName;
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
+    document.getElementById('my-nickname-input').value = chat.settings.myNickname || '我';
         // 【【【核心修改：加载单聊冷却时间】】】
         document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
         const select = document.getElementById('assign-group-select');
@@ -19478,6 +19739,7 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
         chat.originalName = newOriginalName;
         chat.settings.aiPersona = document.getElementById('ai-persona').value;
         chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+       chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
         // 【【【核心修改：保存单聊冷却时间】】】
         chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
         chat.settings.aiHeartRate = {
@@ -21871,6 +22133,22 @@ document.getElementById('add-ai-response-block-btn').addEventListener('click', (
     newBlock.querySelector('textarea').focus();
 });
 // ▲▲▲ 新增事件绑定结束 ▲▲▲
+// ▼▼▼ 【全新】“我的”头像库功能事件绑定 ▼▼▼
+document.getElementById('manage-my-avatar-library-btn').addEventListener('click', openMyAvatarLibraryModal);
+document.getElementById('close-my-avatar-library-btn').addEventListener('click', closeMyAvatarLibraryModal);
+document.getElementById('add-my-avatar-url-btn').addEventListener('click', addAvatarToMyLibraryFromURL);
+document.getElementById('add-my-avatar-upload-btn').addEventListener('click', () => {
+    document.getElementById('my-avatar-upload-input').click();
+});
+document.getElementById('my-avatar-upload-input').addEventListener('change', handleLocalMyAvatarUpload);
+document.getElementById('add-my-avatar-batch-btn').addEventListener('click', async () => {
+    const placeholderText = `请按照以下格式粘贴，一行一个：\n\n焦虑 2a9wte.jpeg\n大惊失色 or8qf4.png\n没有灵感 njwujh.jpeg`;
+    const pastedText = await showCustomPrompt('批量导入头像', placeholderText, '', 'textarea');
+    if (pastedText && pastedText.trim()) {
+        await handleBatchImportForMyAvatar(pastedText);
+    }
+});
+// ▲▲▲ 新增结束 ▲▲▲
             showScreen('home-screen');
         }
 
@@ -21956,6 +22234,9 @@ document.getElementById('add-ai-response-block-btn').addEventListener('click', (
         </div>
     </div>
 </div>
+<!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
+<!-- ▼▼▼ 【全新】“我的”头像库专用文件上传输入框 ▼▼▼ -->
+<input type="file" id="my-avatar-upload-input" accept="image/*" hidden>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
