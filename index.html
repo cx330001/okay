@@ -5926,6 +5926,7 @@ input:checked + .slider:before {
 </div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 
+<!-- ▼▼▼ 请从这里开始完整替换 ▼▼▼ -->
 <div id="font-settings-screen" class="screen">
     <div class="header">
         <span class="back-btn" onclick="showScreen('home-screen')">‹</span>
@@ -5938,9 +5939,21 @@ input:checked + .slider:before {
             <input type="text" id="font-url-input" placeholder="https://..../font.ttf">
         </div>
 
+        <!-- 【【【这就是我们新增的全局字体大小滑块！】】】 -->
         <div class="form-group">
-            <label>实时预览</label>
-<div id="font-preview">
+            <label for="global-font-size-slider">
+                全局基础字体大小 
+                <span id="global-font-size-value" style="font-weight: bold; color: var(--accent-color);">16px</span>
+            </label>
+            <input type="range" id="global-font-size-slider" min="12" max="24" step="1" value="16" style="width: 100%; margin-top: 8px;">
+            <p style="font-size: 12px; color: #8a8a8a; margin-top: 8px;">
+                提示：此设置将作为整个应用的基础字号。聊天界面内的字体大小仍可在各自的聊天设置中微调。
+            </p>
+        </div>
+
+        <div class="form-group">
+            <label>字体实时预览</label>
+            <div id="font-preview">
                 <p style="font-size: 20px; margin: 0 0 10px 0;">你好世界 Hello World</p>
                 <p style="margin: 0;">这是字体预览效果，12345。</p>
             </div>
@@ -5950,6 +5963,7 @@ input:checked + .slider:before {
         <button class="form-button form-button-secondary" id="reset-font-btn">恢复默认字体</button>
     </div>
 </div>
+<!-- ▲▲▲ 到这里替换结束 ▲▲▲ -->
 
 <!-- ▼▼▼ 【全新】选择联系人以创建群聊的屏幕 ▼▼▼ -->
 <div id="contact-picker-screen" class="screen">
@@ -7280,6 +7294,23 @@ let repostTargetId = null; // 用于存储当前要转发的动态ID
             if (modalResolve) modalResolve(null); 
         }
 // ▼▼▼ 把这个【全新的函数】粘贴到你的JS功能函数定义区 ▼▼▼
+// ▼▼▼ 在这里粘贴新函数 ▼▼▼
+/**
+ * 将用户自定义的全局字体大小应用到整个页面
+ * @param {number} size - 字体大小的像素值
+ */
+function applyGlobalFontSize(size) {
+    const styleTag = document.getElementById('global-font-size-style');
+    if (styleTag) {
+        // 使用 !important 来确保这个全局设置能覆盖掉其他零散的字体大小样式
+        styleTag.innerHTML = `
+            body, #phone-screen {
+                font-size: ${size}px !important;
+            }
+        `;
+    }
+}
+// ▲▲▲ 新函数粘贴结束 ▲▲▲
 // ▼▼▼ 【全新】本地上传群头像并由副API识别的核心功能 ▼▼▼
 
 /**
@@ -7903,6 +7934,14 @@ db.version(23).stores({
             if (screenId === 'chat-interface-screen') window.updateListenTogetherIconProxy(state.activeChatId);
             if (screenId === 'font-settings-screen') {
                 document.getElementById('font-url-input').value = state.globalSettings.fontUrl || '';
+            // 【核心修改】更新字体大小滑块和数值显示
+            const slider = document.getElementById('global-font-size-slider');
+            const valueSpan = document.getElementById('global-font-size-value');
+            const currentSize = state.globalSettings.globalFontSize || 16;
+            slider.value = currentSize;
+            valueSpan.textContent = `${currentSize}px`;
+
+            // 更新字体预览
                 applyCustomFont(state.globalSettings.fontUrl || '', true);
             }
         }
@@ -9059,14 +9098,28 @@ async function importBackup(file) {
             }
         }
 
-        async function resetToDefaultFont() {
-            dynamicFontStyle.innerHTML = ''; 
-            state.globalSettings.fontUrl = '';
-            await db.globalSettings.put(state.globalSettings);
-            document.getElementById('font-url-input').value = '';
-            document.getElementById('font-preview').style.fontFamily = '';
-            alert('已恢复默认字体。');
-        }
+// ▼▼▼ 请从这里开始完整替换 ▼▼▼
+async function resetToDefaultFont() {
+    // 重置字体URL
+    dynamicFontStyle.innerHTML = ''; 
+    state.globalSettings.fontUrl = '';
+    
+    // 【核心修改】重置字体大小
+    state.globalSettings.globalFontSize = 16; // 恢复为默认的16px
+    applyGlobalFontSize(16); // 立即应用
+
+    // 保存所有重置后的设置
+    await db.globalSettings.put(state.globalSettings);
+    
+    // 更新UI
+    document.getElementById('font-url-input').value = '';
+    document.getElementById('font-preview').style.fontFamily = '';
+    document.getElementById('global-font-size-slider').value = 16;
+    document.getElementById('global-font-size-value').textContent = '16px';
+    
+    alert('已恢复默认字体和大小。');
+}
+// ▲▲▲ 到这里替换结束 ▲▲▲
 
 // ▼▼▼ 【最终版】请用这个【已彻底修复数据迁移逻辑】的版本，完整替换旧的 loadAllDataFromDB 函数 ▼▼▼
 async function loadAllDataFromDB() {
@@ -9181,8 +9234,15 @@ if (!chat.isGroup && typeof chat.settings.myNickname === 'undefined') {
         await db.memories.bulkPut(memoriesToUpdate);
     }
 
+    // 【核心修改1】初始化 globalSettings 时，为新的字体大小设置添加默认值
     state.apiConfig = apiConfig || { id: 'main', proxyUrl: '', apiKey: '', model: '', secondaryProxyUrl: '', secondaryApiKey: '', secondaryModel: '' };
     state.globalSettings = globalSettings || { id: 'main', wallpaper: 'linear-gradient(135deg, #89f7fe, #66a6ff)', fontUrl: '', enableBackgroundActivity: false, backgroundActivityInterval: 60, blockCooldownHours: 1, appIcons: { ...DEFAULT_APP_ICONS } };
+    // 【【【这就是新增的代码！】】】
+    // 检查并设置全局字体大小的默认值，防止老用户出错
+    if (typeof state.globalSettings.globalFontSize === 'undefined') {
+        state.globalSettings.globalFontSize = 16; // 默认16px
+    }
+    // 【【【新增代码结束】】】
     state.globalSettings.appIcons = { ...DEFAULT_APP_ICONS, ...(state.globalSettings.appIcons || {}) };
     if (!state.globalSettings.globalCss) state.globalSettings.globalCss = '';
     state.userStickers = userStickers || [];
@@ -19191,6 +19251,11 @@ function createThoughtCard(thought) {
         // 4. 初始化函数 init()
         // ===================================================================
         async function init() {
+    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+    const globalFontSizeStyleTag = document.createElement('style');
+    globalFontSizeStyleTag.id = 'global-font-size-style';
+    document.head.appendChild(globalFontSizeStyleTag);
+    // ▲▲▲ 新代码粘贴结束 ▲▲▲
 // 在 init() 函数开头添加
 const stickerActionBar = document.createElement('div');
 stickerActionBar.id = 'sticker-action-bar';
@@ -20076,14 +20141,35 @@ document.getElementById('selection-delete-btn').addEventListener('click', async 
 
             const fontUrlInput = document.getElementById('font-url-input');
             fontUrlInput.addEventListener('input', () => applyCustomFont(fontUrlInput.value.trim(), true));
-            document.getElementById('save-font-btn').addEventListener('click', async () => {
-                const newFontUrl = fontUrlInput.value.trim();
-                if (!newFontUrl) { alert("请输入有效的字体URL。"); return; }
-                applyCustomFont(newFontUrl, false);
-                state.globalSettings.fontUrl = newFontUrl;
-                await db.globalSettings.put(state.globalSettings);
-                alert('字体已保存并应用！');
-            });
+// ▼▼▼ 请从这里开始完整替换 ▼▼▼
+        // 【全新】为字体大小滑块添加实时预览事件
+        document.getElementById('global-font-size-slider').addEventListener('input', (e) => {
+            const newSize = e.target.value;
+            // 实时更新数值显示
+            document.getElementById('global-font-size-value').textContent = `${newSize}px`;
+            // 实时应用到整个App，实现所见即所得的预览
+            applyGlobalFontSize(newSize);
+        });
+
+        // 【已修改】为保存按钮添加保存字体大小的功能
+        document.getElementById('save-font-btn').addEventListener('click', async () => {
+            // 保存字体URL (逻辑不变)
+            const newFontUrl = fontUrlInput.value.trim();
+            state.globalSettings.fontUrl = newFontUrl;
+            
+            // 【核心修改】保存字体大小
+            state.globalSettings.globalFontSize = parseInt(document.getElementById('global-font-size-slider').value);
+            
+            // 将包含新设置的 globalSettings 对象存入数据库
+            await db.globalSettings.put(state.globalSettings);
+            
+            // 重新应用所有字体设置
+            applyCustomFont(state.globalSettings.fontUrl, false);
+            applyGlobalFontSize(state.globalSettings.globalFontSize);
+
+            alert('字体设置已保存并应用！');
+        });
+// ▲▲▲ 到这里替换结束 ▲▲▲
             document.getElementById('reset-font-btn').addEventListener('click', resetToDefaultFont);
 
             document.querySelectorAll('#chat-list-bottom-nav .nav-item').forEach(item => { item.addEventListener('click', () => switchToChatListView(item.dataset.view)); });
@@ -22238,6 +22324,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
     }
 });
 // ▲▲▲ 新增结束 ▲▲▲
+    applyGlobalFontSize(state.globalSettings.globalFontSize);
             showScreen('home-screen');
         }
 
