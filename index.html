@@ -10502,6 +10502,9 @@ function setAvatarActingState(chatId, isActing) {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
+/**
+ * 【V4.0 | 群聊记忆注入修复版】触发AI响应的核心函数
+ */
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -10656,7 +10659,7 @@ ${chat.settings.aiPersona}
             } finally {
                  // 无论成功失败，处理完通话请求后，都要重置状态并终止后续流程
                 setAvatarActingState(chatId, false);
-                return; // ★★★ 这就是最关键的修复点！★★★
+                return;
             }
         }
 
@@ -10810,64 +10813,75 @@ ${formattedHistory}
 `;
         }
         
-        let linkedMemoryContext = '';
-        const memoryCount = chat.settings.linkedMemoryCount || 10;
-        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-            const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
-                const linkedChat = state.chats[id];
-                if (!linkedChat) return null;
-                const lastMsg = linkedChat.history.slice(-1);
-                return {
-                    chat: linkedChat,
-                    latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-                };
-            }).filter(Boolean);
-
-            linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-
-            linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
-
-            for (const item of linkedChatsWithTimestamps) {
-                const linkedChat = item.chat;
-                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-                linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-
-                const recentHistory = linkedChat.history.slice(-memoryCount);
-                const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-
-                if (filteredHistory.length > 0) {
-                    filteredHistory.forEach(msg => {
-                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                        let contentText = String(msg.content);
-                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                        } else if (msg.type === 'voice_message') {
-                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
-                        }
-                        linkedMemoryContext += `${sender}: ${contentText}\n`;
-                    });
-                } else {
-                    linkedMemoryContext += "(暂无有效聊天记录)\n";
-                }
-            }
-        }
-        console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
-
         if (chat.isGroup) {
-            let membersWithContacts = chat.members.map(member => {
-                const memberChat = state.chats[member.id];
-                let contactsText = "无共同好友";
-                if (memberChat && memberChat.groupId) {
-                    const friendChats = Object.values(state.chats).filter(c => 
-                        !c.isGroup && c.id !== member.id && c.groupId === memberChat.groupId
-                    );
-                    if (friendChats.length > 0) {
-                        contactsText = `TA的好友包括: ${friendChats.map(f => f.name).join('、 ')}`;
+// ▼▼▼ 请从这里开始替换 ▼▼▼
+            let membersWithMemoriesList = [];
+    
+            // 【核心改造】异步地为每个成员构建带【私密记忆】的描述
+            for (const member of chat.members) {
+                // 1. 基础人设描述保持不变
+                let memberDescription = `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona}`;
+                
+                // 2. 查找该成员对应的【单聊会话对象】
+                const memberPrivateChat = state.chats[member.id];
+                
+                // 3. 【关键】检查这个成员的【单聊设置】里是否有挂载记忆
+                if (memberPrivateChat && memberPrivateChat.settings.linkedMemoryChatIds && memberPrivateChat.settings.linkedMemoryChatIds.length > 0) {
+                    
+                    // a. 获取该单聊设置里指定的记忆条数
+                    const memoryCount = memberPrivateChat.settings.linkedMemoryCount || 10;
+                    let memberLinkedMemoryContext = '';
+    
+                    // b. 【核心修复】在映射之前，先过滤掉当前群聊自己！
+                    const filteredMemoryIds = memberPrivateChat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
+
+                    // c. 只有在过滤后，仍然有其他聊天被挂载时，才继续
+                    if (filteredMemoryIds.length > 0) {
+                        const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
+                            const linkedChat = state.chats[id];
+                            if (!linkedChat) return null;
+                            const lastMsg = linkedChat.history.slice(-1)[0];
+                            return { chat: linkedChat, latestTimestamp: lastMsg ? lastMsg.timestamp : 0 };
+                        }).filter(Boolean).sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+                        
+                        if (linkedChatsWithTimestamps.length > 0) {
+                            memberLinkedMemoryContext += `\n  - **[这是 ${member.groupNickname} 的【私密记忆】，群内其他成员不知道，请勿泄露]**:\n`;
+                            for (const item of linkedChatsWithTimestamps) {
+                                // ... (内部的 forEach 循环逻辑保持不变) ...
+                                const linkedChat = item.chat;
+                                const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                                const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                                memberLinkedMemoryContext += `    - --- 来自${prefix}“${linkedChat.name}”的记忆${timeAgo} ---\n`;
+                                
+                                const recentHistory = linkedChat.history.slice(-memoryCount).filter(msg => !String(msg.content).includes('已被用户删除'));
+                                if (recentHistory.length > 0) {
+                                    recentHistory.forEach(msg => {
+                                        const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                                        let contentText = String(msg.content);
+                                        if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                                            contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                                        } else if (msg.type === 'voice_message') {
+                                            contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                                        }
+                                        memberLinkedMemoryContext += `      ${sender}: ${contentText}\n`;
+                                    });
+                                } else {
+                                    memberLinkedMemoryContext += "      (暂无有效聊天记录)\n";
+                                }
+                            }
+                        }
                     }
+                    // d. 将构建好的私密记忆，追加到该成员的人设描述后面
+                    memberDescription += memberLinkedMemoryContext;
+// ▲▲▲ 到这里替换结束 ▲▲▲
+
                 }
-                return `- **${member.groupNickname}** (本名: ${member.originalName}): ${member.persona} [社交背景: ${contactsText}]`;
-            }).join('\n');
+                membersWithMemoriesList.push(memberDescription);
+            }
+            
+            const finalMembersList = membersWithMemoriesList.join('\n');
+// ▲▲▲ 到这里替换结束 ▲▲▲
+            
             
             const myNickname = chat.settings.myNickname || '我';
             const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
@@ -10972,16 +10986,15 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 ${worldBookContent}
 ${musicContext}
 ${sharedContext} 
-${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
-
 ${announcementContext}
-# 群成员列表、人设及社交背景 (至关重要！)
-你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
-${membersWithContacts}
+# 群成员列表、人设及【个人专属参考记忆】
+你【必须】根据每个角色的社交背景和【个人专属参考记忆】来决定他们的互动方式。
+${finalMembersList}
 # 用户的角色
 - **${myNickname}**: ${chat.settings.myPersona}
 现在，请根据以上所有规则和下方的对话历史，继续这场群聊。`;
+
 
             messagesPayload = historySlice.map(msg => {
                 const sender = msg.role === 'user' ? myNickname : msg.senderName;
@@ -11146,9 +11159,62 @@ ${membersWithContacts}
                 }
             }
 
-// ▼▼▼ 【核心修复】在这里获取动态的昵称 ▼▼▼
-const myNickname = chat.settings.myNickname || '我';
-systemPrompt = `
+// ▼▼▼ 请从这里开始替换 ▼▼▼
+            let linkedMemoryContext = '';
+            const memoryCount = chat.settings.linkedMemoryCount || 10;
+            
+            // 检查是否存在挂载记忆的设置
+            if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+                
+                // 【【【核心修复：在这里过滤掉当前聊天自己！】】】
+                const filteredMemoryIds = chat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
+
+                // 只有在过滤后，仍然有其他聊天被挂载时，才继续构建记忆上下文
+                if (filteredMemoryIds.length > 0) {
+                    const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
+                        const linkedChat = state.chats[id];
+                        if (!linkedChat) return null;
+                        const lastMsg = linkedChat.history.slice(-1)[0];
+                        return {
+                            chat: linkedChat,
+                            latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                        };
+                    }).filter(Boolean);
+
+                    linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+
+                    linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
+
+                    for (const item of linkedChatsWithTimestamps) {
+                        const linkedChat = item.chat;
+                        const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                        const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                        linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+
+                        const recentHistory = linkedChat.history.slice(-memoryCount);
+                        const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+
+                        if (filteredHistory.length > 0) {
+                            filteredHistory.forEach(msg => {
+                                const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                                let contentText = String(msg.content);
+                                if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                                    contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                                } else if (msg.type === 'voice_message') {
+                                    contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                                }
+                                linkedMemoryContext += `${sender}: ${contentText}\n`;
+                            });
+                        } else {
+                            linkedMemoryContext += "(暂无有效聊天记录)\n";
+                        }
+                    }
+                }
+            }
+// ▲▲▲ 到这里替换结束 ▲▲▲
+            console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
+            const myNickname = chat.settings.myNickname || '我';
+            systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
 
@@ -11565,28 +11631,24 @@ case 'change_avatar': {
 }
 case 'change_user_avatar': {
     const avatarName = msgData.name;
-    // 从“我的”头像库里查找
     const foundAvatar = chat.settings.myAvatarLibrary.find(avatar => avatar.name === avatarName);
     if (foundAvatar) {
-        // 更新“我的”头像
         chat.settings.myAvatar = foundAvatar.url;
         
-        // 创建一条对用户可见的系统消息
         const systemNotice = {
             role: 'system',
-            type: 'pat_message', // 复用居中样式
+            type: 'pat_message',
             content: `[${chat.name} 更换了你的头像]`,
             timestamp: Date.now()
         };
         chat.history.push(systemNotice);
         
-        // 如果用户正在看，就实时显示
         if (isViewingThisChat) {
             appendMessage(systemNotice, chat);
-            renderChatInterface(chatId); // 刷新界面以显示新头像
+            renderChatInterface(chatId);
         }
     }
-    continue; // 这是后台操作，不产生直接的AI消息
+    continue;
 }
                 case 'qzone_delete_post': {
     const postIdToDelete = parseInt(msgData.postId);
@@ -12992,48 +13054,59 @@ ${recentlyPostedSummaries.join('\n')}
         }
     }
     
-    let linkedMemoryContext = '';
-    const memoryCount = chat.settings.linkedMemoryCount || 10;
-    if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
-        const linkedChatsWithTimestamps = chat.settings.linkedMemoryChatIds.map(id => {
-            const linkedChat = state.chats[id];
-            if (!linkedChat) return null;
-            const lastMsg = linkedChat.history.slice(-1)[0];
-            return {
-                chat: linkedChat,
-                latestTimestamp: lastMsg ? lastMsg.timestamp : 0
-            };
-        }).filter(Boolean); 
+// ▼▼▼ 请从这里开始替换 ▼▼▼
+        let linkedMemoryContext = '';
+        const memoryCount = chat.settings.linkedMemoryCount || 10;
+        
+        // 检查是否存在挂载记忆的设置
+        if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
+            
+            // 【【【核心修复：在这里也过滤掉当前群聊自己！】】】
+            const filteredMemoryIds = chat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
+            
+            // 只有在过滤后，仍然有其他聊天被挂载时，才继续构建
+            if (filteredMemoryIds.length > 0) {
+                const linkedChatsWithTimestamps = filteredMemoryIds.map(id => {
+                    const linkedChat = state.chats[id];
+                    if (!linkedChat) return null;
+                    const lastMsg = linkedChat.history.slice(-1)[0];
+                    return {
+                        chat: linkedChat,
+                        latestTimestamp: lastMsg ? lastMsg.timestamp : 0
+                    };
+                }).filter(Boolean); 
 
-        linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
-
-        linkedMemoryContext += `\n\n# 参考记忆 (至关重要！你必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你拥有完整的记忆。不要只是被动等待用户提问！)\n`;
-
-        for (const item of linkedChatsWithTimestamps) {
-            const linkedChat = item.chat;
-            const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
-            const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
-            linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
-
-            const recentHistory = linkedChat.history.slice(-memoryCount);
-            const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
-
-            if (filteredHistory.length > 0) {
-                filteredHistory.forEach(msg => {
-                    const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
-                    let contentText = String(msg.content);
-                    if (msg.type === 'ai_image' || msg.type === 'user_photo') {
-                        contentText = `[发送了一张图片，描述为：${msg.content}]`;
-                    } else if (msg.type === 'voice_message') {
-                        contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                linkedChatsWithTimestamps.sort((a, b) => b.latestTimestamp - a.latestTimestamp);
+                linkedMemoryContext += `\n\n# 参考记忆 (至关重要！群内角色必须【主动】将这些参考记忆中的【关键信息和事件】，自然地融入到当前的对话中，以体现你们拥有完整的共同记忆。)\n`;
+                for (const item of linkedChatsWithTimestamps) {
+                    // ... (内部的 forEach 循环逻辑保持不变) ...
+                    const linkedChat = item.chat;
+                    const prefix = linkedChat.isGroup ? '[群聊]' : '[私聊]';
+                    const timeAgo = item.latestTimestamp > 0 ? ` (最后互动于 ${formatTimeAgo(item.latestTimestamp)})` : '';
+                    linkedMemoryContext += `\n## --- 来自${prefix}“${linkedChat.name}”的参考记忆${timeAgo} ---\n`;
+                    const recentHistory = linkedChat.history.slice(-memoryCount);
+                    const filteredHistory = recentHistory.filter(msg => !String(msg.content).includes('已被用户删除'));
+                    if (filteredHistory.length > 0) {
+                        filteredHistory.forEach(msg => {
+                            const sender = msg.role === 'user' ? (linkedChat.settings.myNickname || '我') : (msg.senderName || linkedChat.name);
+                            let contentText = String(msg.content);
+                            if (msg.type === 'ai_image' || msg.type === 'user_photo') {
+                                contentText = `[发送了一张图片，描述为：${msg.content}]`;
+                            } else if (msg.type === 'voice_message') {
+                                contentText = `[发送了一条语音，内容是：${msg.content}]`;
+                            }
+                            linkedMemoryContext += `${sender}: ${contentText}\n`;
+                        });
+                    } else {
+                        linkedMemoryContext += "(暂无有效聊天记录)\n";
                     }
-                    linkedMemoryContext += `${sender}: ${contentText}\n`;
-                });
-            } else {
-                linkedMemoryContext += "(暂无有效聊天记录)\n";
+                }
             }
         }
-    }
+// ▲▲▲ 到这里替换结束 ▲▲▲
+
+            console.log("本次后台独立行动发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
+// ▲▲▲ 到这里替换结束 ▲▲▲
 
     // ★★★★★★★★★★★★★★★★★★★
     //  这就是本次修复的核心所在！
@@ -19613,7 +19686,23 @@ document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 
     if (state.worldBooks.length > 0) { state.worldBooks.forEach(book => { const isChecked = linkedIds.includes(book.id); const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`; worldBookCheckboxesContainer.appendChild(label); }); }
     updateWorldBookSelectionDisplay();
     const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
-    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
+    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; 
+// ▼▼▼ 请从这里开始替换 ▼▼▼
+    Object.values(state.chats).forEach(c => {
+        // ▼▼▼ 核心修复：我们已经删除了 `if (c.id === chat.id) return;` 这一行限制！▼▼▼
+        
+        const isChecked = linkedMemoryIds.includes(c.id);
+        const prefix = c.isGroup ? '[群聊]' : '[私聊]';
+        const label = document.createElement('label');
+
+        // 【新增】如果 c 就是当前聊天，给它一个特殊的“(自身)”标记，方便您识别
+        const selfTag = (c.id === chat.id) ? ' (自身)' : '';
+
+        label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}${selfTag}`;
+        linkedChatsContainer.appendChild(label);
+    });
+// ▲▲▲ 到这里替换结束 ▲▲▲
+ function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
     const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
     const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
     const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
