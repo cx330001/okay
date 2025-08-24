@@ -5417,34 +5417,39 @@ input:checked + .slider:before {
     </div>
     <div id="world-book-list"></div>
 </div>
-            <div id="world-book-editor-screen" class="screen">
-                <div class="header">
-                    <span class="back-btn" onclick="showScreen('world-book-screen')">‹</span>
-                    <span id="world-book-editor-title">编辑世界书</span>
-                    <span class="save-btn" id="save-world-book-btn">保存</span>
-                </div>
-                <div class="form-container">
-                    <div class="form-group">
-                        <label for="world-book-name-input">书名</label>
-                        <input type="text" id="world-book-name-input" placeholder="请输入世界书的名称...">
-                    </div>
-
-        <!-- ▼▼▼ 【全新】在这里添加分类选择 ▼▼▼ -->
+<!-- ▼▼▼ 【请用这个新版本】完整替换旧的 world-book-editor-screen ▼▼▼ -->
+<div id="world-book-editor-screen" class="screen">
+    <div class="header">
+        <span class="back-btn" onclick="showScreen('world-book-screen')">‹</span>
+        <span id="world-book-editor-title">编辑世界书</span>
+        <span class="save-btn" id="save-world-book-btn">保存</span>
+    </div>
+    <div class="form-container">
+        <div class="form-group">
+            <label for="world-book-name-input">书名</label>
+            <input type="text" id="world-book-name-input" placeholder="请输入世界书的名称...">
+        </div>
         <div class="form-group">
             <label for="world-book-category-select">分类</label>
-            <select id="world-book-category-select">
-                <!-- 选项将由JS动态生成 -->
-            </select>
+            <select id="world-book-category-select"></select>
         </div>
-        <!-- ▲▲▲ 添加结束 ▲▲▲ -->
 
-                    <div class="form-group" style="height: 100%;">
-                        <label for="world-book-content-input">内容</label>
-                        <textarea id="world-book-content-input" placeholder="在此处输入详细的世界观设定..."></textarea>
-                    </div>
-                </div>
+        <!-- 【【【核心修改：这里是全新的编辑器区域】】】 -->
+        <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
+            <label>内容条目</label>
+            <!-- 这个容器将用来动态装载所有可编辑的条目块 -->
+            <div id="world-book-entries-container" style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto; padding: 5px; flex-grow: 1;">
+                <!-- JS 会在这里动态生成内容 -->
             </div>
-
+        </div>
+        
+        <!-- 添加新条目的按钮 -->
+        <button id="add-world-book-entry-btn" class="form-button form-button-secondary">
+            [+] 添加新条目
+        </button>
+    </div>
+</div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
             <!-- ▼▼▼ 请用这整块代码，完整替换你现有的 id="api-settings-screen" 的 div ▼▼▼ -->
 <div id="api-settings-screen" class="screen">
     <div class="header">
@@ -7918,13 +7923,14 @@ async function getLrcContent() {
         // 2. 数据库结构定义
         // ===================================================================
 
-db.version(23).stores({ 
-    chats: '&id, isGroup, groupId, isPinned', // <--- 在这里添加 isPinned
+// ▼▼▼ 【请用这个 V24 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
+db.version(24).stores({ 
+    chats: '&id, isGroup, groupId, isPinned',
     apiConfig: '&id', 
     globalSettings: '&id', 
     userStickers: '&id, url, name',
-    worldBooks: '&id, name, categoryId', // <-- 【核心修改1】在这里添加 categoryId
-    worldBookCategories: '++id, name',    // <-- 【核心修改2】新增这个表
+    worldBooks: '&id, name, categoryId',
+    worldBookCategories: '++id, name',
     musicLibrary: '&id', 
     personaPresets: '&id',
     qzoneSettings: '&id',
@@ -7933,9 +7939,26 @@ db.version(23).stores({
     qzonePhotos: '++id, albumId',
     favorites: '++id, type, timestamp, originalTimestamp',
     qzoneGroups: '++id, name',
-    memories: '++id, chatId, timestamp, type, targetDate' ,
-    callRecords: '++id, chatId, timestamp, customName' // <--【核心修改】在这里加上 customName
+    memories: '++id, chatId, timestamp, type, targetDate',
+    callRecords: '++id, chatId, timestamp, customName'
+}).upgrade(tx => {
+    // 【核心】这是一个数据迁移脚本，它会自动将旧的、大字符串格式的世界书内容，转换为新的、条目化的格式
+    return tx.table('worldBooks').toCollection().modify(book => {
+        // 检查 content 是否还是一个字符串 (说明是旧数据)
+        if (typeof book.content === 'string' && book.content.trim() !== '') {
+            // 如果是，我们就把它包装成只有一个条目的新格式，确保旧数据不会丢失
+            book.content = [{
+                keys: [], // 旧数据没有关键词，留空
+                comment: '从旧版本迁移的条目',
+                content: book.content // 将全部旧内容放入这个条目
+            }];
+        } else if (!Array.isArray(book.content)) {
+            // 如果 content 既不是字符串也不是数组（可能是null或undefined），就初始化为空数组
+            book.content = [];
+        }
+    });
 });
+// ▲▲▲ 替换结束 ▲▲▲
 
         // ===================================================================
         // 3. 所有功能函数定义
@@ -9780,8 +9803,9 @@ async function renderWorldBookScreen() {
     });
 }
 
+// ▼▼▼ 【请用这个最终修复版】完整替换旧的 createWorldBookGroup 函数 ▼▼▼
 /**
- * 【辅助函数】创建一个分类的分组DOM
+ * 【V2.0 | 已修复预览BUG】创建一个分类的分组DOM
  * @param {string} groupName - 分类名称
  * @param {Array} books - 该分类下的书籍数组
  * @returns {HTMLElement} - 创建好的分组容器
@@ -9800,19 +9824,51 @@ function createWorldBookGroup(groupName, books) {
 
     const contentEl = groupContainer.querySelector('.world-book-group-content');
     books.sort((a,b) => a.name.localeCompare(b.name, 'zh-CN')); // 按书名排序
+    
     books.forEach(book => {
+        // ▼▼▼ 【【【这就是最关键的修复！】】】 ▼▼▼
+        let contentPreview = '暂无内容...';
+        
+        // 1. 检查 book.content 是否是我们新的“条目数组”格式
+        if (Array.isArray(book.content) && book.content.length > 0) {
+            // 如果是，就从第一个条目的内容中提取预览
+            // 我们也优先使用第一个条目的 comment 作为预览，因为它更简洁
+            const firstEntry = book.content[0];
+            contentPreview = firstEntry.comment || firstEntry.content || '';
+        } 
+        // 2. 否则，就检查它是否是旧的“字符串”格式
+        else if (typeof book.content === 'string' && book.content.trim() !== '') {
+            // 如果是，就像以前一样处理
+            contentPreview = book.content;
+        }
+        // ▲▲▲ 修复结束 ▲▲▲
+
         const item = document.createElement('div');
         item.className = 'list-item';
         item.dataset.bookId = book.id;
-        item.innerHTML = `<div class="item-title">${book.name}</div><div class="item-content">${(book.content || '暂无内容...').substring(0, 50)}</div>`;
+        // 现在，我们使用处理好的 contentPreview 来生成HTML，并确保它是一个字符串
+        item.innerHTML = `
+            <div class="item-title">${book.name}</div>
+            <div class="item-content">${String(contentPreview).substring(0, 50)}</div>
+        `;
         item.addEventListener('click', () => openWorldBookEditor(book.id));
-        addLongPressListener(item, async () => { const confirmed = await showCustomConfirm('删除世界书', `确定要删除《${book.name}》吗？此操作不可撤销。`, { confirmButtonClass: 'btn-danger' }); if (confirmed) { await db.worldBooks.delete(book.id); state.worldBooks = state.worldBooks.filter(wb => wb.id !== book.id); renderWorldBookScreen(); } });         contentEl.appendChild(item);
+        addLongPressListener(item, async () => { 
+            const confirmed = await showCustomConfirm('删除世界书', `确定要删除《${book.name}》吗？此操作不可撤销。`, { confirmButtonClass: 'btn-danger' }); 
+            if (confirmed) { 
+                await db.worldBooks.delete(book.id); 
+                state.worldBooks = state.worldBooks.filter(wb => wb.id !== book.id); 
+                renderWorldBookScreen(); 
+            } 
+        });
+        contentEl.appendChild(item);
     });
 
     return groupContainer;
 }
+// ▲▲▲ 替换结束 ▲▲▲
         window.renderWorldBookScreenProxy = renderWorldBookScreen;
 
+// ▼▼▼ 【请用这个新版本】替换旧的 openWorldBookEditor 函数 ▼▼▼
 async function openWorldBookEditor(bookId) {
     editingWorldBookId = bookId;
     const [book, categories] = await Promise.all([
@@ -9823,20 +9879,31 @@ async function openWorldBookEditor(bookId) {
 
     document.getElementById('world-book-editor-title').textContent = book.name;
     document.getElementById('world-book-name-input').value = book.name;
-    document.getElementById('world-book-content-input').value = book.content;
 
-    // 【核心修改】填充分类下拉菜单
+    // 分类下拉菜单的逻辑保持不变
     const selectEl = document.getElementById('world-book-category-select');
-    selectEl.innerHTML = '<option value="">-- 未分类 --</option>'; // 默认选项
+    selectEl.innerHTML = '<option value="">-- 未分类 --</option>';
     categories.forEach(cat => {
         const option = document.createElement('option');
         option.value = cat.id;
         option.textContent = cat.name;
-        if (book.categoryId === cat.id) {
-            option.selected = true; // 选中当前分类
-        }
+        if (book.categoryId === cat.id) option.selected = true;
         selectEl.appendChild(option);
     });
+
+    // 【【【核心修改：动态渲染条目】】】
+    const entriesContainer = document.getElementById('world-book-entries-container');
+    entriesContainer.innerHTML = ''; // 清空旧内容
+
+    if (Array.isArray(book.content) && book.content.length > 0) {
+        book.content.forEach(entry => {
+            const block = createWorldBookEntryBlock(entry);
+            entriesContainer.appendChild(block);
+        });
+    } else {
+        // 如果是空的或格式不对，显示一个提示
+        entriesContainer.innerHTML = '<p style="text-align:center; color: var(--text-secondary); margin-top: 20px;">还没有内容，点击下方按钮添加第一条吧！</p>';
+    }
 
     showScreen('world-book-editor-screen');
 }
@@ -10776,16 +10843,31 @@ ${contextSummary || "（无有效对话记录）"}
 
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
-        let worldBookContent = '';
-        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
-            }).filter(Boolean).join('');
-            if (linkedContents) {
-                worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
+// ▼▼▼ 在 triggerAiResponse 函数中，用这整块代码替换旧的世界书处理逻辑 ▼▼▼
+let worldBookContent = '';
+if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+        if (!worldBook || !Array.isArray(worldBook.content)) return '';
+
+        // 【核心修改】将条目数组格式化为AI可读的Markdown
+        const formattedEntries = worldBook.content.map(entry => {
+            let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+            if (entry.keys.length > 0) {
+                entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
             }
-        }
+            entryString += `**内容:**\n${entry.content}`;
+            return entryString;
+        }).join('\n');
+
+        return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+    }).filter(Boolean).join('');
+    
+    if (linkedContents) {
+        worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲
         let musicContext = '';
         if (musicState.isActive && musicState.activeChatId === chatId) {
             const currentTrack = musicState.currentIndex > -1 ? musicState.playlist[musicState.currentIndex] : null;
@@ -19385,45 +19467,38 @@ function findWorldBookEntries(cardData) {
     return null; // 如果所有路径都找不到，返回 null
 }
 
+// ▼▼▼ 【请用这个 V6.0 版本】完整替换旧的 createChatFromCardData 函数 ▼▼▼
 /**
- * 【V4.0 | 最终修复版】根据从角色卡解析的数据，创建并保存一个新的聊天对象
+ * 【V6.0 | 保存结构化世界书】根据从角色卡解析的数据，创建并保存一个新的聊天对象
  * @param {object} cardData - 从.json或.png中解析出的角色数据
  * @param {string|null} avatarBase64 - 如果是.png卡，则传入其Base64数据作为头像
  */
 async function createChatFromCardData(cardData, avatarBase64 = null) {
-    // 优先使用 'data' 对象内的数据，因为这是您卡片的主要格式
     const effectiveCardData = cardData.data || cardData;
-
     if (!effectiveCardData.name) {
         throw new Error("角色卡数据无效或缺少'name'字段。");
     }
 
-    // ===================================================================
-    // 1. 【核心修复】调用新的辅助函数来智能查找世界书
-    // ===================================================================
     let worldBookIdToLink = null;
-    const worldBookEntries = findWorldBookEntries(cardData); // 对原始 cardData 进行搜索
+    const worldBookEntries = findWorldBookEntries(cardData);
 
     if (worldBookEntries) {
-        let worldBookContent = `# ${effectiveCardData.name} 的角色设定集\n\n---\n\n`;
-        worldBookEntries.forEach((entry, index) => {
-            // 我们只导入启用的、有内容和关键词的条目
-            if (entry.enabled && entry.content && entry.keys) { // 关键词可以为空
-                worldBookContent += `## 条目 ${index + 1}: ${entry.comment || ''}\n\n`;
-                if(entry.keys.length > 0) {
-                    worldBookContent += `**触发关键词:** \`${entry.keys.join('`, `')}\`\n\n`;
-                }
-                // 清理内容中的HTML标签
-                const cleanedContent = entry.content.replace(/<memory>|<\/memory>/g, '').trim();
-                worldBookContent += `${cleanedContent}\n\n---\n\n`;
-            }
-        });
+        // 【【【核心修改：不再合并为字符串！】】】
+        // 我们直接筛选出有效的条目，并清理它们的内容
+        const structuredEntries = worldBookEntries
+            .filter(entry => entry.enabled && entry.content)
+            .map(entry => ({
+                keys: entry.keys || [],
+                comment: entry.comment || '',
+                content: entry.content.replace(/<memory>|<\/memory>/g, '').trim()
+            }));
 
-        if (worldBookContent.length > `# ${effectiveCardData.name} 的角色设定集\n\n---\n\n`.length) {
+        if (structuredEntries.length > 0) {
             const newWorldBook = {
                 id: 'wb_' + Date.now(),
                 name: `${effectiveCardData.name}的设定集`,
-                content: worldBookContent.trim(),
+                // 【核心】直接将这个条目数组存入 content 字段
+                content: structuredEntries,
                 categoryId: null
             };
             await db.worldBooks.add(newWorldBook);
@@ -19432,27 +19507,17 @@ async function createChatFromCardData(cardData, avatarBase64 = null) {
         }
     }
 
-    // ===================================================================
-    // 2. 【优化】构建更干净的 Persona 字符串
-    // ===================================================================
+    // --- 后续的 Persona 构建、聊天创建等逻辑保持不变 ---
     let description = effectiveCardData.description || cardData.description || '无';
     description = description
-        .replace(/```yaml/g, '')
-        .replace(/```/g, '')
-        .replace(/<\/?info>/g, '')
-        .replace(/<\/?character>/g, '')
-        .replace(/<\/?writing_rule>/g, '')
-        .replace(/\[OOC：.*?\]/g, '') // 移除OOC提示
-        .trim();
-
+        .replace(/```yaml/g, '').replace(/```/g, '')
+        .replace(/<\/?info>/g, '').replace(/<\/?character>/g, '')
+        .replace(/<\/?writing_rule>/g, '').replace(/\[OOC：.*?\]/g, '').trim();
     let persona = `# 角色核心设定\n${description}\n\n`;
     if (effectiveCardData.personality) persona += `# 性格补充\n${effectiveCardData.personality}\n\n`;
     if (effectiveCardData.scenario) persona += `# 场景设定\n${effectiveCardData.scenario}\n\n`;
     if (effectiveCardData.mes_example) persona += `# 对话示例\n${effectiveCardData.mes_example}\n\n`;
 
-    // ===================================================================
-    // 3. 创建新的聊天对象
-    // ===================================================================
     const newChatId = 'chat_' + Date.now();
     const newChat = {
         id: newChatId,
@@ -19463,60 +19528,38 @@ async function createChatFromCardData(cardData, avatarBase64 = null) {
         status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
         settings: {
             aiPersona: persona.trim(),
-            myPersona: '我是谁呀。',
-            maxMemory: 10,
-            aiAvatar: avatarBase64 || defaultAvatar,
-            myAvatar: defaultAvatar,
-            background: '',
-            theme: 'default',
-            fontSize: 13,
-            customCss: '',
+            myPersona: '我是谁呀。', maxMemory: 10,
+            aiAvatar: avatarBase64 || defaultAvatar, myAvatar: defaultAvatar,
+            background: '', theme: 'default', fontSize: 13, customCss: '',
             linkedWorldBookIds: worldBookIdToLink ? [worldBookIdToLink] : [],
-            aiAvatarLibrary: [],
-            alternateGreetings: effectiveCardData.alternate_greetings || []
+            aiAvatarLibrary: [], alternateGreetings: effectiveCardData.alternate_greetings || []
         },
-        history: [],
-        musicData: { totalTime: 0 }
+        history: [], musicData: { totalTime: 0 }
     };
-    
     if (avatarBase64) {
         newChat.settings.aiAvatarLibrary.push({ name: '默认头像', url: avatarBase64 });
     }
-
-    // ===================================================================
-    // 4. 处理问候语（增加HTML清理）
-    // ===================================================================
     const greetingHtml = effectiveCardData.first_mes || cardData.first_mes;
     if (greetingHtml && typeof greetingHtml === 'string') {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = greetingHtml;
         const cleanGreeting = (tempDiv.textContent || tempDiv.innerText || "").replace(/原作者UR.*?开局/s, '').trim();
-        
         if (cleanGreeting) {
-            const greetingMessage = {
-                role: 'assistant',
-                senderName: newChat.originalName,
-                content: cleanGreeting,
-                timestamp: Date.now()
-            };
-            newChat.history.push(greetingMessage);
+            newChat.history.push({
+                role: 'assistant', senderName: newChat.originalName,
+                content: cleanGreeting, timestamp: Date.now()
+            });
         }
     }
-
-    // ===================================================================
-    // 5. 保存到数据库并刷新UI
-    // ===================================================================
     state.chats[newChatId] = newChat;
     await db.chats.put(newChat);
     renderChatList();
-    
     let successMessage = `角色 “${newChat.name}” 已成功导入！`;
     if (worldBookIdToLink) {
         successMessage += `\n\n其专属的“世界书”也已自动创建并关联。`;
     }
     await showCustomAlert('导入成功！', successMessage);
 }
-
 // ▲▲▲ 替换结束 ▲▲▲
 
     // ▼▼▼ 【全新】这是切换开场白的核心功能，请粘贴到 init() 函数的前面 ▼▼▼
@@ -19580,6 +19623,43 @@ async function createChatFromCardData(cardData, avatarBase64 = null) {
         }
     }
     // ▲▲▲ 新增函数结束 ▲▲▲
+
+// ▼▼▼ 【全新】这是新的世界书编辑器核心功能，请粘贴到 init() 函数的前面 ▼▼▼
+
+/**
+ * 【辅助函数】创建一个可编辑的世界书条目块
+ * @param {object} entry - 单个条目的数据 { keys, comment, content }
+ * @returns {HTMLElement} - 创建好的DOM元素
+ */
+function createWorldBookEntryBlock(entry = { keys: [], comment: '', content: '' }) {
+    const block = document.createElement('div');
+    // 复用我们之前为消息编辑器创建的样式
+    block.className = 'message-editor-block';
+
+    block.innerHTML = `
+        <button class="delete-block-btn" title="删除此条目">×</button>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-size: 0.8em;">备注 (可选)</label>
+            <input type="text" class="entry-comment-input" value="${entry.comment || ''}" placeholder="例如：关于角色的童年" style="padding: 8px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label style="font-size: 0.8em;">关键词 (用英文逗号,分隔)</label>
+            <input type="text" class="entry-keys-input" value="${(entry.keys || []).join(', ')}" placeholder="例如: key1, key2, key3" style="padding: 8px;">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 0.8em;">内容</label>
+            <textarea class="entry-content-textarea" rows="5" style="width: 100%; font-size: 14px;">${entry.content || ''}</textarea>
+        </div>
+    `;
+
+    // 绑定删除按钮事件
+    block.querySelector('.delete-block-btn').addEventListener('click', () => {
+        block.remove();
+    });
+
+    return block;
+}
+// ▲▲▲ 新增函数结束 ▲▲▲
        // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -19961,15 +20041,48 @@ document.getElementById('fetch-secondary-models-btn').addEventListener('click', 
 });
 // ▲▲▲ 替换结束 ▲▲▲
             document.getElementById('add-world-book-btn').addEventListener('click', async () => { const name = await showCustomPrompt('创建世界书', '请输入书名'); if (name && name.trim()) { const newBook = { id: 'wb_' + Date.now(), name: name.trim(), content: '' }; await db.worldBooks.add(newBook); state.worldBooks.push(newBook); renderWorldBookScreen(); openWorldBookEditor(newBook.id); } });
-            document.getElementById('save-world-book-btn').addEventListener('click', async () => { if (!editingWorldBookId) return; const book = state.worldBooks.find(wb => wb.id === editingWorldBookId); if (book) { const newName = document.getElementById('world-book-name-input').value.trim(); if (!newName) { alert('书名不能为空！'); return; } book.name = newName; book.content = document.getElementById('world-book-content-input').value; 
+// ▼▼▼ 在 init() 中，用这个【新版本】替换旧的 save-world-book-btn 事件监听器 ▼▼▼
+document.getElementById('save-world-book-btn').addEventListener('click', async () => {
+    if (!editingWorldBookId) return;
+    const book = state.worldBooks.find(wb => wb.id === editingWorldBookId);
+    if (!book) return;
 
-        // ▼▼▼ 【核心修改】在这里保存分类ID ▼▼▼
-        const categoryId = document.getElementById('world-book-category-select').value;
-        // 如果选择了“未分类”，存入 null；否则存入数字ID
-        book.categoryId = categoryId ? parseInt(categoryId) : null; 
-        // ▲▲▲ 修改结束 ▲▲▲
+    // 保存书名和分类（逻辑不变）
+    const newName = document.getElementById('world-book-name-input').value.trim();
+    if (!newName) { alert('书名不能为空！'); return; }
+    book.name = newName;
+    const categoryId = document.getElementById('world-book-category-select').value;
+    book.categoryId = categoryId ? parseInt(categoryId) : null;
 
-await db.worldBooks.put(book); document.getElementById('world-book-editor-title').textContent = newName; editingWorldBookId = null; renderWorldBookScreen(); showScreen('world-book-screen'); } });
+    // 【【【核心修改：从编辑块中收集数据】】】
+    const entriesContainer = document.getElementById('world-book-entries-container');
+    const entryBlocks = entriesContainer.querySelectorAll('.message-editor-block');
+    const newEntries = [];
+
+    entryBlocks.forEach(block => {
+        const keysInput = block.querySelector('.entry-keys-input').value.trim();
+        const content = block.querySelector('.entry-content-textarea').value.trim();
+        
+        // 只有当内容不为空时，才保存这个条目
+        if (content) {
+            newEntries.push({
+                comment: block.querySelector('.entry-comment-input').value.trim(),
+                // 将逗号分隔的关键词字符串，转换回数组
+                keys: keysInput ? keysInput.split(',').map(k => k.trim()).filter(k => k) : [],
+                content: content
+            });
+        }
+    });
+
+    // 将收集到的新条目数组存入 book.content
+    book.content = newEntries;
+
+    await db.worldBooks.put(book);
+    document.getElementById('world-book-editor-title').textContent = newName;
+    editingWorldBookId = null;
+    renderWorldBookScreen();
+    showScreen('world-book-screen');
+});
 // ▼▼▼ 【最终版】请用这个已合并的版本替换旧的监听器 ▼▼▼
 document.getElementById('chat-messages').addEventListener('click', async (e) => { // 注意：这里加上了 async
     // 【这是新增的代码】处理“动态已删除”提示的点击
@@ -21118,7 +21231,18 @@ postsList.addEventListener('click', (e) => {
     }
 });
 // ▲▲▲ 新增代码结束 ▲▲▲
-
+// ▼▼▼ 在 init() 的事件监听器区域添加这行代码 ▼▼▼
+document.getElementById('add-world-book-entry-btn').addEventListener('click', () => {
+    const container = document.getElementById('world-book-entries-container');
+    // 如果之前有提示语，先清空
+    if (container.querySelector('p')) {
+        container.innerHTML = '';
+    }
+    const newBlock = createWorldBookEntryBlock(); // 创建一个空块
+    container.appendChild(newBlock);
+    newBlock.querySelector('.entry-content-textarea').focus(); // 自动聚焦到新块的内容区
+});
+// ▲▲▲ 新增事件绑定结束 ▲▲▲
             // ▼▼▼ 在 init() 函数的事件监听器区域，粘贴下面这两行 ▼▼▼
 document.getElementById('switch-greeting-btn').addEventListener('click', handleSwitchGreeting);
 // ▼▼▼ 【全新】为心声历史列表添加“加载更多”的事件委托 ▼▼▼
