@@ -6077,7 +6077,7 @@ input:checked + .slider:before {
 
         </div>
     </div>
-  
+     <input type="file" id="import-card-input" accept=".json,.png" style="display: none;"> 
     <div id="chat-settings-modal" class="modal"><div class="modal-content"><div class="modal-header"><span>聊天设置</span></div><div class="modal-body"><div class="form-group" id="chat-name-group"><label for="chat-name-input">备注名 / 群名</label><input type="text" id="chat-name-input"></div>
 <!-- ▼▼▼ 在这里粘贴新的HTML代码 ▼▼▼ -->
 <div class="form-group" id="my-nickname-group">
@@ -6209,7 +6209,14 @@ input:checked + .slider:before {
     <input type="text" id="ai-original-name-input">
 </div>
 <!-- ▲▲▲ 新增 HTML 结束 ▲▲▲ --><div class="form-group" id="ai-persona-group"><label for="ai-persona">对方人设 (AI Persona)</label><textarea id="ai-persona" rows="3"></textarea></div><div class="form-group" id="ai-avatar-group"><label>对方头像</label><div class="avatar-upload"><img id="ai-avatar-preview"><button onclick="document.getElementById('ai-avatar-input').click()">上传对方头像</button><button id="manage-ai-avatar-library-btn">管理头像库</button><button class="change-frame-btn" data-type="ai">更换头像框</button>
-<input type="file" id="ai-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div><div class="form-group" id="my-avatar-group">
+<input type="file" id="ai-avatar-input" accept="image/*"></div></div><div class="form-group" id="my-persona-group"><label for="my-persona">我的人设 (My Persona)</label><textarea id="my-persona" rows="3"></textarea></div>
+<!-- ▼▼▼ 【全新】请将这整块代码粘贴到“我的人设”模块的后面 ▼▼▼ -->
+<div class="form-group" id="switch-greeting-group" style="display: none;">
+    <label>切换开场 (会清空当前对话)</label>
+    <button id="switch-greeting-btn" class="form-button form-button-secondary" style="margin-top: 5px;">选择其他开场故事...</button>
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
+<div class="form-group" id="my-avatar-group">
     <label>我的头像</label>
     <div class="avatar-upload">
         <img id="my-avatar-preview">
@@ -19220,6 +19227,288 @@ function createThoughtCard(thought) {
     `;
     return card;
 } 
+// ▼▼▼ 【全新】这是导入角色卡的所有核心功能，请将它们完整粘贴到 init() 函数的前面 ▼▼▼
+
+/**
+ * 【总入口】当用户选择了角色卡文件后，由此函数开始处理
+ * @param {Event} event - 文件输入框的 change 事件
+ */
+async function handleCardImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        let cardData;
+        let avatarBase64 = null; // 用于存储从PNG卡中提取的头像
+
+        if (file.name.endsWith('.json')) {
+            // 处理 JSON 格式的角色卡
+            const text = await file.text();
+            cardData = JSON.parse(text);
+        } else if (file.name.endsWith('.png')) {
+            // 处理 PNG 格式的角色卡
+            const arrayBuffer = await file.arrayBuffer();
+            cardData = await parsePngForTavernData(arrayBuffer);
+            
+            // 同时，将PNG文件本身转换为Base64，用作头像
+            avatarBase64 = await new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+            });
+        } else {
+            throw new Error("不支持的文件格式。请选择 .json 或 .png 文件。");
+        }
+
+        // 将解析出的数据创建为新的聊天对象
+        await createChatFromCardData(cardData, avatarBase64);
+
+    } catch (error) {
+        console.error("角色卡导入失败:", error);
+        await showCustomAlert("导入失败", `无法解析角色卡文件。\n错误: ${error.message}`);
+    } finally {
+        // 清空输入框，以便下次能选择同一个文件
+        event.target.value = null;
+    }
+}
+
+// ▼▼▼ 【最终修复版 | V4.0】请用这一整块代码，替换旧的 createChatFromCardData 和可能缺失的 findWorldBookEntries 函数 ▼▼▼
+
+/**
+ * 【辅助函数 | 兼容核心】从角色卡数据中智能查找世界书条目
+ * @param {object} cardData - 从文件解析出的原始JSON数据
+ * @returns {Array|null} - 如果找到，返回 entries 数组；否则返回 null
+ */
+function findWorldBookEntries(cardData) {
+    // 检查所有可能的路径，按最常见到最少见的顺序
+    // 使用可选链 (?.) 来安全地访问可能不存在的深层嵌套属性
+    
+    // 格式 1: 【针对您卡片的精确路径】数据在 data.character_book 中
+    if (cardData.data?.character_book?.entries?.length > 0) {
+        console.log("诊断：在 data.character_book 中找到世界书。");
+        return cardData.data.character_book.entries;
+    }
+    
+    // 格式 2: 新版 Tavern 卡，数据在 extensions.character_book 中
+    if (cardData.extensions?.character_book?.entries?.length > 0) {
+        console.log("诊断：在 extensions.character_book 中找到世界书。");
+        return cardData.extensions.character_book.entries;
+    }
+    
+    // 格式 3: 某些工具可能将其嵌套在 data.extensions 中
+    if (cardData.data?.extensions?.character_book?.entries?.length > 0) {
+        console.log("诊断：在 data.extensions.character_book 中找到世界书。");
+        return cardData.data.extensions.character_book.entries;
+    }
+    
+    // 格式 4: 兼容我们之前尝试过的、直接在顶层的各种键名
+    const possibleTopLevelKeys = ['character_book', 'lorebook', 'world_info', 'char_book'];
+    for (const key of possibleTopLevelKeys) {
+        if (cardData[key]?.entries?.length > 0) {
+            console.log(`诊断：在顶层 ${key} 中找到世界书。`);
+            return cardData[key].entries;
+        }
+    }
+
+    console.log("诊断：未在此角色卡中找到任何有效的世界书数据。");
+    return null; // 如果所有路径都找不到，返回 null
+}
+
+/**
+ * 【V4.0 | 最终修复版】根据从角色卡解析的数据，创建并保存一个新的聊天对象
+ * @param {object} cardData - 从.json或.png中解析出的角色数据
+ * @param {string|null} avatarBase64 - 如果是.png卡，则传入其Base64数据作为头像
+ */
+async function createChatFromCardData(cardData, avatarBase64 = null) {
+    // 优先使用 'data' 对象内的数据，因为这是您卡片的主要格式
+    const effectiveCardData = cardData.data || cardData;
+
+    if (!effectiveCardData.name) {
+        throw new Error("角色卡数据无效或缺少'name'字段。");
+    }
+
+    // ===================================================================
+    // 1. 【核心修复】调用新的辅助函数来智能查找世界书
+    // ===================================================================
+    let worldBookIdToLink = null;
+    const worldBookEntries = findWorldBookEntries(cardData); // 对原始 cardData 进行搜索
+
+    if (worldBookEntries) {
+        let worldBookContent = `# ${effectiveCardData.name} 的角色设定集\n\n---\n\n`;
+        worldBookEntries.forEach((entry, index) => {
+            // 我们只导入启用的、有内容和关键词的条目
+            if (entry.enabled && entry.content && entry.keys) { // 关键词可以为空
+                worldBookContent += `## 条目 ${index + 1}: ${entry.comment || ''}\n\n`;
+                if(entry.keys.length > 0) {
+                    worldBookContent += `**触发关键词:** \`${entry.keys.join('`, `')}\`\n\n`;
+                }
+                // 清理内容中的HTML标签
+                const cleanedContent = entry.content.replace(/<memory>|<\/memory>/g, '').trim();
+                worldBookContent += `${cleanedContent}\n\n---\n\n`;
+            }
+        });
+
+        if (worldBookContent.length > `# ${effectiveCardData.name} 的角色设定集\n\n---\n\n`.length) {
+            const newWorldBook = {
+                id: 'wb_' + Date.now(),
+                name: `${effectiveCardData.name}的设定集`,
+                content: worldBookContent.trim(),
+                categoryId: null
+            };
+            await db.worldBooks.add(newWorldBook);
+            state.worldBooks.push(newWorldBook);
+            worldBookIdToLink = newWorldBook.id;
+        }
+    }
+
+    // ===================================================================
+    // 2. 【优化】构建更干净的 Persona 字符串
+    // ===================================================================
+    let description = effectiveCardData.description || cardData.description || '无';
+    description = description
+        .replace(/```yaml/g, '')
+        .replace(/```/g, '')
+        .replace(/<\/?info>/g, '')
+        .replace(/<\/?character>/g, '')
+        .replace(/<\/?writing_rule>/g, '')
+        .replace(/\[OOC：.*?\]/g, '') // 移除OOC提示
+        .trim();
+
+    let persona = `# 角色核心设定\n${description}\n\n`;
+    if (effectiveCardData.personality) persona += `# 性格补充\n${effectiveCardData.personality}\n\n`;
+    if (effectiveCardData.scenario) persona += `# 场景设定\n${effectiveCardData.scenario}\n\n`;
+    if (effectiveCardData.mes_example) persona += `# 对话示例\n${effectiveCardData.mes_example}\n\n`;
+
+    // ===================================================================
+    // 3. 创建新的聊天对象
+    // ===================================================================
+    const newChatId = 'chat_' + Date.now();
+    const newChat = {
+        id: newChatId,
+        name: effectiveCardData.name.trim(),
+        originalName: effectiveCardData.name.trim(),
+        isGroup: false,
+        relationship: { status: 'friend' },
+        status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
+        settings: {
+            aiPersona: persona.trim(),
+            myPersona: '我是谁呀。',
+            maxMemory: 10,
+            aiAvatar: avatarBase64 || defaultAvatar,
+            myAvatar: defaultAvatar,
+            background: '',
+            theme: 'default',
+            fontSize: 13,
+            customCss: '',
+            linkedWorldBookIds: worldBookIdToLink ? [worldBookIdToLink] : [],
+            aiAvatarLibrary: [],
+            alternateGreetings: effectiveCardData.alternate_greetings || []
+        },
+        history: [],
+        musicData: { totalTime: 0 }
+    };
+    
+    if (avatarBase64) {
+        newChat.settings.aiAvatarLibrary.push({ name: '默认头像', url: avatarBase64 });
+    }
+
+    // ===================================================================
+    // 4. 处理问候语（增加HTML清理）
+    // ===================================================================
+    const greetingHtml = effectiveCardData.first_mes || cardData.first_mes;
+    if (greetingHtml && typeof greetingHtml === 'string') {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = greetingHtml;
+        const cleanGreeting = (tempDiv.textContent || tempDiv.innerText || "").replace(/原作者UR.*?开局/s, '').trim();
+        
+        if (cleanGreeting) {
+            const greetingMessage = {
+                role: 'assistant',
+                senderName: newChat.originalName,
+                content: cleanGreeting,
+                timestamp: Date.now()
+            };
+            newChat.history.push(greetingMessage);
+        }
+    }
+
+    // ===================================================================
+    // 5. 保存到数据库并刷新UI
+    // ===================================================================
+    state.chats[newChatId] = newChat;
+    await db.chats.put(newChat);
+    renderChatList();
+    
+    let successMessage = `角色 “${newChat.name}” 已成功导入！`;
+    if (worldBookIdToLink) {
+        successMessage += `\n\n其专属的“世界书”也已自动创建并关联。`;
+    }
+    await showCustomAlert('导入成功！', successMessage);
+}
+
+// ▲▲▲ 替换结束 ▲▲▲
+
+    // ▼▼▼ 【全新】这是切换开场白的核心功能，请粘贴到 init() 函数的前面 ▼▼▼
+    /**
+     * 【总入口】处理用户点击“切换开场”按钮的逻辑
+     */
+    async function handleSwitchGreeting() {
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        const greetings = chat.settings.alternateGreetings;
+
+        if (!greetings || greetings.length === 0) {
+            alert("这个角色没有可用的备选开场白。");
+            return;
+        }
+
+        // 1. 将备选开场白数组转换为 showChoiceModal 需要的格式
+        const options = greetings.map((text, index) => {
+            // 提取每个开场白的前20个字符作为预览
+            const preview = text.replace(/<[^>]*>/g, '').trim().substring(0, 20);
+            return {
+                text: `开场 ${index + 1}: ${preview}...`,
+                value: index // 将数组索引作为返回值
+            };
+        });
+
+        // 2. 弹出选择菜单
+        const selectedIndex = await showChoiceModal('选择一个开场白', options);
+
+        // 3. 如果用户做出了选择 (而不是取消)
+        if (selectedIndex !== null) {
+            // 4. 【重要】弹出警告，确认是否要覆盖聊天记录
+            const confirmed = await showCustomConfirm(
+                '确认操作',
+                '切换开场将会【清空并替换】当前的所有聊天记录。确定要继续吗？',
+                { confirmButtonClass: 'btn-danger', confirmText: '确定切换' }
+            );
+
+            if (confirmed) {
+                // 5. 执行切换逻辑
+                const newGreetingText = greetings[selectedIndex];
+                
+                const newMessage = {
+                    role: 'assistant',
+                    senderName: chat.originalName,
+                    content: newGreetingText,
+                    timestamp: Date.now()
+                };
+
+                // 替换整个历史记录
+                chat.history = [newMessage];
+                
+                // 保存到数据库
+                await db.chats.put(chat);
+
+                // 刷新UI
+                renderChatInterface(chat.id);
+                document.getElementById('chat-settings-modal').classList.remove('visible'); // 关闭设置弹窗
+                await showCustomAlert('成功', '已切换到新的开场故事！');
+            }
+        }
+    }
+    // ▲▲▲ 新增函数结束 ▲▲▲
        // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -19362,6 +19651,7 @@ async function handleDeleteAnnouncement() {
             document.getElementById('export-data-btn').addEventListener('click', exportBackup);
             document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-data-input').click());
             document.getElementById('import-data-input').addEventListener('change', e => importBackup(e.target.files[0]));
+            document.getElementById('import-card-input').addEventListener('change', handleCardImport);
             document.getElementById('back-to-list-btn').addEventListener('click', () => { 
     // ▼▼▼ 【核心修改】在这里添加清理计时器的逻辑 ▼▼▼
     if (state.activeChatId) {
@@ -19375,37 +19665,48 @@ async function handleDeleteAnnouncement() {
 
 exitSelectionMode(); state.activeChatId = null; showScreen('chat-list-screen'); });
             
-// ▼▼▼ 请用这个【新版本】的事件监听器，完整替换旧的 add-chat-btn 监听器 ▼▼▼
+// ▼▼▼ 【请用这个新版本】替换旧的 add-chat-btn 事件监听器 ▼▼▼
 document.getElementById('add-chat-btn').addEventListener('click', async () => {
-    const remarkName = await showCustomPrompt('创建新聊天 (第1/2步)', '请输入你想为Ta设置的【备注名】(例如: 哥哥)');
-    if (!remarkName || !remarkName.trim()) return;
+    // 使用我们现有的 showChoiceModal 函数来提供选项
+    const choice = await showChoiceModal('创建新聊天', [
+        { text: '手动创建角色', value: 'manual' },
+        { text: '从角色卡导入 (.json/.png)', value: 'import_card' }
+    ]);
 
-    const originalName = await showCustomPrompt('创建新聊天 (第2/2步)', '请输入Ta的【本名】(例如: 李星辰，这个名字将用于AI识别)');
-    if (!originalName || !originalName.trim()) return;
+    if (choice === 'manual') {
+        // 如果用户选择手动，则执行原来的逻辑
+        const remarkName = await showCustomPrompt('创建新聊天 (第1/2步)', '请输入你想为Ta设置的【备注名】(例如: 哥哥)');
+        if (!remarkName || !remarkName.trim()) return;
 
-    const newChatId = 'chat_' + Date.now();
-    const newChat = {
-        id: newChatId,
-        name: remarkName.trim(), // 用户备注名
-        originalName: originalName.trim(), // AI识别的本名
-        isGroup: false,
-        relationship: { status: 'friend', blockedTimestamp: null, applicationReason: '' },
-        status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
-        settings: {
-	isOfflineMode: false,
-	offlineMinLength: 100,
-	offlineMaxLength: 300,
-            aiPersona: '你是谁呀。', myPersona: '我是谁呀。', maxMemory: 10,
-            aiAvatar: defaultAvatar, myAvatar: defaultAvatar, background: '',
-            theme: 'default', fontSize: 13, customCss: '',
-            linkedWorldBookIds: [], aiAvatarLibrary: []
-        },
-        history: [], musicData: { totalTime: 0 }
-    };
-    state.chats[newChatId] = newChat;
-    await db.chats.put(newChat);
-    renderChatList();
+        const originalName = await showCustomPrompt('创建新聊天 (第2/2步)', '请输入Ta的【本名】(例如: 李星辰，这个名字将用于AI识别)');
+        if (!originalName || !originalName.trim()) return;
+
+        const newChatId = 'chat_' + Date.now();
+        const newChat = {
+            id: newChatId,
+            name: remarkName.trim(),
+            originalName: originalName.trim(),
+            isGroup: false,
+            relationship: { status: 'friend', blockedTimestamp: null, applicationReason: '' },
+            status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
+            settings: {
+                aiPersona: '这是一个通过手动创建的角色。', myPersona: '我是谁呀。', maxMemory: 10,
+                aiAvatar: defaultAvatar, myAvatar: defaultAvatar, background: '',
+                theme: 'default', fontSize: 13, customCss: '',
+                linkedWorldBookIds: [], aiAvatarLibrary: []
+            },
+            history: [], musicData: { totalTime: 0 }
+        };
+        state.chats[newChatId] = newChat;
+        await db.chats.put(newChat);
+        renderChatList();
+        
+    } else if (choice === 'import_card') {
+        // 如果用户选择导入，就触发我们新添加的隐藏文件输入框
+        document.getElementById('import-card-input').click();
+    }
 });
+// ▲▲▲ 替换结束 ▲▲▲
 
             // ▼▼▼ 【修正】创建群聊按钮现在打开联系人选择器 ▼▼▼
 document.getElementById('add-group-chat-btn').addEventListener('click', openContactPickerForGroupCreate);
@@ -19650,101 +19951,98 @@ function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheck
             worldBookSelectBox.addEventListener('click', (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); });
             document.getElementById('world-book-checkboxes-container').addEventListener('change', updateWorldBookSelectionDisplay);
             window.addEventListener('click', (e) => { if (!document.querySelector('.custom-multiselect').contains(e.target)) { worldBookCheckboxesContainer.classList.remove('visible'); worldBookSelectBox.classList.remove('expanded'); } });
-// ▼▼▼ 【请用这个新版本】替换旧的 chat-settings-btn 事件监听器 ▼▼▼
-document.getElementById('chat-settings-btn').addEventListener('click', async () => {
-    if (!state.activeChatId) return;
-    const chat = state.chats[state.activeChatId];
-    const isGroup = chat.isGroup;
+    // ▼▼▼ 【请用这个 V2.0 版本】替换旧的 chat-settings-btn 事件监听器 ▼▼▼
+    document.getElementById('chat-settings-btn').addEventListener('click', async () => {
+        if (!state.activeChatId) return;
+        const chat = state.chats[state.activeChatId];
+        const isGroup = chat.isGroup;
 
-    // --- 统一显示/隐藏控件 ---
-    document.getElementById('chat-name-group').style.display = 'block';
-    document.getElementById('my-persona-group').style.display = 'block';
-    document.getElementById('my-avatar-group').style.display = 'block';
-    document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
-document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
-    document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
-    document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('offline-mode-group').style.display = isGroup ? 'none' : 'block';    
-    // 【【【核心修改：控制冷却时间输入框的显示】】】
-    document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
-    document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
-
-    // --- 加载表单数据 ---
-    document.getElementById('chat-name-input').value = chat.name;
-    document.getElementById('my-persona').value = chat.settings.myPersona;
-    document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
-    document.getElementById('max-memory').value = chat.settings.maxMemory;
-    const bgPreview = document.getElementById('bg-preview');
-    const removeBgBtn = document.getElementById('remove-bg-btn');
-    if (chat.settings.background) {
-        bgPreview.src = chat.settings.background;
-        bgPreview.style.display = 'block';
-        removeBgBtn.style.display = 'inline-block';
-    } else {
-        bgPreview.style.display = 'none';
-        removeBgBtn.style.display = 'none';
-    }
-
-    if (isGroup) {
-        document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
-        document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
-        // 【【【核心修改：加载群聊冷却时间】】】
-        document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
-        renderGroupMemberSettings(chat.members);
-    } else {
-        const offlineModeToggle = document.getElementById('offline-mode-toggle');
-        const offlineModeOptions = document.getElementById('offline-mode-options');
-        const offlineMinInput = document.getElementById('offline-min-length-input');
-        const offlineMaxInput = document.getElementById('offline-max-length-input');
-
-        offlineModeToggle.checked = chat.settings.isOfflineMode || false;
-        offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
-        offlineMinInput.value = chat.settings.offlineMinLength || 100;
-        offlineMaxInput.value = chat.settings.offlineMaxLength || 300;
-
-        // 为开关添加实时交互
-        offlineModeToggle.addEventListener('change', () => {
+        // 【【【核心修改：智能显示/隐藏“切换开场”按钮】】】
+        const switchGreetingGroup = document.getElementById('switch-greeting-group');
+        if (!isGroup && chat.settings.alternateGreetings && chat.settings.alternateGreetings.length > 0) {
+            switchGreetingGroup.style.display = 'block';
+        } else {
+            switchGreetingGroup.style.display = 'none';
+        }
+        
+        // --- 后续所有代码与您之前的版本完全相同 ---
+        document.getElementById('chat-name-group').style.display = 'block';
+        document.getElementById('my-persona-group').style.display = 'block';
+        // ... (此处省略了您之前已有的、所有其他的显示/隐藏和数据加载逻辑，无需改动) ...
+        document.getElementById('my-avatar-group').style.display = 'block';
+        document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
+        document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
+        document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
+        document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('offline-mode-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
+        document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
+        document.getElementById('chat-name-input').value = chat.name;
+        document.getElementById('my-persona').value = chat.settings.myPersona;
+        document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
+        document.getElementById('max-memory').value = chat.settings.maxMemory;
+        const bgPreview = document.getElementById('bg-preview');
+        const removeBgBtn = document.getElementById('remove-bg-btn');
+        if (chat.settings.background) {
+            bgPreview.src = chat.settings.background;
+            bgPreview.style.display = 'block';
+            removeBgBtn.style.display = 'inline-block';
+        } else {
+            bgPreview.style.display = 'none';
+            removeBgBtn.style.display = 'none';
+        }
+        if (isGroup) {
+            document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
+            document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
+            document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
+            renderGroupMemberSettings(chat.members);
+        } else {
+            const offlineModeToggle = document.getElementById('offline-mode-toggle');
+            const offlineModeOptions = document.getElementById('offline-mode-options');
+            const offlineMinInput = document.getElementById('offline-min-length-input');
+            const offlineMaxInput = document.getElementById('offline-max-length-input');
+            offlineModeToggle.checked = chat.settings.isOfflineMode || false;
             offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
-        });
-        document.getElementById('ai-original-name-input').value = chat.originalName;
-        document.getElementById('ai-persona').value = chat.settings.aiPersona;
-        document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
-    document.getElementById('my-nickname-input').value = chat.settings.myNickname || '我';
-        // 【【【核心修改：加载单聊冷却时间】】】
-        document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
-        const select = document.getElementById('assign-group-select');
-        select.innerHTML = '<option value="">未分组</option>';
-        const groups = await db.qzoneGroups.toArray();
-        groups.forEach(group => {
-            const option = document.createElement('option');
-            option.value = group.id;
-            option.textContent = group.name;
-            if (chat.groupId === group.id) option.selected = true;
-            select.appendChild(option);
-        });
-    }
-
-    // （后续的世界书、心率、挂载记忆等逻辑保持不变，这里省略以保持简洁）
-    // ... 原有的其他设置加载逻辑 ...
-    const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
-    worldBookCheckboxesContainer.innerHTML = '';
-    const linkedIds = chat.settings.linkedWorldBookIds || [];
-    if (state.worldBooks.length > 0) { state.worldBooks.forEach(book => { const isChecked = linkedIds.includes(book.id); const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`; worldBookCheckboxesContainer.appendChild(label); }); }
-    updateWorldBookSelectionDisplay();
-    const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
-    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
-    const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
-    const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
-    const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
-    updateSettingsPreview();
-  document.getElementById('auto-memory-toggle').checked = chat.settings.enableAutoMemory || false;
-   document.getElementById('auto-memory-interval').value = chat.settings.autoMemoryInterval || 20;
-    document.getElementById('chat-settings-modal').classList.add('visible');
-});
+            offlineMinInput.value = chat.settings.offlineMinLength || 100;
+            offlineMaxInput.value = chat.settings.offlineMaxLength || 300;
+            offlineModeToggle.addEventListener('change', () => {
+                offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
+            });
+            document.getElementById('ai-original-name-input').value = chat.originalName;
+            document.getElementById('ai-persona').value = chat.settings.aiPersona;
+            document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
+            document.getElementById('my-nickname-input').value = chat.settings.myNickname || '我';
+            document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
+            const select = document.getElementById('assign-group-select');
+            select.innerHTML = '<option value="">未分组</option>';
+            const groups = await db.qzoneGroups.toArray();
+            groups.forEach(group => {
+                const option = document.createElement('option');
+                option.value = group.id;
+                option.textContent = group.name;
+                if (chat.groupId === group.id) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+        const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
+        worldBookCheckboxesContainer.innerHTML = '';
+        const linkedIds = chat.settings.linkedWorldBookIds || [];
+        if (state.worldBooks.length > 0) { state.worldBooks.forEach(book => { const isChecked = linkedIds.includes(book.id); const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`; worldBookCheckboxesContainer.appendChild(label); }); }
+        updateWorldBookSelectionDisplay();
+        const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
+        const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
+        const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
+        const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
+        const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
+        updateSettingsPreview();
+        document.getElementById('auto-memory-toggle').checked = chat.settings.enableAutoMemory || false;
+        document.getElementById('auto-memory-interval').value = chat.settings.autoMemoryInterval || 20;
+        document.getElementById('chat-settings-modal').classList.add('visible');
+    });
 // ▲▲▲ 替换结束 ▲▲▲
             
 // ▼▼▼ 【请用这个新版本】替换旧的 renderGroupMemberSettings 函数 ▼▼▼
@@ -20751,6 +21049,7 @@ postsList.addEventListener('click', (e) => {
 // ▲▲▲ 新增代码结束 ▲▲▲
 
             // ▼▼▼ 在 init() 函数的事件监听器区域，粘贴下面这两行 ▼▼▼
+document.getElementById('switch-greeting-btn').addEventListener('click', handleSwitchGreeting);
 // ▼▼▼ 【全新】为心声历史列表添加“加载更多”的事件委托 ▼▼▼
 document.getElementById('thoughts-history-list').addEventListener('click', (e) => {
     if (e.target && e.target.id === 'load-more-thoughts-btn') {
