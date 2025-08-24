@@ -19229,6 +19229,8 @@ function createThoughtCard(thought) {
 } 
 // ▼▼▼ 【全新】这是导入角色卡的所有核心功能，请将它们完整粘贴到 init() 函数的前面 ▼▼▼
 
+// ▼▼▼ 【最终PNG导入修复】请用这一整块代码，替换旧的 handleCardImport 函数 ▼▼▼
+
 /**
  * 【总入口】当用户选择了角色卡文件后，由此函数开始处理
  * @param {Event} event - 文件输入框的 change 事件
@@ -19248,6 +19250,7 @@ async function handleCardImport(event) {
         } else if (file.name.endsWith('.png')) {
             // 处理 PNG 格式的角色卡
             const arrayBuffer = await file.arrayBuffer();
+            // 【【【核心修复就在这里！现在这个函数被正确定义了】】】
             cardData = await parsePngForTavernData(arrayBuffer);
             
             // 同时，将PNG文件本身转换为Base64，用作头像
@@ -19271,6 +19274,56 @@ async function handleCardImport(event) {
         event.target.value = null;
     }
 }
+
+/**
+ * 【【【这就是缺失的函数！】】】
+ * 从PNG文件的ArrayBuffer中解析出隐藏的Tavern AI角色数据
+ * @param {ArrayBuffer} arrayBuffer - PNG文件的二进制数据
+ * @returns {Promise<object>} - 解析出的JSON角色数据
+ */
+function parsePngForTavernData(arrayBuffer) {
+    return new Promise((resolve, reject) => {
+        const view = new DataView(arrayBuffer);
+        // 检查PNG文件头 (8个字节)
+        if (view.getUint32(0) !== 0x89504E47 || view.getUint32(4) !== 0x0D0A1A0A) {
+            return reject(new Error("文件不是一个有效的PNG。"));
+        }
+
+        let offset = 8;
+        const decoder = new TextDecoder();
+
+        while (offset < view.byteLength) {
+            const length = view.getUint32(offset);
+            const type = decoder.decode(arrayBuffer.slice(offset + 4, offset + 8));
+
+            if (type === 'tEXt') {
+                const data = new Uint8Array(arrayBuffer, offset + 8, length);
+                const nullSeparatorIndex = data.indexOf(0);
+                if (nullSeparatorIndex !== -1) {
+                    const key = decoder.decode(data.slice(0, nullSeparatorIndex));
+                    if (key === 'chara') {
+                        const value = decoder.decode(data.slice(nullSeparatorIndex + 1));
+                        try {
+                            // Tavern卡的数据是Base64编码的
+                            const decodedData = atob(value);
+                            resolve(JSON.parse(decodedData));
+                            return;
+                        } catch (e) {
+                            return reject(new Error("在PNG中找到角色数据，但解码或解析失败。"));
+                        }
+                    }
+                }
+            }
+            
+            // 移动到下一个区块 (长度 + 类型 + 数据 + CRC)
+            offset += 4 + 4 + length + 4;
+        }
+
+        reject(new Error("在PNG文件中未找到有效的Tavern AI角色数据(chara chunk)。"));
+    });
+}
+
+// ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【最终修复版 | V4.0】请用这一整块代码，替换旧的 createChatFromCardData 和可能缺失的 findWorldBookEntries 函数 ▼▼▼
 
