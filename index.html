@@ -5342,6 +5342,19 @@ input:checked + .slider:before {
     color: #a0a0a0; /* 夜间模式下使用更柔和的灰色 */
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【全新】引用跳转高亮效果 ▼▼▼ */
+
+/* 1. 为消息气泡的内容区添加一个平滑的背景色过渡效果 */
+.message-bubble .content {
+    transition: background-color 0.5s ease-out;
+}
+
+/* 2. 定义高亮时的背景色 */
+/*    我们使用 !important 来确保它能覆盖掉所有主题的默认颜色 */
+.message-bubble.highlighted .content {
+    background-color: rgba(0, 123, 255, 0.2) !important;
+}
+/* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -10117,6 +10130,37 @@ async function handleBatchStickerImport(text) {
     }
 }
 // ▲▲▲ 全新功能函数粘贴结束 ▲▲▲
+/**
+ * 【全新】滚动到并高亮显示原始消息
+ * @param {number} originalTimestamp - 要跳转到的原始消息的时间戳
+ */
+function scrollToOriginalMessage(originalTimestamp) {
+    // 1. 构建选择器，精确查找原始消息的 DOM 元素
+    const selector = `.message-bubble[data-timestamp="${originalTimestamp}"]`;
+    const originalMessageBubble = document.querySelector(selector);
+
+    // 2. 检查消息是否在当前屏幕上
+    if (originalMessageBubble) {
+        // 3. 如果找到了，就平滑地滚动到它的位置
+        originalMessageBubble.scrollIntoView({
+            behavior: 'smooth', // 平滑滚动
+            block: 'center'     // 尽量让它停在屏幕中央
+        });
+
+        // 4. 添加高亮效果，并在1.5秒后自动移除
+        originalMessageBubble.classList.add('highlighted');
+        setTimeout(() => {
+            // 在移除前再次检查元素是否存在，避免在用户快速切换页面时出错
+            if (document.body.contains(originalMessageBubble)) {
+                originalMessageBubble.classList.remove('highlighted');
+            }
+        }, 1500); // 高亮持续1.5秒
+
+    } else {
+        // 5. 如果在当前加载的消息中找不到，给用户一个提示
+        alert("原始消息尚未加载，请向上滑动加载更早的记录后再试。");
+    }
+}
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
 function createMessageElement(msg, chat) {
 
@@ -10467,12 +10511,12 @@ function createMessageElement(msg, chat) {
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
-    let quoteHtml = '';
+let quoteHtml = '';
     if (msg.quote) {
         const quotedSenderDisplayName = getDisplayNameInGroup(chat, msg.quote.senderName);
         const fullQuotedContent = String(msg.quote.content || '');
         quoteHtml = `
-            <div class="quoted-message">
+            <div class="quoted-message" data-original-timestamp="${msg.quote.timestamp}" style="cursor: pointer;">
                 <div class="quoted-sender">回复 ${quotedSenderDisplayName}:</div>
                 <div class="quoted-content">${fullQuotedContent}</div>
             </div>
@@ -20245,6 +20289,15 @@ document.getElementById('chat-messages').addEventListener('click', async (e) => 
         if (description) showCustomAlert('照片描述', description);
         return;
     }
+    // ▼▼▼ 在这里粘贴新的代码 ▼▼▼
+    const quoteBlock = e.target.closest('.quoted-message');
+    if (quoteBlock && quoteBlock.dataset.originalTimestamp) {
+        const originalTimestamp = parseInt(quoteBlock.dataset.originalTimestamp);
+        if (!isNaN(originalTimestamp)) {
+            scrollToOriginalMessage(originalTimestamp);
+        }
+    }
+    // ▲▲▲ 新代码粘贴结束 ▲▲▲
 });
             
             const chatSettingsModal = document.getElementById('chat-settings-modal');
