@@ -5324,6 +5324,24 @@ input:checked + .slider:before {
     border-color: #4a4a4e;
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】线下模式消息样式 ▼▼▼ */
+.offline-dialogue {
+    /* 对话部分可以保持默认样式，或者稍作强调 */
+    font-weight: 500;
+}
+.offline-description {
+    display: block; /* 确保描写另起一行或多行 */
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 4px; /* 和对话拉开一点距离 */
+    white-space: pre-wrap; /* 允许描写中的换行符生效 */
+    line-height: 1.6;
+}
+
+#phone-screen.dark-mode .offline-description {
+    color: #a0a0a0; /* 夜间模式下使用更柔和的灰色 */
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -6139,7 +6157,32 @@ input:checked + .slider:before {
         <input type="number" id="ai-heart-rate-baseline" placeholder="自定义基础心率 (bpm)" style="margin-top: 8px;">
     </div>
 </div>
-
+<!-- ▼▼▼ 【全新】线下模式设置 ▼▼▼ -->
+<div class="form-group" id="offline-mode-group">
+    <hr style="opacity: 0.3; margin: 20px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <label for="offline-mode-toggle" style="margin-bottom: 0;">
+            启用线下模式
+            <p style="font-size: 12px; font-weight: normal; color: #999; margin-top: 5px;">
+                开启后, AI的回复将变为包含「对话」和<i style="color: #666;">动作/环境描写</i>的剧情模式。
+            </p>
+        </label>
+        <label class="toggle-switch">
+            <input type="checkbox" id="offline-mode-toggle">
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div id="offline-mode-options" style="display: none; margin-top: 15px;">
+        <label for="offline-min-length-input">回复字数范围</label>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+            <input type="number" id="offline-min-length-input" value="100" style="width: 80px; text-align: center;">
+            <span>到</span>
+            <input type="number" id="offline-max-length-input" value="300" style="width: 80px; text-align: center;">
+            <span>字</span>
+        </div>
+    </div>
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 <div class="form-group" id="linked-memory-group">
     <label for="link-memory-toggle">挂载其他聊天记忆</label>
     <input type="checkbox" id="link-memory-toggle" style="width: auto; height: 20px; vertical-align: middle; margin-left: 10px;">
@@ -9146,6 +9189,9 @@ if (!chat.isGroup && typeof chat.settings.myNickname === 'undefined') {
         if (!chat.longTermMemory) chat.longTermMemory = [];
         if (!chat.lastMemorySummaryTimestamp) chat.lastMemorySummaryTimestamp = 0;
         if (!chat.isGroup) {
+if (typeof chat.settings.isOfflineMode === 'undefined') chat.settings.isOfflineMode = false;
+if (typeof chat.settings.offlineMinLength === 'undefined') chat.settings.offlineMinLength = 100;
+if (typeof chat.settings.offlineMaxLength === 'undefined') chat.settings.offlineMaxLength = 300;
             if (typeof chat.heartfeltVoice === 'undefined') chat.heartfeltVoice = '...';
             if (typeof chat.randomJottings === 'undefined') chat.randomJottings = '...';
             // ▼▼▼ 在这里添加新代码 ▼▼▼
@@ -10111,8 +10157,11 @@ function createMessageElement(msg, chat) {
     
     let contentHtml;
     // ... [此处省略了所有处理消息内容的 case, 因为它们没有变化] ...
-    // ... [The case statements for message content rendering are omitted for brevity as they are unchanged] ...
-        if (msg.type === 'share_link') {
+        if (msg.type === 'offline_text') {
+        const dialogueHtml = msg.dialogue ? `<span class="offline-dialogue">「${parseMarkdown(msg.dialogue)}」</span>` : '';
+        const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
+        contentHtml = dialogueHtml + descriptionHtml;
+    } else if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
         
         contentHtml = `
@@ -10367,25 +10416,17 @@ function createMessageElement(msg, chat) {
     addLongPressListener(wrapper, () => showMessageActions(msg.timestamp));
     wrapper.addEventListener('click', () => { if (isSelectionMode) toggleMessageSelection(msg.timestamp); });
 
-    // ▼▼▼ 在这里开始修改 ▼▼▼
     if (!isUser) {
         const avatarGroupEl = wrapper.querySelector('.avatar-group'); 
         if (avatarGroupEl) {
             avatarGroupEl.style.cursor = 'pointer';
 
-            // 【核心修改1】只为单聊绑定单击和双击
             if (!chat.isGroup) {
-                // 单聊：单击打开角色洞察
                 avatarGroupEl.addEventListener('click', (e) => {
                     e.stopPropagation();
                     showCharacterProfileModal(chat.id);
                 });
-                
-                // 【核心修改2】移除单聊头像的双击事件
-                // The dblclick listener for single chat is now removed.
-
             } else {
-                // 【核心修改3】群聊：保持双击拍一拍不变
                 avatarGroupEl.addEventListener('dblclick', (e) => {
                     e.stopPropagation();
                     const characterOriginalName = msg.senderName;
@@ -10394,8 +10435,6 @@ function createMessageElement(msg, chat) {
             }
         }
     }
-    // ▲▲▲ 修改结束 ▲▲▲
-
     return wrapper;
 }
 // ▲▲▲ 替换结束
@@ -11051,104 +11090,162 @@ ${membersWithContacts}
             }).filter(Boolean);
 
         } else {
-            let nameHistoryContext = '';
-            if (chat.nameHistory && chat.nameHistory.length > 0) {
-                nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
-            }
+            const isOfflineMode = chat.settings.isOfflineMode;
 
-            let userProfileContext = '';
-            const userQzoneNickname = state.qzoneSettings.nickname || '用户';
-            userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
+            if (isOfflineMode) {
+                const minLength = chat.settings.offlineMinLength || 100;
+                const maxLength = chat.settings.offlineMaxLength || 300;
+                const myNickname = chat.settings.myNickname || '我';
+                systemPrompt = `
+# 你的任务
+你现在正处于【线下剧情模式】，你需要扮演角色"${chat.originalName}"，并与用户进行面对面的互动。
 
-            const allChats = Object.values(state.chats);
-            const commonGroups = allChats.filter(group => 
-                group.isGroup && group.members.some(m => m.id === chat.id)
-            );
+# 【【【线下模式核心规则】】】
+1.  **输出格式**: 你的回复【必须】是一个JSON数组，数组中可以有一个或多个元素。每个元素都【必须】是以下格式的JSON对象:
+    \`{"type": "offline_text", "dialogue": "角色说的话", "description": "角色的动作、神态、内心想法以及环境描写。"}\`
+2.  **内容风格**:
+    - **对话 (\`dialogue\`字段)**: 角色说的话，请使用「」包裹。
+    - **描写 (\`description\`字段)**: 必须结合角色的动作、神态、心理活动和环境描写。动作使用()包裹，心理活动使用【】包裹，并且在描写动作和心理活动时，【必须】使用针对用户的第二人称视角（例如：他看着(你)的眼睛，【心里想着你真好看】）。
+3.  **字数要求**:
+    - 你每次生成的总内容（所有JSON对象的 "dialogue" 和 "description" 字段加起来）应在 **${minLength}到${maxLength}字** 之间。
+    - 如果一次互动的内容较长，你【必须】将其拆分成多个JSON对象，放入数组中，确保每个对象的总字数不超过150字。
+4.  **连续性**: 当你一次性发送多条消息时，请确保它们是连续的、不重复的步骤或想法，而不是对同一件事的重复表述。
+5.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。
 
-            if (commonGroups.length > 0) {
-                userProfileContext += '- 用户在你们共同所在的群聊中的昵称如下：\n';
-                commonGroups.forEach(group => {
-                    const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; 
-                    userProfileContext += `  - 在群聊“${group.name}”中，用户的昵称是“${myNicknameInGroup}”。\n`;
-                });
-            }
-            userProfileContext += '当你在任何系统提示、动态评论或挂载的群聊记忆中看到这些名字时，它们都指代的是【你的聊天对象】。';
+# 你的角色设定：
+${chat.settings.aiPersona}
 
-            let contactsList = '';
-            const friendChats = allChats.filter(c => 
-                !c.isGroup && 
-                c.id !== chat.id && 
-                c.groupId === chat.groupId && 
-                chat.groupId !== null 
-            );
+# 供你参考的信息
+- **当前时间**: ${currentTime}
+- **你们最后的对话摘要**: 
+${historySlice.map(msg => {
+    let line = `${msg.role === 'user' ? myNickname : chat.name}: `;
+    if (msg.type === 'offline_text') {
+        line += `「${msg.dialogue}」 ${msg.description}`;
+    } else {
+        line += String(msg.content);
+    }
+    return line;
+}).join('\n')}
+${worldBookContent}
+${linkedMemoryContext}
 
-            if (friendChats.length > 0) {
-                contactsList += '\n# 你的社交圈 (通讯录)\n这是你认识的朋友列表。当你在动态区看到他们的昵称时，他们指的就是这些人。\n';
-                friendChats.forEach(friend => {
-                    contactsList += `- **昵称: ${friend.name}** (本名: ${friend.originalName})\n`;
-                });
-            }
-            
-            const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
-            const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
-
-            let postsContext = "";
-            if (visiblePosts.length > 0) {
-                postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
-                const aiOriginalName = chat.originalName;
-                for (const post of visiblePosts) {
-                    let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
-                    if (post.authorId === chatId) authorName += " (这是你的帖子)";
-
-                    let contentSummary;
-                    if (post.type === 'repost') {
-                        const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
-                        let originalAuthorName = '原作者';
-                        const originalAuthorId = post.originalPost.authorId;
-                        if (originalAuthorId === 'user') {
-                            originalAuthorName = state.qzoneSettings.nickname;
-                        } else if (state.chats[originalAuthorId]) {
-                            originalAuthorName = state.chats[originalAuthorId].name;
-                        }
-                        let originalContentSummary;
-                        const originalPost = post.originalPost;
-                        if (originalPost.type === 'text_image') {
-                            originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
-                        } else if (originalPost.type === 'image_post') {
-                            originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
-                        } else { // 'shuoshuo'
-                            originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
-                        }
-                        contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
-                    } else if (post.type === 'text_image') {
-                        contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                    } else if (post.type === 'image_post') {
-                        contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
-                    } else {
-                        contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+现在，请根据以上所有规则和对话历史，继续这场线下互动。
+`;
+                messagesPayload = historySlice.map(msg => {
+                    if (msg.isHidden) return null;
+                    let contentStr = '';
+                    const sender = msg.role === 'user' ? myNickname : chat.originalName;
+                    contentStr += `${sender}: `;
+                    if (msg.type === 'offline_text') {
+                        contentStr += `「${msg.dialogue}」 ${msg.description}`;
+                    } else if (msg.type === 'user_photo') {
+                        contentStr += `[用户发来一张图片，内容是：'${msg.content}']`;
                     }
-                    postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+                    else {
+                        contentStr += String(msg.content);
+                    }
+                    return { role: 'user', content: contentStr };
+                }).filter(Boolean);
 
-                    if (post.comments && post.comments.length > 0) {
-                        for (const comment of post.comments) {
-                            if (typeof comment === 'object' && comment.commenterName) {
-                                const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
-                                let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
-                                
-                                if (comment.commenterName === aiOriginalName) {
-                                    postsContext += `  - 你评论说: ${commentText}\n`;
-                                } else {
-                                    postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+            } else {
+                let nameHistoryContext = '';
+                if (chat.nameHistory && chat.nameHistory.length > 0) {
+                    nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
+                }
+    
+                let userProfileContext = '';
+                const userQzoneNickname = state.qzoneSettings.nickname || '用户';
+                userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
+    
+                const allChats = Object.values(state.chats);
+                const commonGroups = allChats.filter(group => 
+                    group.isGroup && group.members.some(m => m.id === chat.id)
+                );
+    
+                if (commonGroups.length > 0) {
+                    userProfileContext += '- 用户在你们共同所在的群聊中的昵称如下：\n';
+                    commonGroups.forEach(group => {
+                        const myNicknameInGroup = group.settings.myNickname || userQzoneNickname; 
+                        userProfileContext += `  - 在群聊“${group.name}”中，用户的昵称是“${myNicknameInGroup}”。\n`;
+                    });
+                }
+                userProfileContext += '当你在任何系统提示、动态评论或挂载的群聊记忆中看到这些名字时，它们都指代的是【你的聊天对象】。';
+    
+                let contactsList = '';
+                const friendChats = allChats.filter(c => 
+                    !c.isGroup && 
+                    c.id !== chat.id && 
+                    c.groupId === chat.groupId && 
+                    chat.groupId !== null 
+                );
+    
+                if (friendChats.length > 0) {
+                    contactsList += '\n# 你的社交圈 (通讯录)\n这是你认识的朋友列表。当你在动态区看到他们的昵称时，他们指的就是这些人。\n';
+                    friendChats.forEach(friend => {
+                        contactsList += `- **昵称: ${friend.name}** (本名: ${friend.originalName})\n`;
+                    });
+                }
+                
+                const allRecentPosts = await db.qzonePosts.orderBy('timestamp').reverse().limit(10).toArray();
+                const visiblePosts = filterVisiblePostsForAI(allRecentPosts, chat);
+    
+                let postsContext = "";
+                if (visiblePosts.length > 0) {
+                    postsContext = "\n\n# 最近的动态列表 (供你参考和评论):\n";
+                    const aiOriginalName = chat.originalName;
+                    for (const post of visiblePosts) {
+                        let authorName = post.authorId === 'user' ? state.qzoneSettings.nickname : (state.chats[post.authorId]?.name || '一位朋友');
+                        if (post.authorId === chatId) authorName += " (这是你的帖子)";
+    
+                        let contentSummary;
+                        if (post.type === 'repost') {
+                            const repostComment = post.repostComment ? `并评论说：“${post.repostComment}”` : '';
+                            let originalAuthorName = '原作者';
+                            const originalAuthorId = post.originalPost.authorId;
+                            if (originalAuthorId === 'user') {
+                                originalAuthorName = state.qzoneSettings.nickname;
+                            } else if (state.chats[originalAuthorId]) {
+                                originalAuthorName = state.chats[originalAuthorId].name;
+                            }
+                            let originalContentSummary;
+                            const originalPost = post.originalPost;
+                            if (originalPost.type === 'text_image') {
+                                originalContentSummary = `[文字图] ${originalPost.publicText || ''} (图片描述: “${(originalPost.hiddenContent || '').substring(0, 40)}...”)`;
+                            } else if (originalPost.type === 'image_post') {
+                                originalContentSummary = `[图片] ${originalPost.publicText || ''} (图片描述: “${(originalPost.imageDescription || '').substring(0, 40)}...”)`;
+                            } else { // 'shuoshuo'
+                                originalContentSummary = `“${(originalPost.content || '').substring(0, 40)}...”`;
+                            }
+                            contentSummary = `转发了 @${originalAuthorName} 的动态 ${repostComment}【原动态内容: ${originalContentSummary}】`;
+                        } else if (post.type === 'text_image') {
+                            contentSummary = `[一张图片，其隐藏文字为：“${post.hiddenContent}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                        } else if (post.type === 'image_post') {
+                            contentSummary = `[一张图片，描述为：“${post.imageDescription}”] ${post.publicText || ''}`.substring(0, 50) + '...';
+                        } else {
+                            contentSummary = (post.publicText || post.content || "一条动态").substring(0, 50) + '...';
+                        }
+                        postsContext += `- (ID: ${post.id}) 作者: ${authorName}, 内容: "${contentSummary}"\n`;
+    
+                        if (post.comments && post.comments.length > 0) {
+                            for (const comment of post.comments) {
+                                if (typeof comment === 'object' && comment.commenterName) {
+                                    const commenterDisplayName = getDisplayNameByOriginalName(comment.commenterName);
+                                    let commentText = comment.meaning ? `[表情: '${comment.meaning}']` : comment.text;
+                                    
+                                    if (comment.commenterName === aiOriginalName) {
+                                        postsContext += `  - 你评论说: ${commentText}\n`;
+                                    } else {
+                                        postsContext += `  - 评论: ${commenterDisplayName} (本名: ${comment.commenterName}): ${commentText}\n`;
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
-
-// ▼▼▼ 【核心修复】在这里获取动态的昵称 ▼▼▼
-const myNickname = chat.settings.myNickname || '我';
-systemPrompt = `
+    
+                const myNickname = chat.settings.myNickname || '我';
+                systemPrompt = `
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
 
@@ -11265,65 +11362,65 @@ ${worldBookContent}
 ${sharedContext} 
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
-
-            messagesPayload = historySlice.map(msg => {
-                if (msg.isHidden) return null;
-                if (msg.role === 'assistant') {
-                    let assistantMsgObject = { type: msg.type || 'text' };
-                    if (msg.type === 'sticker') {
-                        assistantMsgObject.url = msg.content;
-                        assistantMsgObject.meaning = msg.meaning;
-                    } else if (msg.type === 'transfer') {
-                        assistantMsgObject.amount = msg.amount;
-                        assistantMsgObject.note = msg.note;
-                    } else if (msg.type === 'waimai_request') {
-                        assistantMsgObject.productInfo = msg.productInfo;
-                        assistantMsgObject.amount = msg.amount;
-                    } else {
-                        if (msg.quote) {
-                            assistantMsgObject.quote_reply = {
-                                target_sender: msg.quote.senderName,
-                                target_content: msg.quote.content,
-                                reply_content: msg.content
-                            };
+    
+                messagesPayload = historySlice.map(msg => {
+                    if (msg.isHidden) return null;
+                    if (msg.role === 'assistant') {
+                        let assistantMsgObject = { type: msg.type || 'text' };
+                        if (msg.type === 'sticker') {
+                            assistantMsgObject.url = msg.content;
+                            assistantMsgObject.meaning = msg.meaning;
+                        } else if (msg.type === 'transfer') {
+                            assistantMsgObject.amount = msg.amount;
+                            assistantMsgObject.note = msg.note;
+                        } else if (msg.type === 'waimai_request') {
+                            assistantMsgObject.productInfo = msg.productInfo;
+                            assistantMsgObject.amount = msg.amount;
                         } else {
-                             assistantMsgObject.content = msg.content;
+                            if (msg.quote) {
+                                assistantMsgObject.quote_reply = {
+                                    target_sender: msg.quote.senderName,
+                                    target_content: msg.quote.content,
+                                    reply_content: msg.content
+                                };
+                            } else {
+                                 assistantMsgObject.content = msg.content;
+                            }
                         }
+                        const assistantContent = JSON.stringify([assistantMsgObject]);
+                        return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
                     }
-                    const assistantContent = JSON.stringify([assistantMsgObject]);
-                    return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
-                }
-                let contentStr = '';
-                contentStr += `(Timestamp: ${msg.timestamp}) `;
-                if (msg.quote) {
-                    contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
-                } else {
-                    contentStr += msg.content;
-                }
-                if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户描述的照片，内容是：'${msg.content}']` };
-                if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
-                if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
-                if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
-                if (Array.isArray(msg.content) && msg.content?.type === 'image_url') {
-                    const prefix = `(Timestamp: ${msg.timestamp}) `;
-                    return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
-                }
-                if (msg.meaning) return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发送了一个表情，意思是：'${msg.meaning}']` };
-                return { role: msg.role, content: contentStr };
-            }).filter(Boolean);
-
-            if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
-                const contextSummaryForApproval = chat.history
-                    .filter(m => !m.isHidden)
-                    .slice(-10)
-                    .map(msg => {
-                        const sender = msg.role === 'user' ? '用户' : chat.name;
-                        return `${sender}: ${String(msg.content).substring(0, 50)}...`;
-                    })
-                    .join('\n');
-                const friendRequestInstruction = {
-                    role: 'user',
-                    content: `
+                    let contentStr = '';
+                    contentStr += `(Timestamp: ${msg.timestamp}) `;
+                    if (msg.quote) {
+                        contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
+                    } else {
+                        contentStr += msg.content;
+                    }
+                    if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户描述的照片，内容是：'${msg.content}']` };
+                    if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
+                    if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
+                    if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
+                    if (Array.isArray(msg.content) && msg.content?.type === 'image_url') {
+                        const prefix = `(Timestamp: ${msg.timestamp}) `;
+                        return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
+                    }
+                    if (msg.meaning) return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发送了一个表情，意思是：'${msg.meaning}']` };
+                    return { role: msg.role, content: contentStr };
+                }).filter(Boolean);
+    
+                if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
+                    const contextSummaryForApproval = chat.history
+                        .filter(m => !m.isHidden)
+                        .slice(-10)
+                        .map(msg => {
+                            const sender = msg.role === 'user' ? '用户' : chat.name;
+                            return `${sender}: ${String(msg.content).substring(0, 50)}...`;
+                        })
+                        .join('\n');
+                    const friendRequestInstruction = {
+                        role: 'user',
+                        content: `
 [系统重要指令]
 用户向你发送了好友申请，理由是：“${chat.relationship.applicationReason}”。
 作为参考，这是你们之前的最后一段聊天记录：
@@ -11332,9 +11429,10 @@ ${contextSummaryForApproval}
 ---
 请你根据以上所有信息，以及你的人设，使用 friend_request_response 指令，并设置 decision 为 'accept' 或 'reject' 来决定是否通过。
 `
-                };
-                messagesPayload.push(friendRequestInstruction);
-            }            
+                    };
+                    messagesPayload.push(friendRequestInstruction);
+                }            
+            }
         }           
     
             let  isGemini = proxyUrl === GEMINI_API_URL;
@@ -12231,7 +12329,14 @@ case 'red_packet':
                         countdownEndTime: Date.now() + 15 * 60 * 1000,
                     };
                     break;
-                
+                case 'offline_text':
+                    aiMessage = {
+                        ...baseMessage,
+                        type: 'offline_text',
+                        dialogue: msgData.dialogue,
+                        description: msgData.description
+                    };
+                    break;
                 default:
                      console.warn("收到了未知的AI指令类型:", msgData.type);
                      break;
@@ -12247,6 +12352,7 @@ case 'red_packet':
                         case 'ai_image': notificationText = `[图片]`; break;
                         case 'voice_message': notificationText = `[语音]`; break;
                         case 'sticker': notificationText = aiMessage.meaning ? `[表情: ${aiMessage.meaning}]` : '[表情]'; break;
+                        case 'offline_text': notificationText = aiMessage.dialogue ? `「${aiMessage.dialogue}」` : `[${aiMessage.description.substring(0, 20)}...]`; break;
                         default: notificationText = String(aiMessage.content || '');
                     }
                     const finalNotifText = chat.isGroup ? `${aiMessage.senderName}: ${notificationText}` : notificationText;
@@ -19286,6 +19392,9 @@ document.getElementById('add-chat-btn').addEventListener('click', async () => {
         relationship: { status: 'friend', blockedTimestamp: null, applicationReason: '' },
         status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
         settings: {
+	isOfflineMode: false,
+	offlineMinLength: 100,
+	offlineMaxLength: 300,
             aiPersona: '你是谁呀。', myPersona: '我是谁呀。', maxMemory: 10,
             aiAvatar: defaultAvatar, myAvatar: defaultAvatar, background: '',
             theme: 'default', fontSize: 13, customCss: '',
@@ -19559,7 +19668,7 @@ document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 
     document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
     document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
-    
+        document.getElementById('offline-mode-group').style.display = isGroup ? 'none' : 'block';    
     // 【【【核心修改：控制冷却时间输入框的显示】】】
     document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
     document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
@@ -19587,6 +19696,20 @@ document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 
         document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
         renderGroupMemberSettings(chat.members);
     } else {
+        const offlineModeToggle = document.getElementById('offline-mode-toggle');
+        const offlineModeOptions = document.getElementById('offline-mode-options');
+        const offlineMinInput = document.getElementById('offline-min-length-input');
+        const offlineMaxInput = document.getElementById('offline-max-length-input');
+
+        offlineModeToggle.checked = chat.settings.isOfflineMode || false;
+        offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
+        offlineMinInput.value = chat.settings.offlineMinLength || 100;
+        offlineMaxInput.value = chat.settings.offlineMaxLength || 300;
+
+        // 为开关添加实时交互
+        offlineModeToggle.addEventListener('change', () => {
+            offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
+        });
         document.getElementById('ai-original-name-input').value = chat.originalName;
         document.getElementById('ai-persona').value = chat.settings.aiPersona;
         document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
@@ -19734,6 +19857,9 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
         // 【【【核心修改：保存群聊冷却时间】】】
         chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
     } else {
+        chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
+        chat.settings.offlineMinLength = parseInt(document.getElementById('offline-min-length-input').value) || 100;
+        chat.settings.offlineMaxLength = parseInt(document.getElementById('offline-max-length-input').value) || 300;
         const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
         if (!newOriginalName) return alert('对方本名不能为空！');
         chat.originalName = newOriginalName;
@@ -22240,3 +22366,4 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
