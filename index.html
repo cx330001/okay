@@ -6970,6 +6970,7 @@ input:checked + .slider:before {
         <span class="back-btn" id="memory-screen-back-btn">‹</span>
         <span>长期记忆</span>
         <div class="header-actions">
+             <span class="action-btn" id="refine-memory-btn-header">精炼</span>
              <span class="action-btn" id="summarize-recent-btn-header">总结</span>
              <span class="action-btn" id="add-manual-memory-btn-header">+</span>
         </div>
@@ -17478,7 +17479,126 @@ async function checkAndTriggerAutoSummary(chatId) {
         await triggerAutoSummary(chatId);
     }
 }
+/**
+ * 【全新V2.0 | 支持自定义字数】手动触发对【现有长期记忆】的总结和精炼
+ * @param {string} chatId - 当前聊天的ID
+ */
+async function summarizeExistingLongTermMemory(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.longTermMemory || !chat.longTermMemory.length || chat.longTermMemory.length < 2) {
+        alert("长期记忆少于2条，无需进行精炼。");
+        return;
+    }
 
+    // ▼▼▼ 核心修改1：先弹出输入框让用户设置字数 ▼▼▼
+    const wordCountStr = await showCustomPrompt(
+        "设置精炼字数",
+        "请输入精炼后核心记忆的大致字数：",
+        "150" // 提供一个合理的默认值
+    );
+    
+    // 如果用户取消输入，则直接退出
+    if (wordCountStr === null) return;
+    
+    const wordCount = parseInt(wordCountStr);
+    if (isNaN(wordCount) || wordCount < 20) {
+        alert("请输入一个有效的数字（建议大于20）。");
+        return;
+    }
+    // ▲▲▲ 修改结束 ▲▲▲
+
+    const confirmed = await showCustomConfirm(
+        '确认精炼记忆？',
+        `此操作会将当前 ${chat.longTermMemory.length} 条长期记忆发送给AI，总结成大约 ${wordCount} 字的核心记忆。旧的记忆将被替换，此操作不可撤销。确定要继续吗？`, // 提示中也显示了自定义字数
+        { confirmButtonClass: 'btn-danger', confirmText: '确认精炼' }
+    );
+
+    if (!confirmed) return;
+
+    // 1. 准备要总结的材料
+    const memoryContent = chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n');
+    const userNickname = state.qzoneSettings.nickname || '用户';
+
+    // 2. 准备一个专门用于“元总结”的、高度优化的AI指令
+    const systemPrompt = `
+# 你的任务
+你是一个记忆整合专家。你的唯一任务是阅读下面提供的、已经经过初步总结的“记忆要点列表”，并将它们整合成一个更加精炼、连贯、更高层次的核心记忆摘要。
+
+# 核心规则
+1.  **保留关键信息**: 必须保留所有关键的人物、事件、设定和情感关系。绝对不能遗忘任何重要细节。
+2.  **消除冗余**: 移除重复的、或已经不再重要的旧信息。
+3.  **建立联系**: 将孤立的记忆点串联起来，形成一个有逻辑、有因果关系的故事线或人物档案。
+4.  **客观视角**: 使用客观的第三人称进行总结。请严格使用“${userNickname}”（代表用户）和“${chat.originalName}”（代表AI角色）来指代对话双方。
+5.  **【【【长度铁律】】】**: 最终的摘要总长度应严格控制在【${wordCount}个字】左右。
+6.  **输出格式**: 你的回复【必须且只能】是一个JSON对象，格式如下：
+    \`{"summary": "在这里写下你整合并精炼后的核心记忆摘要。"}\`
+
+# 待整合的记忆要点列表
+${memoryContent}
+
+现在，请根据以上所有规则，开始你的整合工作。`;
+
+    await showCustomAlert("请稍候...", "正在请求AI进行记忆精炼...");
+
+    try {
+        // 3. 选择API并发送请求 (优先使用副API)
+        const useSecondaryApi = state.apiConfig.secondaryProxyUrl && state.apiConfig.secondaryApiKey && state.apiConfig.secondaryModel;
+        const { proxyUrl, apiKey, model } = useSecondaryApi
+            ? { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel }
+            : state.apiConfig;
+
+        if (!proxyUrl || !apiKey || !model) {
+            throw new Error('请先在API设置中配置好（主或副）API以进行总结。');
+        }
+
+        let isGemini = proxyUrl.includes('generativelanguage');
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, [{ role: 'user', content: "请开始整合。" }]);
+
+        const response = isGemini
+            ? await fetch(geminiConfig.url, geminiConfig.data)
+            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: "请开始整合。" }],
+                    temperature: 0.2,
+                    response_format: { "type": "json_object" }
+                })
+            });
+
+        if (!response.ok) throw new Error(`API 错误: ${response.statusText}`);
+
+        const data = await response.json();
+        let rawContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+        rawContent = rawContent.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+        const result = JSON.parse(rawContent);
+
+        // 4. 处理返回结果
+        if (result.summary && typeof result.summary === 'string' && result.summary.trim()) {
+            const newMemoryEntry = {
+                content: result.summary.trim(),
+                timestamp: Date.now(),
+                source: 'refined'
+            };
+
+            chat.longTermMemory = [newMemoryEntry];
+            chat.lastMemorySummaryTimestamp = Date.now();
+            await db.chats.put(chat);
+            
+            if (document.getElementById('long-term-memory-screen').classList.contains('active')) {
+                renderLongTermMemoryList();
+            }
+            await showCustomAlert('精炼成功', `已成功将记忆精炼为 1 条核心记忆！`);
+        } else {
+            throw new Error("AI返回了空的或格式不正确的总结内容。");
+        }
+
+    } catch (error) {
+        console.error("精炼长期记忆时出错:", error);
+        await showCustomAlert('精炼失败', `操作失败，请检查API配置或稍后重试。\n错误信息: ${error.message}`);
+    }
+}
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAutoSummary ▼▼▼
 /**
  * 【核心】执行总结的API调用 (V5 - 强制精简版)
@@ -21231,6 +21351,12 @@ postsList.addEventListener('click', (e) => {
     }
 });
 // ▲▲▲ 新增代码结束 ▲▲▲
+// 【全新】为长期记忆“精炼”按钮绑定事件
+document.getElementById('refine-memory-btn-header').addEventListener('click', () => {
+    if(state.activeChatId) {
+        summarizeExistingLongTermMemory(state.activeChatId);
+    }
+});
 // ▼▼▼ 在 init() 的事件监听器区域添加这行代码 ▼▼▼
 document.getElementById('add-world-book-entry-btn').addEventListener('click', () => {
     const container = document.getElementById('world-book-entries-container');
