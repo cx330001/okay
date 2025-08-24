@@ -19275,9 +19275,9 @@ async function handleCardImport(event) {
     }
 }
 
+// ▼▼▼ 【最终乱码修复版】请用这个全新的函数，完整替换旧的 parsePngForTavernData ▼▼▼
 /**
- * 【【【这就是缺失的函数！】】】
- * 从PNG文件的ArrayBuffer中解析出隐藏的Tavern AI角色数据
+ * 【V2.0 | 修复UTF-8乱码】从PNG文件的ArrayBuffer中解析出隐藏的Tavern AI角色数据
  * @param {ArrayBuffer} arrayBuffer - PNG文件的二进制数据
  * @returns {Promise<object>} - 解析出的JSON角色数据
  */
@@ -19290,7 +19290,7 @@ function parsePngForTavernData(arrayBuffer) {
         }
 
         let offset = 8;
-        const decoder = new TextDecoder();
+        const decoder = new TextDecoder(); // 这个解码器用于解码区块类型，不是最终数据
 
         while (offset < view.byteLength) {
             const length = view.getUint32(offset);
@@ -19304,12 +19304,29 @@ function parsePngForTavernData(arrayBuffer) {
                     if (key === 'chara') {
                         const value = decoder.decode(data.slice(nullSeparatorIndex + 1));
                         try {
-                            // Tavern卡的数据是Base64编码的
-                            const decodedData = atob(value);
+                            // ▼▼▼ 【核心修复就在这里！】 ▼▼▼
+                            // 我们不再使用旧的、会导致中文乱码的 atob() 方法。
+                            // 而是采用一个更现代、更可靠的两步流程来解码。
+                            
+                            // 1. 将Base64字符串转换为一个原始的二进制字符串。
+                            const binaryString = atob(value);
+                            
+                            // 2. 创建一个字节数组 (Uint8Array) 来存储这些二进制数据。
+                            const bytes = new Uint8Array(binaryString.length);
+                            for (let i = 0; i < binaryString.length; i++) {
+                                bytes[i] = binaryString.charCodeAt(i);
+                            }
+                            
+                            // 3. 【最关键的一步】使用 TextDecoder 并明确指定 UTF-8 编码，
+                            //    将字节数组正确地解码为包含中文的字符串。
+                            const decodedData = new TextDecoder('utf-8').decode(bytes);
+                            
+                            // ▲▲▲ 修复结束 ▲▲▲
+                            
                             resolve(JSON.parse(decodedData));
-                            return;
+                            return; // 成功找到并解析，任务完成
                         } catch (e) {
-                            return reject(new Error("在PNG中找到角色数据，但解码或解析失败。"));
+                            return reject(new Error("在PNG中找到角色数据，但解码或解析失败。错误: " + e.message));
                         }
                     }
                 }
@@ -19322,7 +19339,6 @@ function parsePngForTavernData(arrayBuffer) {
         reject(new Error("在PNG文件中未找到有效的Tavern AI角色数据(chara chunk)。"));
     });
 }
-
 // ▲▲▲ 替换结束 ▲▲▲
 
 // ▼▼▼ 【最终修复版 | V4.0】请用这一整块代码，替换旧的 createChatFromCardData 和可能缺失的 findWorldBookEntries 函数 ▼▼▼
