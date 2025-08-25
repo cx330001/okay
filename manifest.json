@@ -1,0 +1,7 @@
+{
+  "name": "phone",
+  "short_name": "App",
+  "display": "standalone",
+  "background_color": "#7ad0ff",
+  "theme_color": "#7ad0ff"
+}
