@@ -70,7 +70,30 @@ body {
         .battery-container.charging .battery-level { background-color: #4cd964; animation: charge-breath 2s infinite; }
         .battery-container.charging .battery-text { color: #4cd964; }
         @keyframes charge-breath { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+/* ▼▼▼ 【终极基础布局修复】请用这块新代码，完整替换掉您现有的 .screen 样式 ▼▼▼ */
+
+.screen {
+    /* 核心修正1: 移除 width 和 height，它们是所有问题的根源！ */
+    /* width: 100%; */
+    /* height: 100%; */
+
+    /* 核心修正2: 使用四向拉伸定位，强制让每一个页面都铺满父容器(#phone-screen) */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    
+    /* 其他原有样式保持不变 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
         .screen.active { opacity: 1; visibility: visible; z-index: 1; }
 .header { position: relative; z-index: 15; flex-shrink: 0; padding: 15px 20px; padding-top: 45px; background-color: rgba(247, 247, 247, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; }
         .header .header-actions { display: flex; align-items: center; gap: 15px; }
@@ -88,8 +111,10 @@ body {
 /* ▼▼▼ 请用这【一整块代码】，完整替换掉您现有的 #home-screen 和 #app-grid 样式 ▼▼▼ */
 
 /* 1. 【核心修正】让首页容器真正铺满，只为底部安全区留出内边距 */
+/* ▼▼▼ 【请再次确认】您的首页相关样式与此一致 ▼▼▼ */
+
+/* 1. 首页容器(#home-screen)负责处理安全区，让它的背景(壁纸)能延伸 */
 #home-screen {
-    /* 原有布局和背景样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -97,49 +122,37 @@ body {
     box-sizing: border-box;
     background-size: cover;
     background-position: center;
+    
+    /* 为顶部刘海和底部小黑条留出内边距，让背景可以透过去 */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
     padding-left: 20px;
     padding-right: 20px;
-    
-    /* 
-       关键点1：移除旧的 padding-bottom: 50px; 
-       关键点2：新的 padding-bottom 只负责适配“小黑条”的安全距离。
-       这样，壁纸就能铺到屏幕的最底部了！
-    */
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-top: env(safe-area-inset-top); /* 顶部的适配保持不变 */
 }
 
-/* 2. 【核心修正】将App图标网格作为一个整体，从屏幕底部推上来 */
+/* 2. 时钟容器(#clock-container)用 margin 把自己从顶部推下来 */
+#clock-container {
+    text-align: center;
+    color: white;
+    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+    margin-bottom: 20px;
+    flex-shrink: 0;
+    margin-top: 60px; /* 从顶部推开，保证可见 */
+}
+
+/* 3. App图标网格(#app-grid)也用 margin 把自己从底部推上来 */
 #app-grid {
-    margin-top: auto; /* 保持它在垂直方向上贴近底部 */
+    margin-top: auto; /* 保持贴近底部 */
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 20px;
     width: 100%;
     padding: 20px;
-    
-    /* 
-       关键点3：使用 margin-bottom 来创造一个“看不见的底座”，把图标抬高。
-       这个 30px 是一个建议值，您可以根据美观度调整，它确保了图标和“小黑条”之间有舒适的间距。
-    */
-    margin-bottom: 30px; 
+    margin-bottom: 30px; /* 从底部推开，保证可见性和美观 */
 }
 
-/* ▲▲▲ 替换结束 ▲▲▲ */
-/* 2. 把时钟单独往下推 */
-#clock-container {
-    /* 原有样式保持不变 */
-    text-align: center;
-    color: white;
-    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
-    margin-bottom: 20px;
-    flex-shrink: 0;
-    
-    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
-       这个 60px 就是您之前在 padding-top 里写的值。 */
-    margin-top: 60px;
-}
+/* ▲▲▲ 确认结束 ▲▲▲ */
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
 #main-time {
@@ -23135,7 +23148,6 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
