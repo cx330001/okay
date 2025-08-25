@@ -53,10 +53,13 @@ body {
        而是“在已经延伸到顶部的背景上，把文字和按钮向下推移，以免被状态栏的文字挡住” */
     padding-top: calc(15px + env(safe-area-inset-top)); 
 }
+/* ▼▼▼ 请将这段代码粘贴到 <style> 的末尾 ▼▼▼ */
 
-/* 5. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
+/* 聊天输入框区域适配 */
 #chat-input-area {
-    padding-bottom: 8px; /* 只保留您原本的8px基本内边距 */
+    /* 核心修改：使用 calc() 函数，
+       在您原有的 8px 基础上，再加上系统底部安全区的高度 */
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
         #status-bar { 
@@ -589,6 +592,7 @@ body {
     background-color: rgba(247, 247, 247, 0.9);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
 }
 
 .nav-item {
