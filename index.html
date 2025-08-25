@@ -18,44 +18,40 @@
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
 
+/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+
 /* 1. 重置 html，让它不干预布局 */
 html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
-/* --- 请用这一整块代码，替换掉你原来的 body 样式 --- */
+/* 2. 重置 body，使其成为一个干净的画布，并设置好您期望的全局背景色 */
 body {
-    margin: 0;
+    margin: 0; 
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
-    
-    /* 
-      核心修复：
-      将 body 的背景色强制设为 #ffffff (白色)。
-      这确保了当状态栏透明时，其背后是我们想要的白色，而不是默认的黑色。
-      如果您应用的主背景是其他颜色，也请在这里同步修改。
-    */
-    background-color: #ffffff;
+    background-color: #ffffff; /* 关键：确保 body 背景是您想要的颜色（例如白色） */
 }
 
-/* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
+/* 3. 【核心修复】修正 phone-screen，使其能真正铺满整个物理屏幕 */
 #phone-screen {
-    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
+    /* 关键1：使用固定定位(fixed)，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
-    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
+    /* 关键2：将四个边都锁定在屏幕的物理边缘，强制撑满，彻底解决底部白条 */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
 
-    /* 核心修改3：移除所有 height 和 width 属性，因为上面的 top/left/right/bottom 已经定义了尺寸 */
+    /* 关键3：移除所有 height 和 width 属性，因为上面的定位已经定义了尺寸 */
 
     /* 其他布局属性保持不变 */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff; /* 您想要的白色背景 */
+    background-color: #ffffff; /* 您应用的主背景色 */
 }
+
 /* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
