@@ -13,35 +13,75 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
+/* ▼▼▼ 【终极解决方案】请将这一整块代码粘贴到 <style> 的最末尾 ▼▼▼ */
+
 /* 1. 重置 html，让它不干预布局 */
 html {
-    -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
+    -webkit-text-size-adjust: 100%;
 }
 
-/* 2. 重置 body，使其成为一个干净的画布 */
+/* 2. 重置 body，移除所有可能导致冲突的高度和滚动条样式 */
 body {
     margin: 0;
-    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-weight: normal;
-    background-color: #f0f2f5;
-    /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
+    /* 核心：移除了所有 height 和 overflow 属性，让body成为一个干净的画布 */
 }
 
-/* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
+/* 3. 修正 #phone-screen，使其成为一个绝对可靠的全屏容器 */
 #phone-screen {
-    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
-    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    /* 核心修改3：移除所有 height 和 width 属性 */
+    /* 移除所有 width 和 height 属性，完全由上面的四个定位属性决定尺寸 */
     overflow: hidden;
+}
+
+/* 4. 【遵从您的指令】彻底重置 #home-screen 的布局 */
+#home-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+    /* 【关键】遵从您的要求，已移除所有安全区padding，让壁纸顶到屏幕边缘 */
+    padding: 0;
+
+    background-size: cover;
+    background-position: center;
+}
+
+/* 5. 重新使用绝对定位来放置时钟和App图标，确保它们在移除padding后位置依然正确 */
+#clock-container {
+    position: absolute;
+    top: 100px;           /* 从屏幕顶部向下推 100px */
+    left: 20px;
+    right: 20px;
+    z-index: 2;
+    text-align: center;
+    color: white;
+    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+
+#app-grid {
+    position: absolute;
+    bottom: 30px;         /* 从屏幕底部向上推 30px */
+    left: 0;
+    right: 0;
+    z-index: 2;
+    width: 100%;
+    padding: 20px; /* 内部padding保持不变，用于图标之间的对齐 */
+    box-sizing: border-box;
+
+    /* 以下是您原有的内部布局样式，保持不变 */
     display: flex;
     flex-direction: column;
-    background-color: #ffffff;
+    align-items: center;
+    gap: 20px;
 }
+
+/* ▲▲▲ 粘贴结束 ▲▲▲ */
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
@@ -87,70 +127,7 @@ body {
 
 /* ▼▼▼ 【终极解决方案】请用这一整块代码，完整替换掉您现有的 #home-screen 样式 ▼▼▼ */
 
-#home-screen {
-    /* 
-       【核心修正】
-       我们不再使用 height: 100%，而是像它的父容器一样，
-       通过将四个边都固定为0，来强制它撑满整个屏幕。
-       这是最稳固、最不可能出错的 पूर्ण-screen 布局方式。
-    */
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    right: 0;
 
-    /* 
-       您原有的其他样式保持不变，它们对于内部布局依然很重要 
-    */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    box-sizing: border-box;
-    background-size: cover;
-    background-position: center;
-    padding-left: 20px;
-    padding-right: 20px;
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-top: env(safe-area-inset-top);
-}
-
-/* ▲▲▲ 替换结束 ▲▲▲ */
-
-/* 2. 【核心修正】使用绝对定位来精确定位时钟 */
-#clock-container {
-    position: absolute;   /*  <-- 关键：脱离文档流 */
-    top: 100px;           /*  <-- 关键：从屏幕顶部向下推100px (您可以微调这个值) */
-    left: 20px;           /*  <-- 与您之前的边距保持一致 */
-    right: 20px;
-    z-index: 2;           /*  <-- 确保它在壁纸之上 */
-
-    /* 以下是您原有的样式，保持不变 */
-    text-align: center;
-    color: white;
-    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
-}
-
-/* 3. 【核心修正】使用绝对定位来精确定位App图标网格 */
-#app-grid {
-    position: absolute;   /*  <-- 关键：脱离文档流 */
-    bottom: 30px;         /*  <-- 关键：从屏幕底部向上推30px (您可以微调这个值) */
-    left: 0;
-    right: 0;
-    z-index: 2;           /*  <-- 确保它在壁纸之上 */
-    
-    /* 以下是您原有的内部布局样式，保持不变 */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    width: 100%;
-    padding: 20px;
-    box-sizing: border-box;
-}
-
-/* ▲▲▲ 粘贴结束 ▲▲▲ */
 #main-time {
     font-size: 88px; /* 推荐：稍微调大一点点，更接近iOS锁屏的感觉 */
     font-weight: 600; /* 核心修改1：将字体从“纤细(200)”改为“粗体(600)”，这是最关键的一步 */
@@ -23065,6 +23042,8 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
+
 
 
 
