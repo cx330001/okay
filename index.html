@@ -2,16 +2,25 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- 1. 强制网页内容延伸到屏幕所有边缘 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+<!-- 2. 告诉iOS这是一个可以独立运行的Web App -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+    
+<!-- 3. 设置顶部的状态栏样式 (让你的内容能透到状态栏后面) -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <title>EPhone</title>
-   <meta name="apple-mobile-web-app-capable" content="yes">
-   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @font-face { font-family: 'bulangni'; src: url('') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+
+/* ▼▼▼ 【终极修复方案】请用这一整块代码，替换所有旧的 html, body, #phone-screen 样式 ▼▼▼ */
 
 /* ▼▼▼ 【终极修复方案】请用这一整块代码，替换所有旧的 html, body, #phone-screen 样式 ▼▼▼ */
 
@@ -29,12 +38,12 @@ html, body {
 body {
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
-    background-color: #f0f2f5;
+    background-color: #f0f2f5; /* 背景色可以保留 */
 }
 
 /* 3. 使用最稳定的绝对定位，让 phone-screen 精准地铺满整个 body */
 #phone-screen {
-    position: absolute; /* 核心修正：不再使用 fixed，而是相对于100%的 body 进行定位 */
+    position: absolute; /* 核心修正：相对于100%的 body 进行定位，最稳定 */
     top: 0;
     left: 0;
     width: 100%;
@@ -44,7 +53,7 @@ body {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff; 
+    background-color: #ffffff; /* 你想要的白色背景 */
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
@@ -59,9 +68,9 @@ body {
 }
 
 /* 5. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
-#chat-input-area {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
-}
+    #chat-input-area {
+        padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
 
         #status-bar { 
     display: none; 
@@ -23042,6 +23051,8 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
+
 
 
 
