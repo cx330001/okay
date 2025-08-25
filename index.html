@@ -5370,6 +5370,85 @@ input:checked + .slider:before {
     background-color: rgba(0, 123, 255, 0.2) !important;
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/*
+============================================================
+   iPhone 全屏沉浸式体验终极修复方案
+============================================================
+   说明：
+   本方案分为两部分，分别处理“有固定底栏”和“无固定底栏”的页面，
+   确保所有页面的背景都能无缝延伸，同时内容绝对安全。
+*/
+
+/* --- 部分1: 针对【带有固定底部栏】的页面 --- */
+
+/* 
+  为所有固定在底部的栏目（如聊天输入框、主导航栏等），
+  增加一个向上的“安全内边距”。
+  这会把栏目内部的按钮等内容推上来，而栏目自身的背景会填满下方的安全区。
+*/
+#chat-list-bottom-nav,
+#chat-input-area,
+#favorites-action-bar,
+#sticker-action-bar,
+#member-management-actions {
+    /* 关键！让padding-bottom等于底部安全区的高度 */
+    padding-bottom: env(safe-area-inset-bottom) !important;
+    /* 同时，为了计算准确，必须设置为 border-box */
+    box-sizing: border-box !important;
+}
+
+/* 
+  微调：对于聊天输入框，我们可以在安全边距的基础上再加一点点额外的8px边距，
+  让它在视觉上更舒适。
+*/
+#chat-input-area {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+}
+
+
+/* --- 部分2: 针对【没有固定底部栏】的页面 --- */
+
+/* 
+  对于像主屏幕、各种设置页、全屏列表页这样没有固定底栏的页面，
+  我们需要让页面容器本身用padding把背景撑到底部，
+  然后把最下方的【实际内容】用 margin-bottom 顶上来。
+*/
+
+/* 
+  让主屏幕的背景延伸到底部，同时为安全区留出空间。
+  这是您之前已经修复好的，我们在这里再次确认。
+*/
+#home-screen {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+}
+/* 
+  然后，把App图标网格作为一个整体，向上推离底部边缘，创造舒适的视觉间距。
+*/
+#app-grid {
+    margin-bottom: 30px !important; /* 这个值是为了美观，可以按喜好调整 */
+}
+
+/* 
+  对于所有可滚动的内容列表，我们需要确保用户能把列表滚动到底部时，
+  最后一行内容不会被“小黑条”遮挡。
+*/
+#world-book-list,
+#chat-list,
+#qzone-content,
+#favorites-list,
+#memories-list,
+#album-grid-page,
+#photos-grid-page,
+#call-history-list,
+#api-settings-screen .form-container, /* 别忘了还有这些表单容器 */
+#wallpaper-screen .form-container,
+#font-settings-screen .form-container {
+    /* 
+      为所有列表的底部增加一个安全内边距。
+      这样，当列表滚动到底时，最后的内容会停在安全区之上。
+    */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+}
     </style>
 </head>
 <body>
