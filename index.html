@@ -16,47 +16,42 @@
         @font-face { font-family: 'bulangni'; src: url('') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
 
 
-/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+/* --- 请用这【一整块】全新的代码，替换掉您现有的 html, body, 和 #phone-screen 样式 --- */
 
 /* 1. 重置 html，让它不干预布局 */
 html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
-/* 2. 重置 body，使其成为一个干净的画布，并设置好您期望的全局背景色 */
+/* 2. 重置 body，使其成为一个干净的画布 */
 body {
     margin: 0; 
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-weight: normal;
-    background-color: #ffffff; /* 关键：确保 body 背景是您想要的颜色（例如白色） */
+    background-color: #ffffff; /* 确保 body 背景是您想要的颜色 */
 }
 
-/* --- 请用这块代码，完整替换掉您现有的 .phone-screen 样式 --- */
-.phone-screen {
+/* 3. 【核心修复】修正 phone-screen，使其能真正铺满整个物理屏幕 */
+#phone-screen {
     /* 关键1：使用固定定位(fixed)，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
-    
     /* 关键2：将四个边都锁定在屏幕的物理边缘，强制撑满，彻底解决底部白条 */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    
-    /* 关键3：移除所有 width 和 height 属性，因为上面的定位已经定义了尺寸 */
-
     /* 其他布局属性保持不变 */
-    max-width: 100%; /* 在大屏幕上防止过宽 */
-    background-color: var(--white-color);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    border-radius: var(--phone-corner-radius);
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    background-color: #ffffff; /* 您应用的主背景色 */
 }
-
-/* ▲▲▲ 替换结束 ▲▲▲ */
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
@@ -97,7 +92,9 @@ body {
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
 /* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
 
-/* 1. 让首页容器铺满整个屏幕 */
+/* --- 请用这【一整块】全新的代码，替换掉您现有的 #home-screen 和 #clock-container 样式 --- */
+
+/* 1. 让首页容器铺满整个屏幕，并为“刘海”留出空间 */
 #home-screen {
     /* 原有布局样式保持不变 */
     display: flex;
@@ -108,20 +105,18 @@ body {
     background-size: cover;
     background-position: center;
     
-    /* 核心修正：
-       - padding: 20px; 被拆分，顶部padding单独处理。
-       - padding-top: calc(60px + ...); 被彻底移除！
-    */
+    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
+       这样，壁纸就能正确地填充到屏幕最顶端了！ */
+    padding-top: env(safe-area-inset-top);
+    
+    /* 其他方向的内边距保持或按需调整 */
     padding-left: 20px;
     padding-right: 20px;
-    padding-bottom: 50px;
-    
-    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
-       这样，背景就能正确地填充到屏幕最顶端了！ */
-    padding-top: env(safe-area-inset-top);
+    /* 为底部“小黑条”和图标留出一些空间 */
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
 }
 
-/* 2. 把时钟单独往下推 */
+/* 2. 把时钟单独用 margin 推下来 */
 #clock-container {
     /* 原有样式保持不变 */
     text-align: center;
@@ -131,7 +126,7 @@ body {
     flex-shrink: 0;
     
     /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
-       这个 60px 就是您之前在 padding-top 里写的值。 */
+       这个 60px 就是您之前在 padding-top 里设定的值。 */
     margin-top: 60px;
 }
 
@@ -23068,7 +23063,6 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
