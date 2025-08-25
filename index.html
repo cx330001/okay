@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>EPhone</title>
    <meta name="apple-mobile-web-app-capable" content="yes">
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -12,34 +12,34 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* --- 用这段代码替换掉你原来的 html, body, #phone-screen 样式 --- */
-html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%; /* 确保 html 和 body 占满整个视口 */
-    overflow: hidden; /* 防止出现意外的滚动条 */
-    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f0f2f5; /* 这是您原来的背景色，我们保留它 */
+/* 1. 重置 html，让它不干预布局 */
+html {
+    -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
+/* 2. 重置 body，使其成为一个干净的画布 */
 body {
-    display: flex; /* 将 body 设为 Flex 容器 */
-    align-items: center; /* 垂直居中 */
-    justify-content: center; /* 水平居中 */
-    min-height: 100vh; /* 最小高度为视口高度，兼容移动端 */
+    margin: 0;
+    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-weight: normal;
+    background-color: #f0f2f5;
+    /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
 }
 
+/* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
 #phone-screen {
-    width: 100%; /* 宽度占满 */
-    height: 100%; /* 高度占满 */
-    max-width: 420px; /* 限制最大宽度，与“章鱼”页面保持一致 */
-    max-height: 850px; /* 限制最大高度，与“章鱼”页面保持一致 */
-    background-color: #ffffff; /* 模拟器的背景色 */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); /* 模拟器的阴影 */
-    overflow: hidden; /* 隐藏超出部分 */
-    position: relative; /* 让内部的绝对定位元素有参考 */
-    display: flex; /* 【核心】将 phone-screen 自身也设为 Flex 容器 */
-    flex-direction: column; /* 【核心】让内部元素（如 header, content, footer）垂直排列 */
+    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
+    position: fixed;
+    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* 核心修改3：移除所有 height 和 width 属性 */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: #ffffff;
 }
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
@@ -48,13 +48,12 @@ body {
 
 /* 4. 【核心】让所有页面的头部自动适应iPhone的“刘海”安全区 */
 .header, .qzone-header {
-    /* 使用 env(safe-area-inset-top) 自动获取顶部安全距离 */
-    padding-top: calc(15px + env(safe-area-inset-top));
+    padding-top: 15px; /* 只保留您原本的15px基本内边距 */
 }
 
 /* 5. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
 #chat-input-area {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    padding-bottom: 8px; /* 只保留您原本的8px基本内边距 */
 }
 
         #status-bar { 
@@ -70,24 +69,7 @@ body {
         @keyframes charge-breath { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
         .screen.active { opacity: 1; visibility: visible; z-index: 1; }
-/* --- 用这段代码替换你原来的 .header 样式 --- */
-.header {
-    position: relative;
-    z-index: 15;
-    flex-shrink: 0; /* 防止头部被压缩 */
-    padding: 15px 20px;
-    /* 【核心修改】适配 iPhone 顶部的刘海 */
-    padding-top: calc(15px + env(safe-area-inset-top));
-    background-color: rgba(247, 247, 247, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 18px;
-    font-weight: 600;
-}
+.header { position: relative; z-index: 15; flex-shrink: 0; padding: 15px 20px; padding-top: 45px; background-color: rgba(247, 247, 247, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; }
         .header .header-actions { display: flex; align-items: center; gap: 15px; }
         .header .back-btn, .header .action-btn { font-size: 24px; cursor: pointer; width: 30px; text-align: center; color: var(--accent-color); display: flex; align-items: center; justify-content: center; }
 
@@ -199,27 +181,22 @@ body {
         .chat-list-item .name { font-weight: 500; color: var(--text-primary); }
         .chat-list-item .group-tag { font-size: 10px; color: var(--accent-color); background-color: #e7f3ff; padding: 2px 6px; border-radius: 4px; font-weight: bold; flex-shrink: 0; }
         .chat-list-item .last-msg { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-#chat-interface-screen {
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    /* --- 新增/修改的样式 --- */
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 100%;
-}
+        #chat-interface-screen { background-size: cover; background-position: center; position: relative; }
         #selection-cancel-btn, #selection-delete-btn { font-size: 16px; color: var(--accent-color); cursor: pointer; padding: 5px; }
         #selection-delete-btn { color: #ff3b30; }
 
-/* --- 用这段代码替换你原来的 #chat-messages 样式 --- */
+/* ▼▼▼ 用这块代码替换掉你原来的 #chat-messages 样式 ▼▼▼ */
 #chat-messages {
-    flex-grow: 1; /* 【核心】让它自动占据所有剩余空间 */
-    overflow-y: auto; /* 【核心】当内容超出时，允许自身滚动 */
-    padding: 10px 15px;
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden; /* 核心修正1: 强制禁止水平滚动/拖动 */
+    padding: 10px 15px; /* 核心修正2: 将左右内边距增加到15px，提供更多呼吸空间 */
+    padding-top: 110px;
+    margin-top: -80px;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    box-sizing: border-box; /* 确保内边距计算正确 */
 }
 /* ▲▲▲ 替换结束 ▲▲▲ */
         #load-more-btn { text-align: center; padding: 10px; color: var(--accent-color); font-size: 14px; cursor: pointer; background-color: transparent; border: none; width: 100%; }
@@ -282,21 +259,7 @@ body {
 
         .message-bubble.user { flex-direction: row-reverse; }
         #typing-indicator { align-self: flex-start; display: none; margin: 0 10px 10px; color: var(--text-secondary); }
-/* --- 在你原来的 #chat-input-area 样式中，添加下面这行代码 --- */
-#chat-input-area {
-    flex-shrink: 0;
-    padding: 8px;
-    background-color: rgba(247, 247, 247, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-
-    /* 【【【核心修改：在这里添加！】】】 */
-    padding-bottom: calc(8px + env(safe-area-inset-bottom));
-}
+        #chat-input-area { flex-shrink: 0; padding: 8px; background-color: rgba(247, 247, 247, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 5px; }
         #chat-input-main-row { display: flex; align-items: flex-end; gap: 8px; width: 100%; }
         #chat-input { flex-grow: 1; border: none; padding: 10px 15px; border-radius: 20px; background-color: var(--secondary-bg); font-size: 16px; max-height: 100px; resize: none; }
         .action-button { border: none; color: white; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 14px; flex-shrink: 0; }
@@ -23072,6 +23035,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
