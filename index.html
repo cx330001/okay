@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>EPhone</title>
    <meta name="apple-mobile-web-app-capable" content="yes">
-    <!-- 3. 设置顶部的状态栏样式 (black-translucent 表示半透明，能让你的内容透上去) -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    
-    <!-- 4. 设置Web App的标题 -->
-    <meta name="apple-mobile-web-app-title" content="EPhone">
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -88,9 +83,10 @@ body {
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
 /* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
 
-/* 1. 让首页容器铺满整个屏幕 */
+/* ▼▼▼ 请用这【一整块】全新的代码，替换掉你现有的 #home-screen 样式 ▼▼▼ */
+
 #home-screen {
-    /* 原有布局样式保持不变 */
+    /* 1. 原有的布局和背景样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -99,18 +95,17 @@ body {
     background-size: cover;
     background-position: center;
     
-    /* 核心修正：
-       - padding: 20px; 被拆分，顶部padding单独处理。
-       - padding-top: calc(60px + ...); 被彻底移除！
-    */
+    /* 2. 保持左右和顶部的 padding 不变 */
     padding-left: 20px;
     padding-right: 20px;
-    padding-bottom: 50px;
-    
-    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
-       这样，背景就能正确地填充到屏幕最顶端了！ */
     padding-top: env(safe-area-inset-top);
+    
+    /* 3. 【【【核心修复就在这里！】】】 */
+    /* 我们将固定的 50px，与iOS底部安全区的高度动态相加！*/
+    padding-bottom: calc(50px + env(safe-area-inset-bottom));
 }
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 2. 把时钟单独往下推 */
 #clock-container {
