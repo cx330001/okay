@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>EPhone</title>
    <meta name="apple-mobile-web-app-capable" content="yes">
+   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -12,35 +13,40 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* 1. 重置 html，让它不干预布局 */
-html {
-    -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
+/* ▼▼▼ 【终极修复方案】请用这一整块代码，替换所有旧的 html, body, #phone-screen 样式 ▼▼▼ */
+
+/* 1. 让 html 和 body 成为一个100%撑满屏幕的“画板” */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* 关键：禁止 body 本身滚动，防止iOS的橡皮筋效果 */
+    position: relative; /* 为内部绝对定位的元素提供一个可靠的锚点 */
 }
 
-/* 2. 重置 body，使其成为一个干净的画布 */
+/* 2. 重置 body 的字体和其他基础样式 (保持不变) */
 body {
-    margin: 0;
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
     background-color: #f0f2f5;
-    /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
 }
 
-/* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
+/* 3. 使用最稳定的绝对定位，让 phone-screen 精准地铺满整个 body */
 #phone-screen {
-    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
-    position: fixed;
-    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
+    position: absolute; /* 核心修正：不再使用 fixed，而是相对于100%的 body 进行定位 */
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    /* 核心修改3：移除所有 height 和 width 属性 */
+    width: 100%;
+    height: 100%;
+    
+    /* 其他布局属性保持不变 */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff;
+    background-color: #ffffff; 
 }
+/* ▲▲▲ 替换结束 ▲▲▲ */
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
@@ -81,17 +87,29 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-/* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+
 
 /* ▼▼▼ 请用这【一整块】全新的代码，替换掉你现有的 #home-screen 样式 ▼▼▼ */
 
-        #home-screen {
-            justify-content: space-between;
-            background-size: cover;
-            background-position: center;
-            transition: background-image 0.5s ease-in-out;
-            padding: 50px 0;
-        }
+#home-screen {
+    /* 1. 原有的布局和背景样式保持不变 */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    box-sizing: border-box;
+    background-size: cover;
+    background-position: center;
+    
+    /* 2. 保持左右和顶部的 padding 不变 */
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-top: env(safe-area-inset-top);
+    
+    /* 3. 【【【核心修复就在这里！】】】 */
+    /* 我们将固定的 50px，与iOS底部安全区的高度动态相加！*/
+    padding-bottom: calc(50px + env(safe-area-inset-bottom));
+}
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
 
