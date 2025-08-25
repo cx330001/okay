@@ -21,7 +21,8 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* 1. 重置 html，让它不干预布局 */
+/* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+
 /* 1. 重置 html，让它不干预布局 */
 html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
@@ -29,18 +30,18 @@ html {
 
 /* 2. 重置 body，使其成为一个干净的画布 */
 body {
-    margin: 0; /* 保留 margin 重置 */
+    margin: 0;
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
     background-color: #f0f2f5; /* 保留一个柔和的背景色 */
     /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
 }
 
-/* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
+/* 3. 修正 #phone-screen，使其能响应 Safari 工具栏和键盘的变化 */
 #phone-screen {
     /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
-    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
+    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满可见区域 */
     top: 0;
     left: 0;
     right: 0;
@@ -61,14 +62,17 @@ body {
     display: none;
 }
 
-/* 4. 【核心】让所有页面的头部自动适应iPhone的“刘海”安全区 */
+/* 1. 【核心】让所有页面的头部自动适应iPhone的“刘海”安全区 */
 .header, .qzone-header {
     /* 使用 env(safe-area-inset-top) 自动获取顶部安全距离 */
     padding-top: calc(15px + env(safe-area-inset-top));
 }
 
-/* 5. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
-#chat-input-area {
+/* 2. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
+#chat-input-area, #chat-list-bottom-nav {
+    /* 注意：这里是 padding-bottom，从内部把内容推上去，
+      同时元素本身的背景会延伸到底部，覆盖掉白色区域。
+    */
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
@@ -101,8 +105,11 @@ body {
 /* 1. 让首页容器铺满整个屏幕 */
 /* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 #home-screen 样式 ▼▼▼ */
 
+/* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+
+/* 1. 让首页容器铺满整个屏幕，并为其顶部留出安全边距 */
 #home-screen {
-    /* 原有的布局样式保持不变 */
+    /* 原有布局样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -114,20 +121,15 @@ body {
     /* 其他内边距保持不变 */
     padding-left: 20px;
     padding-right: 20px;
-    padding-top: env(safe-area-inset-top); /* 顶部刘海适配已是正确的 */
-
-    /* 【【【核心修改就在这里！】】】
-      我们将固定的 50px，改为动态计算。
-      calc(50px + env(safe-area-inset-bottom)) 的意思是：
-      在您原有的50px间距基础上，再加上iPhone底部安全区域的高度。
-      这样，内容（App图标）会被正确推上来，而背景则会延伸至屏幕最底部。
-    */
+    /* 【核心修改1】将您之前的底部适配代码移到这里，并确保是正确的 */
     padding-bottom: calc(50px + env(safe-area-inset-bottom));
+    
+    /* 【核心修改2】关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
+       这样，背景就能正确地填充到屏幕最顶端，而内容则会被推到安全位置！ */
+    padding-top: env(safe-area-inset-top);
 }
 
-/* ▲▲▲ 替换结束 ▲▲▲ */
-
-/* 2. 把时钟单独往下推 */
+/* 2. 把时钟单独用 margin 推下来，推到安全的位置 */
 #clock-container {
     /* 原有样式保持不变 */
     text-align: center;
@@ -136,9 +138,9 @@ body {
     margin-bottom: 20px;
     flex-shrink: 0;
     
-    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
-       这个 60px 就是您之前在 padding-top 里写的值。 */
-    margin-top: 60px;
+    /* 【核心修改3】用 margin 把时钟从屏幕顶端推下来。
+       这个 60px 就是您之前想要的、距离屏幕顶部的距离。*/
+    margin-top: 60px; 
 }
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
