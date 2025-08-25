@@ -18,43 +18,45 @@
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
 
-html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    background-color: #ffffff;
+/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
+
+/* 1. 重置 html，让它不干预布局 */
+html {
+    -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
-#phone-screen {
+/* 2. 重置 body，使其成为一个干净的画布，并设置好您期望的全局背景色 */
+body {
+    margin: 0; 
+    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-weight: normal;
+    background-color: #ffffff; /* 关键：确保 body 背景是您想要的颜色（例如白色） */
+}
+
+/* --- 请用这块代码，完整替换掉您现有的 .phone-screen 样式 --- */
+.phone-screen {
+    /* 关键1：使用固定定位(fixed)，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
+    
+    /* 关键2：将四个边都锁定在屏幕的物理边缘，强制撑满，彻底解决底部白条 */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
+    
+    /* 关键3：移除所有 width 和 height 属性，因为上面的定位已经定义了尺寸 */
+
+    /* 其他布局属性保持不变 */
+    max-width: 100%; /* 在大屏幕上防止过宽 */
+    background-color: var(--white-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border-radius: var(--phone-corner-radius);
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff;
-    /* 核心：撑满并适配 iOS 底部安全区 */
-    padding-bottom: env(safe-area-inset-bottom);
-    box-sizing: border-box;
 }
 
-#home-screen {
-    flex: 1; /* 自动占满剩余空间 */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    background-size: cover;
-    background-position: center;
-    padding-top: env(safe-area-inset-top);  /* 顶部刘海 */
-    padding-left: 20px;
-    padding-right: 20px;
-    /* 底部同样适配 */
-    padding-bottom: env(safe-area-inset-bottom);
-    box-sizing: border-box;
-}
-
+/* ▲▲▲ 替换结束 ▲▲▲ */
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
@@ -5362,6 +5364,26 @@ input:checked + .slider:before {
     background-color: rgba(0, 123, 255, 0.2) !important;
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* --- 请将这些新样式，粘贴到 <style> 的末尾 --- */
+
+/* 1. 让所有页面的头部自动适应iPhone的“刘海”安全区 */
+.app-header {
+    /* 核心：在原有的padding-top基础上，加上刘海的高度 */
+    padding-top: calc(10px + env(safe-area-inset-top));
+}
+
+/* 2. 让聊天输入框和多选操作栏自动适应iPhone底部的“小黑条”安全区 */
+.message-input-area,
+#multi-select-bar {
+    /* 核心：在原有的padding-bottom基础上，加上小黑条的高度 */
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+}
+
+/* 3. （推荐）为主页的顶部和底部也加上安全边距，避免内容过于贴近边缘 */
+#home-screen {
+    padding-top: calc(50px + env(safe-area-inset-top));
+    padding-bottom: env(safe-area-inset-bottom);
+}
     </style>
 </head>
 <body>
@@ -23046,6 +23068,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
