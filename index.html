@@ -575,19 +575,26 @@ body {
 }
 
 /* 底部导航栏样式 */
+/* ▼▼▼ 请用这【一整块】代码，替换掉您现有的 #chat-list-bottom-nav 样式 ▼▼▼ */
+
 #chat-list-bottom-nav {
-    position: absolute; /* 让它固定在底部 */
+    /* 原有样式保持不变 */
+    position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    z-index: 15; /* 确保它在视图之上 */
+    z-index: 15;
     display: flex;
     border-top: 1px solid var(--border-color);
     background-color: rgba(247, 247, 247, 0.9);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-}
 
+    /* 【【【核心修复】】】 */
+    /* 让容器自身增加一个等于“小黑条”高度的底部内边距。 */
+    /* 这会让导航栏的背景色正确地填充到底部安全区，从而消除白条。*/
+    padding-bottom: env(safe-area-inset-bottom);
+}
 .nav-item {
     flex: 1;
     text-align: center;
