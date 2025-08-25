@@ -83,7 +83,9 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-/* 1. 【核心修正】让首页容器真正铺满，壁纸延伸到屏幕边缘 */
+/* ▼▼▼ 请用这【一整块代码】，完整替换掉您现有的 #home-screen, #clock-container, 和 #app-grid 样式 ▼▼▼ */
+
+/* 1. 【核心修正】让首页容器作为壁纸层，完全铺满，不留任何内边距 */
 #home-screen {
     /* 原有布局和背景样式保持不变 */
     display: flex;
@@ -97,34 +99,12 @@ body {
     padding-right: 20px;
     
     /* 
-       关键点：移除所有 padding-bottom 和 padding-top from #home-screen。
-       这样，壁纸就能铺到屏幕的最顶部和最底部，包括安全区。
-       内容的内边距将由其子元素（时钟和App网格）负责。
+       关键点：移除所有垂直方向的 padding。
+       这确保了 #home-screen 的背景（即壁纸）能从屏幕最顶部延伸到最底部。
     */
-    /* padding-bottom: env(safe-area-inset-bottom); <-- REMOVED */
-    /* padding-top: env(safe-area-inset-top);      <-- REMOVED */
 }
 
-/* 3. 【核心修正】将App图标网格作为一个整体，从屏幕底部推上来，避开底部安全区 */
-#app-grid {
-    margin-top: auto; /* 保持它在垂直方向上贴近底部 */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    width: 100%;
-    padding: 20px; /* 这个padding是App网格内部的间距，而不是与屏幕边缘的间距 */
-    
-    /* 
-       关键点：使用 margin-bottom 来创造一个“看不见的底座”，把图标抬高。
-       这个 30px 是一个建议值，您可以根据美观度调整。
-       现在这个 margin-bottom 直接包含了 env(safe-area-inset-bottom)，
-       确保图标和“小黑条”之间有舒适的间距。
-    */
-    margin-bottom: calc(30px + env(safe-area-inset-bottom)); 
-}
-
-/* 2. 把时钟单独往下推，避开顶部安全区 */
+/* 2. 把时钟作为独立内容，用 margin 从屏幕顶部推下来 */
 #clock-container {
     /* 原有样式保持不变 */
     text-align: center;
@@ -134,10 +114,27 @@ body {
     flex-shrink: 0;
     
     /* 
-       关键一步：用 margin-top 直接将时钟从屏幕顶端推下来，推到安全的位置。
-       这里结合了您之前设置的 60px 间距和顶部安全区的高度。
+       关键一步：用 margin-top 把时钟从屏幕顶端推下来，推到安全的位置。
+       calc() 函数会把您想要的 60px 间距和系统安全区高度加在一起。
     */
     margin-top: calc(60px + env(safe-area-inset-top));
+}
+
+/* 3. 【核心修正】将App图标网格作为一个整体，用 margin 从屏幕底部推上来 */
+#app-grid {
+    margin-top: auto; /* 这行代码让它自动贴紧底部 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    padding: 20px; /* 这是网格内部的间距，不影响外部布局 */
+    
+    /* 
+       关键点：使用 margin-bottom 来创造一个“看不见的底座”，把图标抬高。
+       这个 30px 是您想要的自定义间距，env() 则负责适配底部的“小黑条”。
+    */
+    margin-bottom: calc(30px + env(safe-area-inset-bottom)); 
 }
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
@@ -23055,6 +23052,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
