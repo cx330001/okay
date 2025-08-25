@@ -17607,7 +17607,7 @@ ${memoryContent}
                     model: model,
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: "请开始整合。" }],
                     temperature: 0.2,
-                    response_format: { "type": "json_object" }
+                    //response_format: { "type": "json_object" }
                 })
             });
 
@@ -17718,7 +17718,7 @@ ${formattedHistory}
                     messages: [{role: 'system', content: systemPrompt}, {role: 'user', content: "请开始总结。"}],
                     temperature: 0.1, // 使用更低的温度，让AI更专注于事实
                     max_tokens: 150, // 限制API返回的最大长度，作为双重保险
-                    response_format: { "type": "json_object" } 
+                    //response_format: { "type": "json_object" } 
                 })
             });
         
