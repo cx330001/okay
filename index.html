@@ -106,7 +106,7 @@ body {
        这确保了 #home-screen 的背景（即壁纸）能从屏幕最顶部延伸到最底部。
     */
     /* 核心修正：添加下面这一行，让壁纸容器撑满整个屏幕 */
-    height: 100%;
+    flex-grow: 1;
 }
 
 /* 2. 把时钟作为独立内容，用 margin 从屏幕顶部推下来 */
@@ -594,7 +594,7 @@ body {
     background-color: rgba(247, 247, 247, 0.9);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+
 }
 
 .nav-item {
@@ -23058,7 +23058,6 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
