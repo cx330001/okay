@@ -99,8 +99,10 @@ body {
 /* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
 
 /* 1. 让首页容器铺满整个屏幕 */
+/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 #home-screen 样式 ▼▼▼ */
+
 #home-screen {
-    /* 原有布局样式保持不变 */
+    /* 原有的布局样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -109,18 +111,21 @@ body {
     background-size: cover;
     background-position: center;
     
-    /* 核心修正：
-       - padding: 20px; 被拆分，顶部padding单独处理。
-       - padding-top: calc(60px + ...); 被彻底移除！
-    */
+    /* 其他内边距保持不变 */
     padding-left: 20px;
     padding-right: 20px;
-    padding-bottom: 50px;
-    
-    /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
-       这样，背景就能正确地填充到屏幕最顶端了！ */
-    padding-top: env(safe-area-inset-top);
+    padding-top: env(safe-area-inset-top); /* 顶部刘海适配已是正确的 */
+
+    /* 【【【核心修改就在这里！】】】
+      我们将固定的 50px，改为动态计算。
+      calc(50px + env(safe-area-inset-bottom)) 的意思是：
+      在您原有的50px间距基础上，再加上iPhone底部安全区域的高度。
+      这样，内容（App图标）会被正确推上来，而背景则会延伸至屏幕最底部。
+    */
+    padding-bottom: calc(50px + env(safe-area-inset-bottom));
 }
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 2. 把时钟单独往下推 */
 #clock-container {
