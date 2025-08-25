@@ -25,18 +25,19 @@ html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
-/* 2. 重置 body，使其成为一个干净的画布，并设置好您期望的全局背景色 */
+/* 2. 重置 body，使其成为一个干净的画布 */
 body {
     margin: 0; 
     font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-weight: normal;
-    background-color: #ffffff; /* 关键：确保 body 背景是您想要的颜色（例如白色） */
+    background-color: #ffffff; 
 }
 
 /* 3. 【核心修复】修正 phone-screen，使其能真正铺满整个物理屏幕 */
 #phone-screen {
     /* 关键1：使用固定定位(fixed)，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
+    
     /* 关键2：将四个边都锁定在屏幕的物理边缘，强制撑满，彻底解决底部白条 */
     top: 0;
     left: 0;
