@@ -17,52 +17,45 @@
         :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* ================================================= */
-/* Safari 全屏终极解决方案            */
-/* ================================================= */
 
-/* 1. 重置 html */
-html {
-    -webkit-text-size-adjust: 100%;
-}
-
-/* 2. 重置 body */
-body {
+html, body {
     margin: 0;
-    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-weight: normal;
+    padding: 0;
+    height: 100%;
     background-color: #ffffff;
 }
 
-/* 3. 强制外层容器铺满屏幕 */
 #phone-screen {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
     background-color: #ffffff;
+    /* 核心：撑满并适配 iOS 底部安全区 */
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
 }
 
-/* 4. 强制内层 .screen 容器铺满外层容器 */
-.screen {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+#home-screen {
+    flex: 1; /* 自动占满剩余空间 */
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    justify-content: flex-start;
+    align-items: center;
+    background-size: cover;
+    background-position: center;
+    padding-top: env(safe-area-inset-top);  /* 顶部刘海 */
+    padding-left: 20px;
+    padding-right: 20px;
+    /* 底部同样适配 */
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
 }
 
-/* ================================================= */
+/* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
 }
@@ -87,26 +80,7 @@ body {
         .battery-container.charging .battery-level { background-color: #4cd964; animation: charge-breath 2s infinite; }
         .battery-container.charging .battery-text { color: #4cd964; }
         @keyframes charge-breath { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 .screen 样式 ▼▼▼ */
-.screen {
-    /* 关键1：同样使用绝对定位，但配合四角拉伸 */
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-
-    /* 关键2：移除 width 和 height，让定位来决定尺寸 */
-
-    /* 其他布局属性保持不变 */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
-}
-/* ▲▲▲ 替换结束 ▲▲▲ */
+        .screen { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
         .screen.active { opacity: 1; visibility: visible; z-index: 1; }
 .header { position: relative; z-index: 15; flex-shrink: 0; padding: 15px 20px; padding-top: 45px; background-color: rgba(247, 247, 247, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; font-size: 18px; font-weight: 600; }
         .header .header-actions { display: flex; align-items: center; gap: 15px; }
