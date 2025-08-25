@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>EPhone</title>
    <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- 3. 设置顶部的状态栏样式 (black-translucent 表示半透明，能让你的内容透上去) -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- 4. 设置Web App的标题 -->
+    <meta name="apple-mobile-web-app-title" content="EPhone">
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -104,7 +109,7 @@ body {
     
     /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
        这样，背景就能正确地填充到屏幕最顶端了！ */
-
+    padding-top: env(safe-area-inset-top);
 }
 
 /* 2. 把时钟单独往下推 */
@@ -23036,6 +23041,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
