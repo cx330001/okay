@@ -99,11 +99,11 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-/* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+/* ▼▼▼ 请用这【一整块】全新的代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
 
-/* 1. 让首页容器铺满整个屏幕 */
+/* 1. 修正首页容器，让背景能正确铺满 */
 #home-screen {
-    /* 原有布局样式保持不变 */
+    /* 原有布局和背景样式保持不变 */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -113,31 +113,33 @@ body {
     background-position: center;
     
     /* 核心修正：
-       - padding: 20px; 被拆分，顶部padding单独处理。
-       - padding-top: calc(60px + ...); 被彻底移除！
+       - 移除了旧的 padding-top 样式。
+       - 其他方向的 padding 保持不变。
     */
     padding-left: 20px;
     padding-right: 20px;
     padding-bottom: 50px;
     
     /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
-       这样，背景就能正确地填充到屏幕最顶端了！ */
+       这样，背景图就能正确地填充到屏幕最顶端，同时容器的边界也与安全区对齐。*/
     padding-top: env(safe-area-inset-top);
 }
 
-/* 2. 把时钟单独往下推 */
+/* 2. 把时钟单独往下推，推到安全的位置 */
 #clock-container {
     /* 原有样式保持不变 */
     text-align: center;
     color: white;
     text-shadow: 0 3px 8px rgba(0,0,0,0.4);
-    margin-bottom: 20px;
+    margin-bottom: 20px; /* 和下方App图标的间距 */
     flex-shrink: 0;
     
-    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
-       这个 60px 就是您之前在 padding-top 里写的值。 */
+    /* 关键一步：使用 margin-top 将时钟从屏幕顶端（安全区的边缘）再向下推一段距离，
+       让它处于一个视觉上舒适的位置。这里的 60px 可以根据您的喜好调整。*/
     margin-top: 60px;
 }
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
 #main-time {
