@@ -94,6 +94,8 @@ body {
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
 /* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
 
+/* ▼▼▼ 请用这【一整块】全新的代码，替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+
 /* 1. 让首页容器铺满整个屏幕 */
 #home-screen {
     /* 原有布局样式保持不变 */
@@ -105,13 +107,10 @@ body {
     background-size: cover;
     background-position: center;
     
-    /* 核心修正：
-       - padding: 20px; 被拆分，顶部padding单独处理。
-       - padding-top: calc(60px + ...); 被彻底移除！
-    */
+    /* 核心修正：移除旧的顶部padding */
     padding-left: 20px;
     padding-right: 20px;
-    padding-bottom: 50px;
+    padding-bottom: 50px; /* 底部可以保留，让App图标和黑条有间距 */
     
     /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
        这样，背景就能正确地填充到屏幕最顶端了！ */
@@ -133,17 +132,20 @@ body {
 }
 
 /* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▲▲▲ 替换这里 ▲▲▲ */
 #main-time {
-    font-size: 88px; /* 推荐：稍微调大一点点，更接近iOS锁屏的感觉 */
-    font-weight: 600; /* 核心修改1：将字体从“纤细(200)”改为“粗体(600)”，这是最关键的一步 */
-    letter-spacing: -2px; /* 推荐：稍微收紧字间距，让数字看起来更紧凑 */
-    /* 核心修改2：指定字体，优先使用苹果系统字体 */
+    font-size: 88px; 
+    /* 核心修改1：将字体从“纤细”改为“粗体”，这是最关键的一步 */
+    font-weight: 600; 
+    letter-spacing: -2px; 
+    /* 核心修改2：指定字体，优先使用苹果系统字体，确保效果和截图一致 */
     font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
 }
 #main-date { 
-    font-size: 22px; /* 稍微放大一点更协调 */
-    font-weight: normal; /* 苹果风格的常规体日期 */
+    font-size: 22px; 
+    font-weight: normal; 
 }
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
         #app-grid { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; padding: 20px; }
         .app-row { display: flex; justify-content: center; gap: 25px; width: 100%; }
@@ -23045,6 +23047,7 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
