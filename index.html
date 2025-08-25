@@ -83,65 +83,52 @@ body {
 
         .header .action-btn img { height: 26px; }
         .header .save-btn { font-size: 16px; color: var(--accent-color); font-weight: 600; cursor: pointer; }
-/* ▼▼▼ 请用这【一整块】代码，完整替换掉您现有的 #home-screen 和 #clock-container 样式 ▼▼▼ */
+/* ▼▼▼ 【最终解决方案】请将这一整块代码粘贴到 <style> 的最末尾 ▼▼▼ */
 
-/* ▼▼▼ 请用这【一整块代码】，完整替换掉您现有的 #home-screen 和 #app-grid 样式 ▼▼▼ */
-
-/* 1. 【核心修正】让首页容器真正铺满，只为底部安全区留出内边距 */
+/* 1. 【核心修正】让首页容器成为一个纯粹的背景板，不再使用Flex布局 */
 #home-screen {
-    /* 原有布局和背景样式保持不变 */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
+    /* 我们只保留它作为背景板所必需的样式 */
     box-sizing: border-box;
     background-size: cover;
     background-position: center;
-    padding-left: 20px;
-    padding-right: 20px;
-    
-    /* 
-       关键点1：移除旧的 padding-bottom: 50px; 
-       关键点2：新的 padding-bottom 只负责适配“小黑条”的安全距离。
-       这样，壁纸就能铺到屏幕的最底部了！
-    */
+    /* 保留内边距以适配iPhone的顶部“刘海”和底部“小黑条” */
     padding-bottom: env(safe-area-inset-bottom);
-    padding-top: env(safe-area-inset-top); /* 顶部的适配保持不变 */
+    padding-top: env(safe-area-inset-top);
 }
 
-/* 2. 【核心修正】将App图标网格作为一个整体，从屏幕底部推上来 */
+/* 2. 【核心修正】使用绝对定位来精确定位时钟 */
+#clock-container {
+    position: absolute;   /*  <-- 关键：脱离文档流 */
+    top: 100px;           /*  <-- 关键：从屏幕顶部向下推100px (您可以微调这个值) */
+    left: 20px;           /*  <-- 与您之前的边距保持一致 */
+    right: 20px;
+    z-index: 2;           /*  <-- 确保它在壁纸之上 */
+
+    /* 以下是您原有的样式，保持不变 */
+    text-align: center;
+    color: white;
+    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
+}
+
+/* 3. 【核心修正】使用绝对定位来精确定位App图标网格 */
 #app-grid {
-    margin-top: auto; /* 保持它在垂直方向上贴近底部 */
+    position: absolute;   /*  <-- 关键：脱离文档流 */
+    bottom: 30px;         /*  <-- 关键：从屏幕底部向上推30px (您可以微调这个值) */
+    left: 0;
+    right: 0;
+    z-index: 2;           /*  <-- 确保它在壁纸之上 */
+    
+    /* 以下是您原有的内部布局样式，保持不变 */
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 20px;
     width: 100%;
     padding: 20px;
-    
-    /* 
-       关键点3：使用 margin-bottom 来创造一个“看不见的底座”，把图标抬高。
-       这个 30px 是一个建议值，您可以根据美观度调整，它确保了图标和“小黑条”之间有舒适的间距。
-    */
-    margin-bottom: 30px; 
+    box-sizing: border-box;
 }
 
-/* ▲▲▲ 替换结束 ▲▲▲ */
-/* 2. 把时钟单独往下推 */
-#clock-container {
-    /* 原有样式保持不变 */
-    text-align: center;
-    color: white;
-    text-shadow: 0 3px 8px rgba(0,0,0,0.4);
-    margin-bottom: 20px;
-    flex-shrink: 0;
-    
-    /* 关键一步：用 margin 把时钟从屏幕顶端推下来，推到安全的位置。
-       这个 60px 就是您之前在 padding-top 里写的值。 */
-    margin-top: 60px;
-}
-
-/* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▲▲▲ 粘贴结束 ▲▲▲ */
 #main-time {
     font-size: 88px; /* 推荐：稍微调大一点点，更接近iOS锁屏的感觉 */
     font-weight: 600; /* 核心修改1：将字体从“纤细(200)”改为“粗体(600)”，这是最关键的一步 */
