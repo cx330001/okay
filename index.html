@@ -2,7 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>EPhone</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -62,8 +63,20 @@ body {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
 }
 
-        #status-bar { 
-    display: none; 
+#status-bar { 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    padding: 12px 20px; 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    color: white; 
+    z-index: 10; 
+    font-size: 14px; 
+    box-sizing: border-box; 
+    pointer-events: none; 
 }
         #status-bar-time { font-weight: 600; }
         .battery-container { display: flex; align-items: center; gap: 5px; }
