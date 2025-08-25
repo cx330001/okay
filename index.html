@@ -5,58 +5,97 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>EPhone</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @font-face { font-family: 'bulangni'; src: url('') format('truetype'); font-weight: normal; font-style: normal; font-display: swap; }
-        :root { --screen-width: 350px; --screen-height: 650px; --secondary-bg: #ffffff; --border-color: #e0e0e0; --text-primary: #1f1f1f; --text-secondary: #8a8a8a; --accent-color: #007bff; }
+:root {
+    /* 新的主题颜色 */
+    --bg-color: #fce4ec;
+    --primary-color: #ff80ab;
+    --secondary-color-new: #f48fb1; /* 避免与旧变量冲突，暂时用新名字 */
+    --accent-color: #90caf9;
+    --text-color: #444;
+    --white-color: #fff;
+
+    /* 新的UI尺寸和字体 */
+    --border-radius: 18px;
+    --phone-corner-radius: 25px; /* 我为你选择了一个更圆润的手机圆角 */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+    /* 兼容您旧代码中仍在使用的变量，指向新颜色 */
+    --secondary-bg: var(--white-color);    /* 卡片背景用纯白 */
+    --border-color: #eee;                  /* 边框颜色用更浅的灰色 */
+    --text-primary: var(--text-color);     /* 主要文字颜色 */
+    --text-secondary: #888;                /* 次要文字颜色 */
+}
+/* ▲▲▲ 替换结束 ▲▲▲ */
        /* ▼▼▼ Safari键盘适配：请用下面这【一整块】全新的代码，替换掉你现有的 html, body, 和 #phone-screen 样式 ▼▼▼ */
 
-/* 1. 重置 html，让它不干预布局 */
+
 /* 1. 重置 html，让它不干预布局 */
 html {
     -webkit-text-size-adjust: 100%; /* 防止 iOS 旋转时自动调整字体大小 */
 }
 
 /* 2. 重置 body，使其成为一个干净的画布 */
-body {
-    margin: 0; /* 保留 margin 重置 */
-    font-family: 'bulangni', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-weight: normal;
-    background-color: #f0f2f5; /* 保留一个柔和的背景色 */
-    /* 核心：移除了所有 height 和 overflow 属性，让body自然伸缩 */
-}
+    body {
+        /* ...保留您原有的样式... */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #fce4ec, #f8bbd0); /* 使用新主题的背景色 */
+    }
 
 /* 3. 修正 phone-screen，使其能响应 Safari 工具栏的变化 */
 #phone-screen {
-    /* 核心修改1：使用固定定位，让它脱离文档流，直接相对于屏幕定位 */
     position: fixed;
-    /* 核心修改2：将四个边都锁定在屏幕边缘，强制撑满 */
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-
-    /* 核心修改3：移除所有 height 和 width 属性，因为上面的 top/left/right/bottom 已经定义了尺寸 */
-
-    /* 其他布局属性保持不变 */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff; /* 您想要的白色背景 */
+    background-color: #ffffff;
+
+    /* ▼▼▼ 在这里粘贴新增的样式 ▼▼▼ */
+    border-radius: var(--phone-corner-radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+
+    /* ▲▲▲ 粘贴结束 ▲▲▲ */
 }
-/* ▲▲▲ 替换结束 ▲▲▲ */
 
 /* 3. 【核心】隐藏掉模拟器的状态栏 */
 #status-bar {
     display: none;
 }
 
-/* 4. 【核心】让所有页面的头部自动适应iPhone的“刘海”安全区 */
 .header, .qzone-header {
-    /* 使用 env(safe-area-inset-top) 自动获取顶部安全距离 */
+    position: relative;
+    z-index: 15;
+    flex-shrink: 0;
+    padding: 10px 20px; /* 调整了内边距 */
     padding-top: calc(15px + env(safe-area-inset-top));
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color); /* 使用新的文字颜色变量 */
+}
+
+/* 统一修改返回按钮和操作按钮的颜色 */
+.header .back-btn, .header .action-btn,
+.qzone-header .back-btn {
+    color: var(--primary-color);
 }
 
 /* 5. 【核心】让聊天输入框和底部导航栏自动适应iPhone底部的“小黑条”安全区 */
@@ -124,6 +163,10 @@ body {
     /* 关键一步：让容器的顶部内边距，自动等于“刘海”的高度。
        这样，背景就能正确地填充到屏幕最顶端了！ */
     padding-top: env(safe-area-inset-top);
+    /* ▼▼▼ 在这里粘贴新增的样式 ▼▼▼ */
+    color: var(--white-color); /* 让内部所有文字默认是白色 */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* 添加文字阴影使其更清晰 */
+    /* ▲▲▲ 粘贴结束 ▲▲▲ */
 }
 
 /* 2. 把时钟单独往下推 */
