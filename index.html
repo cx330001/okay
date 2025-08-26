@@ -5504,67 +5504,54 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
-/* ▼▼▼ 【全新】购物功能样式 (V4.0 - 仿淘宝终极版) ▼▼▼ */
-
-/* --- 通用布局 --- */
-#shopping-screen, #cart-screen {
-    background-color: #f7f8fa;
-}
-
 /* --- 商品网格 --- */
-/* ▼▼▼ 请用这个【已修复布局】的新样式替换旧的 #product-grid 样式 ▼▼▼ */
 #product-grid {
-    flex-grow: 1; /* 让它填满剩余空间 */
-    overflow-y: auto; /* 内容超出时可以滚动 */
+    flex-grow: 1; 
+    overflow-y: auto; 
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
     padding: 10px;
-    padding-bottom: 80px; /* 为底部的“+”按钮留出空间 */
+    padding-bottom: 80px;
+    /* 注意：这里我们不再需要任何 align-items 属性，使用Grid的默认拉伸行为 */
 }
-/* ▲▲▲ 替换结束 ▲▲▲ */
-/* ▼▼▼ 请用这整块新代码替换旧的 .product-item 和 .product-info 样式 ▼▼▼ */
 
+/* --- 商品卡片 --- */
 .product-item {
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-    display: flex;
+    display: flex; /* 【【【核心修复1】】】：让卡片成为一个垂直的Flex容器 */
     flex-direction: column;
     overflow: hidden;
     cursor: pointer;
     position: relative;
-    align-self: start; /* 【【【这就是最关键的修复！】】】 */
 }
 
-.product-info {
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1; /* 让内容区能撑开，把footer推到底部 */
-}
-/* ▲▲▲ 替换结束 ▲▲▲ */
 .product-image {
     width: 100%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
 }
 
-.product-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: auto; /* 核心修改3：自动将自己推到底部 */
+.product-info {
+    padding: 8px;
+    /* 注意：这里不再需要 flex-grow 和 display:flex */
 }
+
 .product-name {
     font-size: 13px;
     color: #333;
     line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    min-height: 36px; /* 保证两行的高度 */
+    min-height: 36px;
+    /* 注意：这里移除了 flex-grow: 1 */
+}
+
+.product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px; /* 和商品名保持固定的间距 */
 }
 
 .product-price {
@@ -5573,6 +5560,7 @@ input:checked + .slider:before {
     color: #ff5722;
 }
 .product-price::before { content: '¥'; font-size: 12px; }
+
 .add-to-cart-btn {
     padding: 6px 12px;
     border: none;
@@ -5584,7 +5572,7 @@ input:checked + .slider:before {
     cursor: pointer;
 }
 
-/* --- 管理模式样式 --- */
+/* --- 管理模式样式 (保持不变) --- */
 .product-management-overlay {
     position: absolute;
     top: 0;
@@ -5592,7 +5580,7 @@ input:checked + .slider:before {
     width: 100%;
     height: 100%;
     background-color: rgba(0,0,0,0.5);
-    display: none; /* 默认隐藏 */
+    display: none;
     flex-direction: column;
     justify-content: center;
     align-items: center;
@@ -5600,7 +5588,7 @@ input:checked + .slider:before {
     z-index: 5;
 }
 #shopping-screen.management-mode .product-management-overlay {
-    display: flex; /* 在管理模式下显示 */
+    display: flex;
 }
 .product-management-overlay button {
     padding: 8px 20px;
@@ -5615,7 +5603,7 @@ input:checked + .slider:before {
     color: #ff8a80;
 }
 #shopping-screen.management-mode .product-footer {
-    display: none; /* 管理模式下隐藏底部 */
+    display: none;
 }
 
 
@@ -24685,6 +24673,7 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
