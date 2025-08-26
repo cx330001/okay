@@ -5504,6 +5504,282 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 修复结束 ▲▲▲ */
+/* ▼▼▼ 【全新】购物功能样式 (V4.0 - 仿淘宝终极版) ▼▼▼ */
+
+/* --- 通用布局 --- */
+#shopping-screen, #cart-screen {
+    background-color: #f7f8fa;
+}
+
+/* --- 商品网格 --- */
+/* ▼▼▼ 请用这个【已修复布局】的新样式替换旧的 #product-grid 样式 ▼▼▼ */
+#product-grid {
+    flex-grow: 1; /* 让它填满剩余空间 */
+    overflow-y: auto; /* 内容超出时可以滚动 */
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 10px;
+    padding-bottom: 80px; /* 为底部的“+”按钮留出空间 */
+}
+/* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▼▼▼ 请用这整块新代码替换旧的 .product-item 和 .product-info 样式 ▼▼▼ */
+
+.product-item {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    align-self: start; /* 【【【这就是最关键的修复！】】】 */
+}
+
+.product-info {
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1; /* 让内容区能撑开，把footer推到底部 */
+}
+/* ▲▲▲ 替换结束 ▲▲▲ */
+.product-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+}
+
+.product-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: auto; /* 核心修改3：自动将自己推到底部 */
+}
+.product-name {
+    font-size: 13px;
+    color: #333;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 36px; /* 保证两行的高度 */
+}
+
+.product-price {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ff5722;
+}
+.product-price::before { content: '¥'; font-size: 12px; }
+.add-to-cart-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 15px;
+    background: linear-gradient(90deg, #ff9800, #ff5722);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+/* --- 管理模式样式 --- */
+.product-management-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: none; /* 默认隐藏 */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    z-index: 5;
+}
+#shopping-screen.management-mode .product-management-overlay {
+    display: flex; /* 在管理模式下显示 */
+}
+.product-management-overlay button {
+    padding: 8px 20px;
+    border: 1px solid white;
+    background-color: rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 15px;
+    cursor: pointer;
+}
+.product-management-overlay .delete-product-btn {
+    border-color: #ff8a80;
+    color: #ff8a80;
+}
+#shopping-screen.management-mode .product-footer {
+    display: none; /* 管理模式下隐藏底部 */
+}
+
+
+/* --- 购物车页 (微调) --- */
+#cart-title {
+    position: static;
+    transform: none;
+}
+#cart-items-list { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.cart-item {
+    display: flex; align-items: flex-start; gap: 12px; background-color: white;
+    padding: 12px; border-radius: 12px;
+}
+.cart-item-checkbox { margin-top: 28px; }
+.cart-item-image { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; flex-shrink: 0; }
+.cart-item-info { flex-grow: 1; display: flex; flex-direction: column; }
+.cart-item-name { font-weight: 500; font-size: 14px; line-height: 1.4; }
+.cart-item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px;}
+.cart-item-price { color: #ff5722; font-weight: bold; font-size: 16px; }
+.quantity-control { display: flex; align-items: center; gap: 4px; }
+.quantity-btn {
+    width: 26px; height: 26px; border: none; background-color: #f7f8fa;
+    border-radius: 4px; font-weight: 500; cursor: pointer; color: #666;
+}
+.quantity-display { font-weight: 500; min-width: 30px; text-align: center; }
+
+#cart-footer {
+    position: absolute; bottom: 0; left: 0; width: 100%; display: flex;
+    justify-content: space-between; align-items: center; padding: 10px 15px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background-color: white; border-top: 1px solid var(--border-color); box-sizing: border-box;
+}
+#cart-footer .select-all-label { display: flex; align-items: center; gap: 5px; }
+#cart-footer .cart-summary { text-align: right; }
+#cart-footer .cart-subtext { font-size: 11px; color: #999; }
+#checkout-btn {
+    padding: 10px 25px; border: none; border-radius: 20px;
+    background: linear-gradient(90deg, #ff9800, #ff5722);
+    color: white; font-size: 15px; font-weight: 500; cursor: pointer;
+}
+
+/* --- 礼物卡片 & 小票 (样式不变) --- */
+.gift-card {
+    width: 220px; /* 【核心修改】将 max-width 改为固定的 width */
+    box-sizing: border-box; 
+    border-radius: 12px; 
+    background-color: #fff; 
+    border: 1px solid #eee; 
+    padding: 12px;
+    cursor: pointer; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+/* ▲▲▲ 替换结束 ▲▲▲ */
+.gift-header { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.gift-header-icon { width: 20px; height: 20px; color: #ff9800; }
+.gift-header-text { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.gift-items-preview { padding: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.gift-preview-item { display: flex; align-items: center; gap: 8px; }
+.gift-preview-img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.gift-preview-name { flex-grow: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gift-preview-quantity { font-size: 12px; color: var(--text-secondary); }
+.gift-footer { font-size: 12px; color: var(--text-secondary); text-align: right; }
+#gift-receipt-body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 15px; background-color: #f7f8fa; }
+.receipt-header { text-align: center; padding-bottom: 15px; border-bottom: 1px solid #ddd; }
+.receipt-header h3 { margin: 0 0 5px 0; font-size: 20px; }
+.receipt-header p { margin: 0; font-size: 12px; color: #888; }
+.receipt-items-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+.receipt-items-table th, .receipt-items-table td { padding: 10px 5px; font-size: 13px; }
+.receipt-items-table thead th { border-bottom: 1px solid #333; text-align: left; }
+.receipt-items-table .item-name { width: 50%; }
+.receipt-items-table .item-qty { text-align: center; }
+.receipt-items-table .item-price, .receipt-items-table .item-subtotal { text-align: right; }
+.receipt-total { padding-top: 15px; border-top: 1px solid #333; text-align: right; font-size: 16px; font-weight: bold; }
+.receipt-footer { text-align: center; margin-top: 25px; font-size: 12px; color: #888; }
+/* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+/* ▼▼▼ (可选，但推荐) 为商品管理模式添加新样式 ▼▼▼ */
+.product-item {
+    position: relative; /* 为了定位遮罩层 */
+}
+.product-management-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: none; /* 默认隐藏 */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    z-index: 5;
+}
+#shopping-screen.management-mode .product-management-overlay {
+    display: flex; /* 在管理模式下显示 */
+}
+.product-management-overlay button {
+    padding: 8px 20px;
+    border: 1px solid white;
+    background-color: rgba(255,255,255,0.2);
+    color: white;
+    border-radius: 15px;
+    cursor: pointer;
+}
+.product-management-overlay .delete-product-btn {
+    border-color: #ff8a80;
+    color: #ff8a80;
+}
+/* 管理模式下，隐藏“加入购物车”按钮 */
+#shopping-screen.management-mode .add-to-cart-btn {
+    display: none;
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【检查并添加】卡片/特殊内容气泡布局规则 ▼▼▼ */
+.message-bubble.is-card-like {
+    flex: initial; /* 覆盖通用的 flex: 1，让气泡本身不再拉伸 */
+    min-width: auto; /* 允许其自由收缩 */
+}
+.message-bubble.is-card-like .content {
+    flex: initial; 
+    padding: 0;
+    background: transparent;
+}
+/* ▲▲▲ 添加结束 ▲▲▲ */
+/* ▼▼▼ 【全新】修复购物车图标对齐问题 ▼▼▼ */
+#go-to-cart-btn {
+    display: flex;
+    align-items: center; /* 核心：垂直居中对齐 */
+    gap: 4px; /* 在图标和数字之间增加一点间距 */
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【全新】为礼物接收人列表添加样式 ▼▼▼ */
+#gift-recipient-list .contact-picker-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+#gift-recipient-list .contact-picker-item:last-child {
+    border-bottom: none;
+}
+#gift-recipient-list .contact-picker-item .checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    margin-right: 15px;
+    transition: all 0.2s ease;
+}
+#gift-recipient-list .contact-picker-item.selected .checkbox {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+#gift-recipient-list .contact-picker-item .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 12px;
+}
+#gift-recipient-list .contact-picker-item .name {
+    font-weight: 500;
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5961,6 +6237,15 @@ input:checked + .slider:before {
     </svg>
 </button>
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
+<!-- ▼▼▼ 在“表情面板”按钮后，粘贴这个新按钮 ▼▼▼ -->
+<button id="open-shopping-btn" class="chat-action-icon-btn action-button" title="购物">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+    </svg>
+</button>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 <!-- ▼▼▼ 【全新】单聊专用的“拍一-拍”按钮 (Q弹图标版) ▼▼▼ -->
 <button id="pat-btn" class="chat-action-icon-btn action-button" title="拍一-拍" style="display: none;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -6262,7 +6547,120 @@ input:checked + .slider:before {
     </div>
 </div>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
+<!-- ▼▼▼ 【全新】购物功能相关页面与弹窗 (V4.0 - 仿淘宝终极版) ▼▼▼ -->
+<div id="shopping-screen" class="screen">
+<div class="header">
+    <span class="back-btn" id="shopping-back-btn">‹</span>
+    <span>购物中心</span>
+    <div class="header-actions">
+        <!-- “管理”按钮已替换为SVG图标 -->
+        <span class="action-btn" id="manage-products-btn" title="管理商品">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+            </svg>
+        </span>
+        <!-- 新增的“添加商品”SVG图标按钮 -->
+        <span class="action-btn" id="add-new-product-btn" title="添加新商品">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+        </span>
+        <!-- 购物车按钮保持不变 -->
+        <span class="action-btn" id="go-to-cart-btn">🛒(<span id="cart-count">0</span>)</span>
+    </div>
+</div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
+    <div id="product-grid" class="list-container">
+        <!-- 商品将在这里动态生成 -->
+    </div>
+</div>
 
+<!-- 【核心新增】商品详情页 -->
+<div id="product-detail-screen" class="screen">
+    <div class="header">
+        <span class="back-btn" id="product-detail-back-btn">‹</span>
+        <span>商品详情</span>
+        <span style="width: 30px;"></span>
+    </div>
+    <div id="product-detail-content" class="list-container">
+        <!-- 详情内容将在这里动态生成 -->
+    </div>
+    <div id="product-detail-footer">
+        <button class="footer-btn add-to-cart-detail-btn">加入购物车</button>
+        <button class="footer-btn buy-now-btn">立即购买</button>
+    </div>
+</div>
+
+<div id="cart-screen" class="screen">
+<!-- ▼▼▼ 请用这段新代码替换购物车页面的Header ▼▼▼ -->
+<div class="header">
+    <span class="back-btn" id="cart-back-btn">‹</span>
+    <span id="cart-title">购物车(0)</span>
+    <span class="action-btn" id="clear-cart-btn">清空</span> <!-- 将“管理”替换为“清空”功能 -->
+</div>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
+    <div id="cart-items-list" class="list-container">
+        <!-- 购物车商品将在这里动态生成 -->
+    </div>
+    <div id="cart-footer">
+        <label class="select-all-label"><input type="checkbox" id="select-all-cart-items"> 全选</label>
+        <div class="cart-summary">
+            <div id="cart-total">合计: ¥0.00</div>
+            <span class="cart-subtext">不含运费</span>
+        </div>
+        <button id="checkout-btn">结算(0)</button>
+    </div>
+</div>
+
+<div id="product-editor-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span id="product-editor-title">添加商品</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>商品图片</label>
+                <div class="avatar-upload">
+                    <img id="product-image-preview" src="https://s3plus.meituan.net/opapisdk/op_ticket_885190757_1756206115802_qdqqd_0c99bh.jpeg">
+                    <button onclick="document.getElementById('product-image-input').click()">上传图片</button>
+                    <input type="file" id="product-image-input" accept="image/*" hidden>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="product-name-input">商品名称</label>
+                <input type="text" id="product-name-input">
+            </div>
+            <div class="form-group">
+                <label for="product-price-input">价格 (元)</label>
+                <input type="number" id="product-price-input" min="0" step="0.01">
+            </div>
+            <!-- 【核心新增】商品描述输入框 -->
+            <div class="form-group">
+                <label for="product-description-input">商品描述</label>
+                <textarea id="product-description-input" rows="4" placeholder="详细介绍一下这个商品..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="cancel" id="cancel-product-editor-btn">取消</button>
+            <button class="save" id="save-product-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="gift-receipt-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>购物小票</span>
+        </div>
+        <div class="modal-body" id="gift-receipt-body">
+            <!-- 小票内容将在这里动态生成 -->
+        </div>
+        <div class="modal-footer">
+            <button class="save" id="close-receipt-btn" style="width:100%;">关闭</button>
+        </div>
+    </div>
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
         </div>
     </div>
      <input type="file" id="import-card-input" accept=".json,.png" style="display: none;"> 
@@ -7458,6 +7856,11 @@ let qzoneStickerPanelState = {
 let waimaiTimers = {}; // 用于存储外卖倒计时
 
 let activeMessageTimestamp = null;
+// ▼▼▼ 在下方粘贴新变量 ▼▼▼
+let shoppingCart = []; // 数据结构将变为 [{ productId: 123, quantity: 1 }, ...]
+let editingProductId = null; // 用于存储正在编辑的商品ID
+let activeProductId = null; // 用于存储当前查看的商品ID
+// ▲▲▲ 新增结束 ▲▲▲
 // ▼▼▼ 【全新】为动态评论区回复功能添加的状态变量 ▼▼▼
 let currentQzoneReplyContext = null; // 用于存储回复上下文 { postId, replyToName, replyToDisplayName }
 // ▲▲▲ 新增代码结束 ▲▲▲
@@ -8111,8 +8514,8 @@ async function getLrcContent() {
         // 2. 数据库结构定义
         // ===================================================================
 
-// ▼▼▼ 【请用这个 V24 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
-db.version(24).stores({ 
+// ▼▼▼ 【请用这个 V26 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
+db.version(26).stores({ 
     chats: '&id, isGroup, groupId, isPinned',
     apiConfig: '&id', 
     globalSettings: '&id', 
@@ -8128,20 +8531,18 @@ db.version(24).stores({
     favorites: '++id, type, timestamp, originalTimestamp',
     qzoneGroups: '++id, name',
     memories: '++id, chatId, timestamp, type, targetDate',
-    callRecords: '++id, chatId, timestamp, customName'
+    callRecords: '++id, chatId, timestamp, customName',
+    // 【【【核心修改：增加description字段索引】】】
+    shoppingProducts: '++id, name, description'
 }).upgrade(tx => {
-    // 【核心】这是一个数据迁移脚本，它会自动将旧的、大字符串格式的世界书内容，转换为新的、条目化的格式
     return tx.table('worldBooks').toCollection().modify(book => {
-        // 检查 content 是否还是一个字符串 (说明是旧数据)
         if (typeof book.content === 'string' && book.content.trim() !== '') {
-            // 如果是，我们就把它包装成只有一个条目的新格式，确保旧数据不会丢失
             book.content = [{
-                keys: [], // 旧数据没有关键词，留空
+                keys: [],
                 comment: '从旧版本迁移的条目',
-                content: book.content // 将全部旧内容放入这个条目
+                content: book.content
             }];
         } else if (!Array.isArray(book.content)) {
-            // 如果 content 既不是字符串也不是数组（可能是null或undefined），就初始化为空数组
             book.content = [];
         }
     });
@@ -10390,10 +10791,8 @@ function createMessageElement(msg, chat) {
         return wrapper;
     }
 
-    // --- 从这里开始是核心修改 ---
-
     const isUser = msg.role === 'user';
-    const myNickname = chat.settings.myNickname || '我'; // 【核心】获取专属昵称
+    const myNickname = chat.settings.myNickname || '我';
 
     const wrapper = document.createElement('div');
     wrapper.className = `message-wrapper ${isUser ? 'user' : 'ai'}`;
@@ -10451,14 +10850,13 @@ function createMessageElement(msg, chat) {
     const avatarGroupHtml = `<div class="avatar-group ${hasFrameClass}">${avatarHtml}</div>`;
     
     let contentHtml;
-    // ... [此处省略了所有处理消息内容的 case, 因为它们没有变化] ...
-        if (msg.type === 'offline_text') {
+
+    if (msg.type === 'offline_text') {
         const dialogueHtml = msg.dialogue ? `<span class="offline-dialogue">「${parseMarkdown(msg.dialogue)}」</span>` : '';
         const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
         contentHtml = dialogueHtml + descriptionHtml;
     } else if (msg.type === 'share_link') {
         bubble.classList.add('is-link-share');
-        
         contentHtml = `
             <div class="link-share-card" data-timestamp="${msg.timestamp}">
                 <div class="title">${msg.title || '无标题'}</div>
@@ -10606,47 +11004,38 @@ function createMessageElement(msg, chat) {
             actionButtons.forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); handleWaimaiResponse(msg.timestamp, e.target.dataset.choice); }));
         }, 0);
     } else if (msg.type === 'red_packet') {
-                    bubble.classList.add('is-red-packet');
-                    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
-                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
-                    const isFinished = msg.isFullyClaimed;
-                    const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
-                    
-                    let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
+        bubble.classList.add('is-red-packet');
+        const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+        const isFinished = msg.isFullyClaimed;
+        const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
+        let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
 
-                    if (isFinished) {
-                        cardClass = 'opened';
-                    }
-
-                    if (msg.packetType === 'direct') {
-                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
-                        typeText = `专属红包: 给 ${receiverDisplayName}`;
-                        if (Object.keys(msg.claimedBy || {}).length > 0) {
-                            cardClass = 'opened';
-                        }
-                    }
-                    
-                    if (hasClaimed) {
-                        const myClaimedAmount = msg.claimedBy[myOriginalName] || 0;
-                        claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
-                    } else if (isFinished) {
-                        claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
-                    } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
-                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
-                        claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
-                    }
-
-                    contentHtml = `
-                        <div class="red-packet-card ${cardClass}">
-                            <div class="rp-header">
-                                <img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon">
-                                <span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span>
-                            </div>
-                            <div class="rp-type">${typeText}</div>
-                            ${claimedInfoHtml}
-                        </div>
-                    `;
-                } else if (msg.type === 'poll') {
+        if (isFinished) { cardClass = 'opened'; }
+        if (msg.packetType === 'direct') {
+            const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+            typeText = `专属红包: 给 ${receiverDisplayName}`;
+            if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened';
+        }
+        if (hasClaimed) {
+            const myClaimedAmount = msg.claimedBy[myOriginalName] || 0;
+            claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`;
+        } else if (isFinished) {
+            claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`;
+        } else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) {
+            const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName);
+            claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`;
+        }
+        contentHtml = `
+            <div class="red-packet-card ${cardClass}">
+                <div class="rp-header">
+                    <img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon">
+                    <span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span>
+                </div>
+                <div class="rp-type">${typeText}</div>
+                ${claimedInfoHtml}
+            </div>
+        `;
+    } else if (msg.type === 'poll') {
         bubble.classList.add('is-poll');
         const pollQuestionText = msg.question || msg.content || '(无标题投票)';
         let totalVotes = 0;
@@ -10656,10 +11045,10 @@ function createMessageElement(msg, chat) {
             voteCounts[option] = count;
             totalVotes += count;
         }
-        const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+        const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
         let myVote = null;
         for (const option in msg.votes) {
-            if (msg.votes[option].includes(myNickname)) { myVote = option; break; }
+            if (msg.votes[option].includes(myOriginalName)) { myVote = option; break; }
         }
         let optionsHtml = '<div class="poll-options-list">';
         msg.options.forEach(optionText => {
@@ -10672,6 +11061,92 @@ function createMessageElement(msg, chat) {
         let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>`
                                      : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
         contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
+    
+// ▼▼▼ 在 createMessageElement 函数中，合适的 else if 位置，粘贴下面这段代码 ▼▼▼
+} else if (msg.type === 'gift') {
+    // 为消息气泡添加特殊类名，以便应用卡片样式
+    bubble.classList.add('is-gift', 'is-card-like');
+    
+    let headerText;
+    const myNicknameForGift = chat.settings.myNickname || '我';
+
+    if (chat.isGroup) {
+        // (此处的群聊逻辑保持不变)
+        if (msg.recipients && msg.recipients.length > 0) {
+            const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName));
+            if (recipientDisplayNames.length === 1) {
+                headerText = `送给 ${recipientDisplayNames[0]} 的礼物`;
+            } else {
+                headerText = `送给 ${recipientDisplayNames.slice(0, 2).join('、')}等人的礼物`;
+            }
+        } else {
+            headerText = `送给大家的礼物`;
+        }
+    } else {
+        // 【核心新增】单聊中，根据消息角色判断标题
+        headerText = isUser ? `送给 ${chat.name} 的礼物` : `送给你的礼物`;
+    }
+
+    // 截取最多3个商品作为预览
+    const previewItems = msg.items.slice(0, 3);
+    let previewHtml = '';
+    previewItems.forEach(item => {
+        previewHtml += `
+            <div class="gift-preview-item">
+                <img src="${item.imageUrl}" class="gift-preview-img">
+                <span class="gift-preview-name">${item.name}</span>
+                <span class="gift-preview-quantity">x${item.quantity}</span>
+            </div>
+        `;
+    });
+    
+    // 如果商品超过3个，显示“等n件商品”
+    let moreItemsText = '';
+    if (msg.items.length > 3) {
+        moreItemsText = ` 等${msg.items.length}件商品`;
+    }
+
+    // 组装最终的卡片HTML
+    contentHtml = `
+        <div class="gift-card">
+            <div class="gift-header">
+                <svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg>
+                <span class="gift-header-text">${headerText}</span>
+            </div>
+            <div class="gift-items-preview">${previewHtml}</div>
+            <div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div>
+        </div>
+    `;
+// ▲▲▲ 粘贴结束 ▲▲▲
+    } else if (msg.type === 'gift') {
+        bubble.classList.add('is-gift');
+        const previewItems = msg.items.slice(0, 3);
+        let previewHtml = '';
+        previewItems.forEach(item => {
+            previewHtml += `
+                <div class="gift-preview-item">
+                    <img src="${item.imageUrl}" class="gift-preview-img">
+                    <span class="gift-preview-name">${item.name}</span>
+                    <span class="gift-preview-quantity">x${item.quantity}</span>
+                </div>
+            `;
+        });
+        let moreItemsText = '';
+        if (msg.items.length > 3) {
+            moreItemsText = ` 等${msg.items.length}件商品`;
+        }
+        contentHtml = `
+            <div class="gift-card">
+                <div class="gift-header">
+                    <svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg>
+                    <span class="gift-header-text">送给你的礼物</span>
+                </div>
+                <div class="gift-items-preview">${previewHtml}</div>
+                <div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div>
+            </div>
+        `;
+    // ▲▲▲ 【【【修复代码粘贴结束】】】 ▲▲▲
+
     } else if (typeof msg.content === 'string' && STICKER_REGEX.test(msg.content)) {
         bubble.classList.add('is-sticker');
         contentHtml = `<img src="${msg.content}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
@@ -10685,7 +11160,7 @@ function createMessageElement(msg, chat) {
         contentHtml = processedText.replace(/\n/g, '<br>');
     }
 
-let quoteHtml = '';
+    let quoteHtml = '';
     if (msg.quote) {
         const quotedSenderDisplayName = getDisplayNameInGroup(chat, msg.quote.senderName);
         const fullQuotedContent = String(msg.quote.content || '');
@@ -10732,7 +11207,7 @@ let quoteHtml = '';
     }
     return wrapper;
 }
-// ▲▲▲ 替换结束
+// ▲▲▲ 替换结束 ▲▲▲
 
         function prependMessage(msg, chat) { const messagesContainer = document.getElementById('chat-messages'); const messageEl = createMessageElement(msg, chat); 
 
@@ -10762,6 +11237,7 @@ function appendMessage(msg, chat, isInitialLoad = false) {
 }
 // ▲▲▲ 替换结束 ▲▲▲
 
+/* ▼▼▼ 请用这个【新版本】的函数完整替换旧的 openChat 函数 ▼▼▼ */
 async function openChat(chatId) {
     state.activeChatId = chatId;
     const chat = state.chats[chatId];
@@ -10775,25 +11251,42 @@ async function openChat(chatId) {
     renderChatInterface(chatId);
     showScreen('chat-interface-screen');
     window.updateListenTogetherIconProxy(state.activeChatId);
-    toggleCallButtons(chat.isGroup || false);    
-    document.getElementById('show-announcement-board-btn').style.display = chat.isGroup ? 'flex' : 'none';
     
-    // ▼▼▼ 在这里添加新的代码 ▼▼▼
-    // 根据是否为群聊，显示或隐藏新的“拍一拍”按钮
+    // --- 按钮显隐逻辑 ---
+    const isGroup = chat.isGroup || false;
+    
+    // 切换通话按钮
+    toggleCallButtons(isGroup);
+    
+    // 切换群公告按钮
+    document.getElementById('show-announcement-board-btn').style.display = isGroup ? 'flex' : 'none';
+    
+    // 切换“拍一拍”按钮
     const patBtn = document.getElementById('pat-btn');
     if (patBtn) {
-        patBtn.style.display = chat.isGroup ? 'none' : 'flex';
+        patBtn.style.display = isGroup ? 'none' : 'flex';
     }
-    // ▲▲▲ 新代码添加结束 ▲▲▲
 
+    // 【【【核心修改就在这里】】】
+    // 切换“购物”和“五子棋”按钮
+    const shoppingBtn = document.getElementById('open-shopping-btn');
+    const gomokuBtn = document.getElementById('gomoku-btn');
+    if (shoppingBtn && gomokuBtn) {
+        const displayStyle = isGroup ? 'none' : 'flex'; // 如果是群聊，则隐藏
+        shoppingBtn.style.display = displayStyle;
+        gomokuBtn.style.display = displayStyle;
+    }
+    // --- 修改结束 ---
+
+    // 触发AI响应的逻辑（保持不变）
     if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
         console.log(`检测到好友申请待处理状态，为角色 "${chat.name}" 自动触发AI响应...`);
         triggerAiResponse();
     }
     
-    document.getElementById('send-poll-btn').style.display = chat.isGroup ? 'flex' : 'none';
+    document.getElementById('send-poll-btn').style.display = isGroup ? 'flex' : 'none';
 }
-// ▲▲▲ 替换结束 ▲▲▲
+/* ▲▲▲ 替换结束 ▲▲▲ */
 
 
 
@@ -11405,7 +11898,16 @@ ${membersWithContacts}
 
         } else {
             const isOfflineMode = chat.settings.isOfflineMode;
-
+        // 【核心新增】从数据库中获取所有商品信息
+        const allProducts = await db.shoppingProducts.toArray();
+        let shoppingContext = "";
+        if (allProducts.length > 0) {
+            shoppingContext = "\n\n# 你的商店 (你可以为用户购买礼物):\n";
+            allProducts.forEach(product => {
+                // 为AI提供清晰的商品列表，包含ID、名称和价格
+                shoppingContext += `- (ID: ${product.id}) 商品: ${product.name}, 价格: ¥${product.price.toFixed(2)}\n`;
+            });
+        }
             if (isOfflineMode) {
                 const minLength = chat.settings.offlineMinLength || 100;
                 const maxLength = chat.settings.offlineMaxLength || 300;
@@ -11463,14 +11965,15 @@ ${linkedMemoryContext}
                 }).filter(Boolean);
 
             } else {
-                let nameHistoryContext = '';
-                if (chat.nameHistory && chat.nameHistory.length > 0) {
-                    nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
-                }
-    
-                let userProfileContext = '';
-                const userQzoneNickname = state.qzoneSettings.nickname || '用户';
-                userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
+            // --- 这是我们要修改的【在线模式】Prompt ---
+            let nameHistoryContext = '';
+            if (chat.nameHistory && chat.nameHistory.length > 0) {
+                nameHistoryContext = `\n- **你的曾用名**: [${chat.nameHistory.join(', ')}]。当在对话历史中看到这些名字时，它们都指的是【你】自己。`;
+            }
+
+            let userProfileContext = '';
+            const userQzoneNickname = state.qzoneSettings.nickname || '用户';
+            userProfileContext += `- 用户的QZone昵称是 "${userQzoneNickname}"。\n`;
     
                 const allChats = Object.values(state.chats);
                 const commonGroups = allChats.filter(group => 
@@ -11608,6 +12111,7 @@ ${chat.settings.myAvatarLibrary && chat.settings.myAvatarLibrary.length > 0 ? ch
 ${gomokuContext}
 
 # 你可以使用的操作指令 (JSON数组中的元素):
+-   **【【【全新简化版】】】送出礼物**: '{"type": "gift", "productId": 123, "quantity": 1}' (productId 必须从下方的商店列表中选择，一次只能送一种)
 -   **【【【全新】】】修改你对用户的称呼**: '{"type": "change_user_nickname", "new_name": "你想用的新称呼"}'
 -   **【【【全新】】】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
 -   **【【【全新】】】更换头像**: '{"type": "change_avatar", "name": "头像名"}' (头像名必须从上面的“可用头像列表”中选择)
@@ -11667,6 +12171,11 @@ ${gomokuContext}
 -   你的回复【必须且只能】是以下两种格式之一的JSON数组，绝对不能回复任何其他内容：
     -   接受: '[{"type": "video_call_response", "decision": "accept"}]'
     -   拒绝: '[{"type": "video_call_response", "decision": "reject"}]'
+# 如何正确使用“送礼物”功能:
+1.  这个指令代表【你，AI角色】从商店中挑选商品，作为礼物【赠送给用户】。
+2.  你可以根据对话的氛围、用户的喜好或特殊节日（如生日），主动为用户送上惊喜。
+3.  一次可以赠送多种、多个商品。
+
 # 对话者的角色设定：
 ${chat.settings.myPersona}
 ${contactsList} 
@@ -11677,6 +12186,7 @@ ${timeContext}
 ${musicContext}
 ${worldBookContent}
 ${sharedContext} 
+${shoppingContext}
 ${linkedMemoryContext}
 现在，请根据以上规则和下面的对话历史，继续进行对话。`;
     
@@ -12318,6 +12828,35 @@ ${contextSummaryForApproval}
                         isClosed: false,
                     };
                     break;
+// ▼▼▼ 在 triggerAiResponse 函数的 switch 语句内，用这个【已修复】的版本替换旧的 case 'gift' ▼▼▼
+case 'gift': {
+    // 【核心修复】检查新的、简化的指令格式是否有效
+    if (msgData.productId && msgData.quantity > 0) { // <-- 错误已从 action.productId 修正为 msgData.productId
+        const productId = parseInt(msgData.productId);
+        const product = await db.shoppingProducts.get(productId);
+
+        // 如果商品存在于数据库中
+        if (product) {
+            // 构建与用户发送时完全一致的消息结构
+            aiMessage = {
+                ...baseMessage,
+                type: 'gift',
+                items: [{
+                    name: product.name,
+                    price: product.price,
+                    imageUrl: product.imageUrl,
+                    quantity: parseInt(msgData.quantity) // <-- 错误已从 action.quantity 修正为 msgData.quantity
+                }],
+                total: product.price * parseInt(msgData.quantity) // <-- 错误已从 action.quantity 修正为 msgData.quantity
+            };
+        } else {
+            console.warn(`AI 尝试赠送一个不存在的商品 (ID: ${productId})`);
+        }
+    }
+    break;
+}
+// ▲▲▲ 替换结束 ▲▲▲
+// ▲▲▲ 将这个 case 添加到其他 case (如 'transfer', 'waimai_request' 等) 的旁边 ▲▲▲
                 case 'vote':
                     const pollToVote = chat.history.find(m => m.timestamp === msgData.poll_timestamp);
                     if (pollToVote && !pollToVote.isClosed) {
@@ -20336,6 +20875,424 @@ ${boardString}
 // ▲▲▲ 替换结束 ▲▲▲
 
 // ▲▲▲ 新增函数粘贴结束 ▲▲▲
+// ▼▼▼ 【全新】购物功能核心函数 (V4.0 - 仿淘宝终极版) ▼▼▼
+/* ▼▼▼ 请用这整块新代码替换旧的 renderShoppingProducts 函数及购物相关的事件监听器 ▼▼▼ */
+
+// 新增一个全局变量来跟踪管理模式
+let isProductManagementMode = false;
+
+/**
+ * 渲染商店里的所有商品 (V5.0 - 支持管理模式)
+ */
+async function renderShoppingProducts() {
+    const gridEl = document.getElementById('product-grid');
+    const shoppingScreen = document.getElementById('shopping-screen');
+    gridEl.innerHTML = '';
+    let products = await db.shoppingProducts.toArray();
+
+    // 根据是否处于管理模式，为根元素添加一个class
+    shoppingScreen.classList.toggle('management-mode', isProductManagementMode);
+
+    if (products.length === 0) {
+        const message = '商店空空如也，点击“管理”添加商品吧！';
+        gridEl.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); margin-top: 50px;">${message}</p>`;
+        return;
+    }
+
+    products.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.dataset.id = product.id;
+        
+        // 在管理模式下，显示编辑和删除按钮
+        const managementControls = isProductManagementMode ? `
+            <div class="product-management-overlay">
+                <button class="edit-product-btn">编辑</button>
+                <button class="delete-product-btn">删除</button>
+            </div>
+        ` : '';
+
+        item.innerHTML = `
+            ${managementControls}
+            <img src="${product.imageUrl}" class="product-image">
+            <div class="product-info">
+                <div class="product-name">${product.name}</div>
+                <div class="product-footer">
+                    <div class="product-price">${product.price.toFixed(2)}</div>
+                    <button class="add-to-cart-btn">加入购物车</button>
+                </div>
+            </div>
+        `;
+        gridEl.appendChild(item);
+    });
+}
+
+
+/* ▼▼▼ 请用这整块新代码替换旧的 renderShoppingProducts 函数及购物相关的事件监听器 ▼▼▼ */
+
+
+/**
+ * 【已修复】打开购物页面
+ */
+async function openShoppingScreen() {
+    await renderShoppingProducts();
+    showScreen('shopping-screen');
+}
+
+/**
+ * 渲染商店里的所有商品 (V5.0 - 支持管理模式)
+ */
+async function renderShoppingProducts() {
+    const gridEl = document.getElementById('product-grid');
+    const shoppingScreen = document.getElementById('shopping-screen');
+    gridEl.innerHTML = '';
+    let products = await db.shoppingProducts.toArray();
+
+    // 根据是否处于管理模式，为根元素添加一个class
+    shoppingScreen.classList.toggle('management-mode', isProductManagementMode);
+
+    if (products.length === 0) {
+        const message = '商店空空如也，点击“管理”添加商品吧！';
+        gridEl.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); margin-top: 50px;">${message}</p>`;
+        return;
+    }
+
+    products.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'product-item';
+        item.dataset.id = product.id;
+        
+        // 在管理模式下，显示编辑和删除按钮
+        const managementControls = isProductManagementMode ? `
+            <div class="product-management-overlay">
+                <button class="edit-product-btn">编辑</button>
+                <button class="delete-product-btn">删除</button>
+            </div>
+        ` : '';
+
+        item.innerHTML = `
+            ${managementControls}
+            <img src="${product.imageUrl}" class="product-image">
+            <div class="product-info">
+                <div class="product-name">${product.name}</div>
+                <div class="product-footer">
+                    <div class="product-price">${product.price.toFixed(2)}</div>
+                    <button class="add-to-cart-btn">加入购物车</button>
+                </div>
+            </div>
+        `;
+        gridEl.appendChild(item);
+    });
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
+
+/**
+ * 将商品加入购物车 (V4.0)
+ */
+async function addToCart(productId, quantity = 1) {
+    const existingItem = shoppingCart.find(item => item.productId === productId);
+    if (existingItem) {
+        existingItem.quantity += quantity;
+    } else {
+        const product = await db.shoppingProducts.get(productId);
+        if (product) {
+            shoppingCart.push({ productId: product.id, quantity: quantity });
+        }
+    }
+    updateCartCount();
+}
+
+/**
+ * 更新购物车商品数量
+ */
+function updateCartItemQuantity(productId, change) {
+    const itemIndex = shoppingCart.findIndex(item => item.productId === productId);
+    if (itemIndex > -1) {
+        shoppingCart[itemIndex].quantity += change;
+        if (shoppingCart[itemIndex].quantity <= 0) {
+            shoppingCart.splice(itemIndex, 1);
+        }
+        updateCartCount();
+        renderCartItems();
+    }
+}
+
+/**
+ * 更新购物车图标和结算按钮上的数量
+ */
+function updateCartCount() {
+    const totalItems = shoppingCart.reduce((sum, item) => sum + item.quantity, 0);
+    document.getElementById('cart-count').textContent = totalItems;
+    document.getElementById('cart-title').textContent = `购物车(${totalItems})`;
+    document.getElementById('checkout-btn').textContent = `结算(${totalItems})`;
+}
+
+/**
+ * 打开购物车页面
+ */
+function openCartScreen() {
+    renderCartItems();
+    showScreen('cart-screen');
+}
+
+/**
+ * 渲染购物车内的商品列表 (V4.0)
+ */
+async function renderCartItems() {
+    const listEl = document.getElementById('cart-items-list');
+    listEl.innerHTML = '';
+    let total = 0;
+
+    if (shoppingCart.length === 0) {
+        listEl.innerHTML = '<p style="text-align:center; color: var(--text-secondary); margin-top: 50px;">购物车是空的哦~</p>';
+    } else {
+        const productIds = shoppingCart.map(item => item.productId);
+        const products = await db.shoppingProducts.where('id').anyOf(productIds).toArray();
+        const productMap = new Map(products.map(p => [p.id, p]));
+
+        shoppingCart.forEach(item => {
+            const product = productMap.get(item.productId);
+            if (product) {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'cart-item';
+                itemEl.innerHTML = `
+                    <input type="checkbox" class="cart-item-checkbox" data-id="${product.id}" checked>
+                    <img src="${product.imageUrl}" class="cart-item-image">
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">${product.name}</div>
+                        <div class="cart-item-footer">
+                            <div class="cart-item-price">¥${product.price.toFixed(2)}</div>
+                            <div class="quantity-control">
+                                <button class="quantity-btn decrease-qty-btn" data-id="${product.id}">-</button>
+                                <span class="quantity-display">${item.quantity}</span>
+                                <button class="quantity-btn increase-qty-btn" data-id="${product.id}">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(itemEl);
+            }
+        });
+    }
+    updateCartTotal();
+}
+
+/**
+ * 更新购物车总价
+ */
+async function updateCartTotal() {
+    let total = 0;
+    const selectedCheckboxes = document.querySelectorAll('.cart-item-checkbox:checked');
+    const selectedProductIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.id));
+
+    if (selectedProductIds.length > 0) {
+        const products = await db.shoppingProducts.where('id').anyOf(selectedProductIds).toArray();
+        const productMap = new Map(products.map(p => [p.id, p]));
+        
+        shoppingCart.forEach(cartItem => {
+            if (selectedProductIds.includes(cartItem.productId)) {
+                const product = productMap.get(cartItem.productId);
+                if (product) {
+                    total += product.price * cartItem.quantity;
+                }
+            }
+        });
+    }
+    document.getElementById('cart-total').textContent = `合计: ¥${total.toFixed(2)}`;
+}
+
+/* ▼▼▼ 请用这整块新代码替换旧的 handleCheckout 和 sendGiftMessage 函数，并添加新函数 ▼▼▼ */
+
+/**
+ * 【全新】打开礼物接收人选择弹窗
+ */
+async function openGiftRecipientPicker() {
+    const chat = state.chats[state.activeChatId];
+    if (!chat || !chat.isGroup) return;
+
+    const modal = document.getElementById('gift-recipient-modal');
+    const listEl = document.getElementById('gift-recipient-list');
+    listEl.innerHTML = '';
+
+    // 筛选出除用户外的所有群成员
+    const myNickname = chat.settings.myNickname || '我';
+    const members = chat.members.filter(m => m.groupNickname !== myNickname);
+
+    members.forEach(member => {
+        const item = document.createElement('div');
+        item.className = 'contact-picker-item';
+        // 【核心】我们将使用 originalName 作为唯一标识
+        item.dataset.recipientName = member.originalName; 
+
+        item.innerHTML = `
+            <div class="checkbox"></div>
+            <img src="${member.avatar || defaultGroupMemberAvatar}" class="avatar">
+            <span class="name">${member.groupNickname}</span>
+        `;
+        listEl.appendChild(item);
+    });
+    
+    // 重置全选框
+    document.getElementById('select-all-recipients').checked = false;
+    modal.classList.add('visible');
+}
+
+/* ▼▼▼ 请用这整块新代码替换旧的 handleCheckout 和 sendGiftMessage 函数 ▼▼▼ */
+
+/**
+ * 【重构版】处理结算按钮点击，根据聊天类型分流
+ */
+async function handleCheckout() {
+    const chat = state.chats[state.activeChatId];
+    const selectedItems = shoppingCart.filter(item => 
+        document.querySelector(`.cart-item-checkbox[data-id="${item.productId}"]:checked`)
+    );
+    if (selectedItems.length === 0) {
+        alert("请先在购物车中选择要结算的商品。");
+        return;
+    }
+
+    if (chat.isGroup) {
+        // 如果是群聊，打开收礼人选择器
+        openGiftRecipientPicker();
+    } else {
+        // 如果是单聊，直接发送
+        const confirmed = await showCustomConfirm( '确认送出礼物', `确定要将选中的商品作为礼物送出吗？`, { confirmText: '送出礼物' });
+        if (confirmed) {
+            await sendGiftMessage(selectedItems); // 单聊不需要指定收礼人
+        }
+    }
+}
+
+/**
+ * 【升级版】发送礼物卡片消息，现在支持指定收礼人
+ * @param {Array} itemsToSend - 要发送的商品数组
+ * @param {Array|null} recipients - 收礼人本名(originalName)的数组，单聊时为null
+ */
+async function sendGiftMessage(itemsToSend, recipients = null) {
+    if (!state.activeChatId) return;
+    const chat = state.chats[state.activeChatId];
+    
+    const productIds = itemsToSend.map(item => item.productId);
+    const products = await db.shoppingProducts.where('id').anyOf(productIds).toArray();
+    const productMap = new Map(products.map(p => [p.id, p]));
+    
+    const itemsForMessage = itemsToSend.map(cartItem => {
+        const product = productMap.get(cartItem.productId);
+        return {
+            name: product.name, price: product.price,
+            imageUrl: product.imageUrl, quantity: cartItem.quantity
+        };
+    });
+    const giftMessage = {
+        role: 'user', type: 'gift', timestamp: Date.now(),
+        items: itemsForMessage,
+        total: itemsForMessage.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        recipients: recipients // 将收礼人信息存入消息
+    };
+    
+    chat.history.push(giftMessage);
+
+    // 为AI生成包含收礼人信息的隐藏提示
+    if (recipients && recipients.length > 0) {
+        const recipientDisplayNames = recipients.map(originalName => getDisplayNameInGroup(chat, originalName)).join('、');
+        const hiddenMessage = {
+            role: 'system',
+            content: `[系统提示：用户 (${chat.settings.myNickname || '我'}) 送出了一份礼物，收礼人是：${recipientDisplayNames}。请收礼的角色表示感谢，其他角色可以自由发挥。]`,
+            timestamp: Date.now() + 1,
+            isHidden: true
+        };
+        chat.history.push(hiddenMessage);
+    }
+
+    await db.chats.put(chat);
+    
+    appendMessage(giftMessage, chat);
+    renderChatList();
+    
+    // 从购物车中移除已结算的商品
+    shoppingCart = shoppingCart.filter(item => !itemsToSend.some(sent => sent.productId === item.productId));
+    updateCartCount();
+    showScreen('chat-interface-screen');
+    
+    await showCustomAlert('成功', '礼物已成功送出！');
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
+
+
+/**
+ * 显示购物小票
+ */
+function showGiftReceipt(timestamp) {
+    // ... (此函数逻辑不变, 保持原样即可)
+    const chat = state.chats[state.activeChatId];
+    const message = chat.history.find(m => m.timestamp === timestamp);
+    if (!message || message.type !== 'gift') return;
+    const receiptBody = document.getElementById('gift-receipt-body');
+    let itemsHtml = '';
+    message.items.forEach(item => {
+        itemsHtml += `<tr><td class="item-name">${item.name}</td><td class="item-qty">${item.quantity}</td><td class="item-price">¥${item.price.toFixed(2)}</td><td class="item-subtotal">¥${(item.price * item.quantity).toFixed(2)}</td></tr>`;
+    });
+    receiptBody.innerHTML = `<div class="receipt-header"><h3>购物中心</h3><p>交易时间: ${new Date(message.timestamp).toLocaleString()}</p></div><table class="receipt-items-table"><thead><tr><th class="item-name">商品</th><th class="item-qty">数量</th><th class="item-price">单价</th><th class="item-subtotal">小计</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="receipt-total">总计: ¥${message.total.toFixed(2)}</div><div class="receipt-footer">感谢您的惠顾，欢迎再次光临！</div>`;
+    document.getElementById('gift-receipt-modal').classList.add('visible');
+}
+
+/**
+ * 商品管理相关函数
+ */
+async function openProductEditor(productId = null) {
+    // ... (此函数逻辑需要更新，以包含description字段)
+    editingProductId = productId;
+    const modal = document.getElementById('product-editor-modal');
+    const title = document.getElementById('product-editor-title');
+    const nameInput = document.getElementById('product-name-input');
+    const priceInput = document.getElementById('product-price-input');
+    const descInput = document.getElementById('product-description-input');
+    const imagePreview = document.getElementById('product-image-preview');
+    if (productId) {
+        title.textContent = '编辑商品';
+        const product = await db.shoppingProducts.get(productId);
+        nameInput.value = product.name;
+        priceInput.value = product.price;
+        descInput.value = product.description || '';
+        imagePreview.src = product.imageUrl;
+    } else {
+        title.textContent = '添加商品';
+        nameInput.value = '';
+        priceInput.value = '';
+        descInput.value = '';
+        imagePreview.src = 'https://s3plus.meituan.net/opapisdk/op_ticket_885190757_1756206115802_qdqqd_0c99bh.jpeg';
+    }
+    modal.classList.add('visible');
+}
+async function saveProduct() {
+    // ... (此函数逻辑需要更新，以包含description字段)
+    const name = document.getElementById('product-name-input').value.trim();
+    const price = parseFloat(document.getElementById('product-price-input').value);
+    const description = document.getElementById('product-description-input').value.trim();
+    const imageUrl = document.getElementById('product-image-preview').src;
+    if (!name) { alert('商品名称不能为空！'); return; }
+    if (isNaN(price) || price < 0) { alert('请输入有效的价格！'); return; }
+    if (imageUrl.includes('placeholder.png')) { alert('请上传商品图片！'); return; }
+    const productData = { name, price, description, imageUrl };
+    if (editingProductId) {
+        await db.shoppingProducts.update(editingProductId, productData);
+    } else {
+        await db.shoppingProducts.add(productData);
+    }
+    document.getElementById('product-editor-modal').classList.remove('visible');
+    await renderShoppingProducts();
+}
+async function deleteProduct(productId) {
+    const confirmed = await showCustomConfirm('删除商品', '确定要删除这个商品吗？此操作不可恢复。', { confirmButtonClass: 'btn-danger' });
+    if (confirmed) {
+        await db.shoppingProducts.delete(productId);
+        await renderShoppingProducts();
+    }
+}
+// ▲▲▲ 新增函数粘贴结束 ▲▲▲
        // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -20623,6 +21580,7 @@ document.getElementById('save-wallpaper-btn').addEventListener('click', async ()
     applyAppIcons(); // 重新应用所有图标
 
     alert('外观设置已保存并应用！');
+
     showScreen('home-screen');
 });
 // ▲▲▲ 替换结束 ▲▲▲
@@ -23469,6 +24427,154 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
     }
 });
 // ▲▲▲ 新增结束 ▲▲▲
+// ▼▼▼ 【全新】购物功能事件绑定 (V6.0 - 支持指定收礼人) ▼▼▼
+document.getElementById('open-shopping-btn').addEventListener('click', openShoppingScreen);
+document.getElementById('shopping-back-btn').addEventListener('click', () => showScreen('chat-interface-screen'));
+document.getElementById('go-to-cart-btn').addEventListener('click', openCartScreen);
+document.getElementById('cart-back-btn').addEventListener('click', openShoppingScreen);
+document.getElementById('checkout-btn').addEventListener('click', handleCheckout);
+document.getElementById('close-receipt-btn').addEventListener('click', () => {
+    document.getElementById('gift-receipt-modal').classList.remove('visible');
+});
+
+// "管理"按钮
+document.getElementById('manage-products-btn').addEventListener('click', () => {
+    isProductManagementMode = !isProductManagementMode;
+    const btn = document.getElementById('manage-products-btn');
+    btn.style.color = isProductManagementMode ? 'var(--accent-color)' : 'var(--text-primary)';
+    if (!isProductManagementMode && document.querySelectorAll('#product-grid .product-item').length === 0) {
+        openProductEditor(null);
+    }
+    renderShoppingProducts();
+});
+
+// “添加商品”按钮
+document.getElementById('add-new-product-btn').addEventListener('click', () => {
+    if (isProductManagementMode) {
+        openProductEditor(null);
+    } else {
+        alert("请先点击扳手图标进入管理模式，才能添加新商品。");
+    }
+});
+
+// 商品列表事件委托
+document.getElementById('product-grid').addEventListener('click', async e => {
+    const productItem = e.target.closest('.product-item');
+    if (!productItem) return;
+    const productId = parseInt(productItem.dataset.id);
+
+    if (e.target.classList.contains('edit-product-btn')) {
+        openProductEditor(productId);
+    } else if (e.target.classList.contains('delete-product-btn')) {
+        deleteProduct(productId);
+    } else if (e.target.classList.contains('add-to-cart-btn')) {
+        await addToCart(productId);
+        await showCustomAlert('成功', '已成功加入购物车！');
+    }
+});
+
+// 购物车列表事件委托
+document.getElementById('cart-items-list').addEventListener('click', e => {
+    const target = e.target;
+    if (target.classList.contains('decrease-qty-btn')) {
+        updateCartItemQuantity(parseInt(target.dataset.id), -1);
+    }
+    if (target.classList.contains('increase-qty-btn')) {
+        updateCartItemQuantity(parseInt(target.dataset.id), 1);
+    }
+    if (target.classList.contains('cart-item-checkbox')) {
+        updateCartTotal();
+    }
+});
+
+// 购物车清空按钮
+document.getElementById('clear-cart-btn').addEventListener('click', async () => {
+    if (shoppingCart.length === 0) return;
+    const confirmed = await showCustomConfirm('清空购物车', '确定要清空购物车中的所有商品吗？');
+    if (confirmed) {
+        shoppingCart = [];
+        updateCartCount();
+        renderCartItems();
+    }
+});
+
+// 购物车全选
+document.getElementById('select-all-cart-items').addEventListener('change', function(e) {
+    document.querySelectorAll('.cart-item-checkbox').forEach(cb => {
+        cb.checked = e.target.checked;
+    });
+    updateCartTotal();
+});
+
+// 商品编辑器弹窗按钮
+document.getElementById('cancel-product-editor-btn').addEventListener('click', () => {
+    document.getElementById('product-editor-modal').classList.remove('visible');
+});
+document.getElementById('save-product-btn').addEventListener('click', saveProduct);
+document.getElementById('product-image-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (re) => { document.getElementById('product-image-preview').src = re.target.result; };
+        reader.readAsDataURL(file);
+    }
+});
+
+// 聊天界面礼物卡片点击事件
+document.getElementById('chat-messages').addEventListener('click', e => {
+    const giftCard = e.target.closest('.gift-card');
+    if (giftCard) {
+        const bubble = giftCard.closest('.message-bubble');
+        if (bubble) {
+            showGiftReceipt(parseInt(bubble.dataset.timestamp));
+        }
+    }
+});
+
+// 【全新】礼物接收人选择弹窗的事件绑定
+document.getElementById('cancel-gift-recipient-btn').addEventListener('click', () => {
+    document.getElementById('gift-recipient-modal').classList.remove('visible');
+});
+
+// ▼▼▼ 请用这个【已修复】的新事件监听器替换旧的 'confirm-gift-recipient-btn' 监听器 ▼▼▼
+document.getElementById('confirm-gift-recipient-btn').addEventListener('click', async () => {
+    // 步骤 1: (保持不变) 获取选中的收礼人
+    const selectedRecipients = Array.from(document.querySelectorAll('#gift-recipient-list .contact-picker-item.selected'))
+        .map(item => item.dataset.recipientName);
+    
+    if (selectedRecipients.length === 0) {
+        alert("请至少选择一位收礼人。");
+        return;
+    }
+    
+    // 步骤 2: 【【【核心修复】】】 在这里，重新从购物车获取一次选中的商品
+    const selectedItems = shoppingCart.filter(item => 
+        document.querySelector(`.cart-item-checkbox[data-id="${item.productId}"]:checked`)
+    );
+    
+    // 步骤 3: (保持不变) 调用发送函数，此时两个参数都是正确的
+    await sendGiftMessage(selectedItems, selectedRecipients);
+    
+    // 步骤 4: (保持不变) 关闭弹窗
+    document.getElementById('gift-recipient-modal').classList.remove('visible');
+});
+// ▲▲▲ 替换结束 ▲▲▲
+
+document.getElementById('gift-recipient-list').addEventListener('click', (e) => {
+    const item = e.target.closest('.contact-picker-item');
+    if (item) {
+        item.classList.toggle('selected');
+    }
+});
+
+document.getElementById('select-all-recipients').addEventListener('change', function(e) {
+    const isChecked = e.target.checked;
+    document.querySelectorAll('#gift-recipient-list .contact-picker-item').forEach(item => {
+        item.classList.toggle('selected', isChecked);
+    });
+});
+// ▲▲▲ 新增事件绑定结束 ▲▲▲
+
             showScreen('home-screen');
         }
 
@@ -23558,6 +24664,25 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▼▼▼ 【全新】“我的”头像库专用文件上传输入框 ▼▼▼ -->
 <input type="file" id="my-avatar-upload-input" accept="image/*" hidden>
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
+<!-- ▼▼▼ 【全新】这是选择礼物接收人的弹窗，请粘贴到 body 底部 ▼▼▼ -->
+<div id="gift-recipient-modal" class="modal">
+    <div class="modal-content" style="height: 70%;">
+        <div class="modal-header">
+            <span>选择收礼人</span>
+            <label style="font-size: 14px; font-weight: normal; display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="select-all-recipients"> 全选
+            </label>
+        </div>
+        <div class="modal-body" id="gift-recipient-list" style="padding: 0;">
+            <!-- 群成员列表将由JS动态生成在这里 -->
+        </div>
+        <div class="modal-footer">
+            <button class="cancel" id="cancel-gift-recipient-btn">取消</button>
+            <button class="save" id="confirm-gift-recipient-btn">确认送出</button>
+        </div>
+    </div>
+</div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
 
