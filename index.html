@@ -5395,6 +5395,115 @@ input:checked + .slider:before {
     background-color: rgba(0, 123, 255, 0.2) !important;
 }
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【布局终极修复】请用这一整块全新的CSS，替换掉您旧的所有五子棋相关样式 ▼▼▼ */
+
+/* ▼▼▼ 【边框终极修复V2】请用这一整块全新的CSS，替换掉您旧的所有五子棋相关样式 ▼▼▼ */
+
+/* 1. 棋盘的外部容器 (负责定位和动画窗口) */
+#gomoku-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 350px;
+    z-index: 50;
+    pointer-events: none; /* 让点击可以穿透 */
+    overflow: hidden;     /* 【核心】隐藏掉滑出屏幕外的内容 */
+    display: none;        /* 默认不显示，由JS控制 */
+}
+
+/* ▼▼▼ 【遮罩终极修复】请用这整块全新的CSS，替换掉您旧的 #gomoku-content-wrapper 样式 ▼▼▼ */
+
+/* 2. 棋盘的内部包装器 (负责外观和内容布局) */
+#gomoku-content-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 【核心】移除所有背景和效果，使其完全透明 */
+    background-color: transparent !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    /* --- 其他布局样式保持不变 --- */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 0;
+    box-sizing: border-box;
+    transition: transform 0.3s ease-out;
+    transform: translateY(-100%);
+    pointer-events: auto;
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
+
+#phone-screen.dark-mode #gomoku-content-wrapper {
+    background-color: rgba(28, 28, 30, 0.9);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* 当棋盘可见时，将内部包装器滑入视图 */
+#gomoku-overlay.visible #gomoku-content-wrapper {
+    transform: translateY(0);
+}
+
+/* 3. 聊天消息区 (保持不变) */
+#chat-messages {
+    transition: padding-top 0.3s ease-out;
+}
+
+/* 4. 棋盘画布和控制按钮 (保持不变) */
+#gomoku-board {
+    background-color: #e4b591;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    cursor: pointer;
+}
+
+#gomoku-controls {
+    width: 100%;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+#close-gomoku-btn {
+    padding: 6px 15px;
+    border-radius: 15px;
+    border: 1px solid var(--text-secondary);
+    background-color: rgba(255,255,255,0.5);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 13px;
+}
+#phone-screen.dark-mode #close-gomoku-btn {
+    background-color: rgba(0,0,0,0.2);
+    border-color: var(--text-secondary);
+}
+
+/* ▲▲▲ 替换结束 ▲▲▲ */
+/* ▼▼▼ 【棋盘交互终极修复】请将这整块CSS粘贴到 <style> 的最末尾 ▼▼▼ */
+
+/* 
+  第一步：【核心】让棋盘的巨大透明容器“穿透”所有鼠标/触摸点击。
+  这样您就可以点击到它下方的聊天消息了。
+*/
+#gomoku-overlay {
+    pointer-events: none;
+}
+
+/* 
+  第二步：现在，我们必须“恢复”棋盘和按钮本身的可点击性。
+  我们将它们设置为 auto，这样它们就又能响应您的操作了。
+*/
+#gomoku-board,
+#gomoku-controls {
+    pointer-events: auto;
+}
+
+/* ▲▲▲ 修复结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5757,7 +5866,17 @@ input:checked + .slider:before {
 <input type="file" id="album-photo-input" accept="image/*" multiple hidden>
  
 <div id="chat-interface-screen" class="screen">
+<!-- ▼▼▼ 【全新】请将这个五子棋容器粘贴到聊天界面(chat-interface-screen)的【最顶部】 ▼▼▼ -->
+<div id="gomoku-overlay">
+    <div id="gomoku-content-wrapper">
+        <canvas id="gomoku-board"></canvas>
+        <div id="gomoku-controls">
+            <button id="close-gomoku-btn">收起棋盘</button>
+        </div>
+    </div>
+</div>
 
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
     <div class="header">
         <div class="default-controls">
     <span class="back-btn" id="back-to-list-btn">‹</span>
@@ -5833,6 +5952,15 @@ input:checked + .slider:before {
 <button id="share-location-btn" class="chat-action-icon-btn action-button" title="共享位置"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></button>
             <button id="send-poll-btn" class="chat-action-icon-btn action-button" title="发起投票"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h10"></path><path d="M6 6h.01"></path><path d="M8 12h10"></path><path d="M6 12h.01"></path><path d="M8 18h10"></path><path d="M6 18h.01"></path></svg></button>
             <button id="share-link-btn" class="chat-action-icon-btn action-button" title="分享链接"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path></svg></button>
+<!-- ▼▼▼ 请将这个新按钮，粘贴到 id="chat-input-actions-top" 容器的末尾 ▼▼▼ -->
+<button id="gomoku-btn" class="chat-action-icon-btn action-button" title="五子棋">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <circle cx="12" cy="12" r="4"></circle>
+        <circle cx="12" cy="12" r="7"></circle>
+    </svg>
+</button>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 <!-- ▼▼▼ 【全新】单聊专用的“拍一-拍”按钮 (Q弹图标版) ▼▼▼ -->
 <button id="pat-btn" class="chat-action-icon-btn action-button" title="拍一-拍" style="display: none;">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -7353,7 +7481,11 @@ let simulationIntervalId = null;
         const defaultGroupMemberAvatar = 'https://i.postimg.cc/VkQfgzGJ/1.jpg';
         const defaultGroupAvatar = 'https://i.postimg.cc/gc3QYCDy/1-NINE7-Five.jpg';
         let notificationTimeout;
+// ▼▼▼ 在JS顶部，变量定义区，添加这个新变量 ▼▼▼
+let gomokuState = {}; // 用于存储每个聊天的五子棋状态
+let originalChatMessagesPaddingTop = null; // 用于存储消息区的原始顶部内边距
 
+// ▲▲▲ 新增代码结束 ▲▲▲
 // ▼▼▼ 在JS顶部，变量定义区，添加这个新常量 ▼▼▼
 const DEFAULT_APP_ICONS = {
     'world-book': 'https://i.postimg.cc/HWf1JKzn/IMG-6435.jpg',
@@ -10704,6 +10836,7 @@ function setAvatarActingState(chatId, isActing) {
 
 
 // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
+// ▼▼▼ 【最终完整版 | 已集成五子棋】请用这个全新的函数，完整替换您现有的 triggerAiResponse 函数 ▼▼▼
 async function triggerAiResponse() {
     if (!state.activeChatId) return;
     const chatId = state.activeChatId;
@@ -10930,31 +11063,34 @@ ${contextSummary || "（无有效对话记录）"}
 
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
-// ▼▼▼ 在 triggerAiResponse 函数中，用这整块代码替换旧的世界书处理逻辑 ▼▼▼
-let worldBookContent = '';
-if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-        if (!worldBook || !Array.isArray(worldBook.content)) return '';
+        
+        let systemPrompt, messagesPayload;
 
-        // 【核心修改】将条目数组格式化为AI可读的Markdown
-        const formattedEntries = worldBook.content.map(entry => {
-            let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
-            if (entry.keys.length > 0) {
-                entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+        // 【核心新增】获取并格式化五子棋状态
+        const gomokuContext = formatGomokuStateForAI(gomokuState[chatId]);
+
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                if (!worldBook || !Array.isArray(worldBook.content)) return '';
+
+                const formattedEntries = worldBook.content.map(entry => {
+                    let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+                    if (entry.keys.length > 0) {
+                        entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+                    }
+                    entryString += `**内容:**\n${entry.content}`;
+                    return entryString;
+                }).join('\n');
+
+                return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+            }).filter(Boolean).join('');
+            
+            if (linkedContents) {
+                worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
             }
-            entryString += `**内容:**\n${entry.content}`;
-            return entryString;
-        }).join('\n');
-
-        return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
-    }).filter(Boolean).join('');
-    
-    if (linkedContents) {
-        worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
-    }
-}
-// ▲▲▲ 替换结束 ▲▲▲
+        }
         let musicContext = '';
         if (musicState.isActive && musicState.activeChatId === chatId) {
             const currentTrack = musicState.currentIndex > -1 ? musicState.playlist[musicState.currentIndex] : null;
@@ -10975,7 +11111,7 @@ if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length 
 -   **你的任务**: 你可以根据对话内容和氛围，使用 "change_music" 指令切换到播放列表中的任何一首歌，以增强互动体验。
 `;
         }
-        let systemPrompt, messagesPayload;
+
         const maxMemory = parseInt(chat.settings.maxMemory) || 10;
         const historySlice = chat.history.slice(-maxMemory);
 
@@ -11469,11 +11605,14 @@ ${chat.settings.aiAvatarLibrary && chat.settings.aiAvatarLibrary.length > 0 ? ch
 - **用户可用头像列表 (请从以下名称中选择一个)**:
 ${chat.settings.myAvatarLibrary && chat.settings.myAvatarLibrary.length > 0 ? chat.settings.myAvatarLibrary.map(avatar => `- ${avatar.name}`).join('\n') : '- (用户的头像库是空的，无法为Ta更换头像)'}
 
+${gomokuContext}
+
 # 你可以使用的操作指令 (JSON数组中的元素):
 -   **【【【全新】】】修改你对用户的称呼**: '{"type": "change_user_nickname", "new_name": "你想用的新称呼"}'
 -   **【【【全新】】】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
 -   **【【【全新】】】更换头像**: '{"type": "change_avatar", "name": "头像名"}' (头像名必须从上面的“可用头像列表”中选择)
 -   **【【【全新】】】更换用户头像**: '{"type": "change_user_avatar", "name": "头像名"}' (头像名必须从上面的“用户可用头像列表”中选择)
+-   **【【【全新】】】下五子棋**: '{"type": "gomoku_move", "name": "你的角色本名", "x": (0-14的数字), "y": (0-14的数字)}'
 -   **【新增】更新状态**: '{"type": "update_status", "status_text": "我去做什么了", "is_busy": false}' (is_busy: true代表忙碌/离开, false代表空闲)
 -   **【新增】切换歌曲**: '{"type": "change_music", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
 -   **【新增】记录回忆**: '{"type": "create_memory", "description": "用你自己的话，记录下这个让你印象深刻的瞬间。"}'
@@ -11747,153 +11886,159 @@ ${contextSummaryForApproval}
                         }
                     }
                     continue;
-        case 'change_user_nickname':
-        if (!chat.isGroup && msgData.new_name) {
-            const newNickname = msgData.new_name.trim();
-            if (newNickname) {
-                chat.settings.myNickname = newNickname;
+                case 'change_user_nickname':
+                    if (!chat.isGroup && msgData.new_name) {
+                        const newNickname = msgData.new_name.trim();
+                        if (newNickname) {
+                            chat.settings.myNickname = newNickname;
 
-                const systemMessage = {
-                    role: 'system',
-                    type: 'pat_message',
-                    content: `“${chat.name}” 将对你的称呼修改为 “${newNickname}”`,
-                    timestamp: messageTimestamp++
-                };
-                chat.history.push(systemMessage);
+                            const systemMessage = {
+                                role: 'system',
+                                type: 'pat_message',
+                                content: `“${chat.name}” 将对你的称呼修改为 “${newNickname}”`,
+                                timestamp: messageTimestamp++
+                            };
+                            chat.history.push(systemMessage);
 
-                const hiddenMemoryMessage = {
-                    role: 'system',
-                    content: `[系统提示：你刚刚成功将对用户的称呼修改为了“${newNickname}”。]`,
-                    timestamp: messageTimestamp++,
-                    isHidden: true
-                };
-                chat.history.push(hiddenMemoryMessage);
+                            const hiddenMemoryMessage = {
+                                role: 'system',
+                                content: `[系统提示：你刚刚成功将对用户的称呼修改为了“${newNickname}”。]`,
+                                timestamp: messageTimestamp++,
+                                isHidden: true
+                            };
+                            chat.history.push(hiddenMemoryMessage);
 
-                if (isViewingThisChat) {
-                    appendMessage(systemMessage, chat);
-                }
-            }
-        }
-        continue;
+                            if (isViewingThisChat) {
+                                appendMessage(systemMessage, chat);
+                            }
+                        }
+                    }
+                    continue;
                 case 'change_remark_name':
-    if (!chat.isGroup && msgData.new_name) {
-        const oldName = chat.name; 
-        const newName = msgData.new_name.trim();
+                    if (!chat.isGroup && msgData.new_name) {
+                        const oldName = chat.name; 
+                        const newName = msgData.new_name.trim();
 
-        if (newName && newName !== oldName) {
-            if (!chat.nameHistory) {
-                chat.nameHistory = [];
-            }
-            if (!chat.nameHistory.includes(oldName)) {
-                chat.nameHistory.push(oldName);
-            }
-            
-            chat.name = newName; 
+                        if (newName && newName !== oldName) {
+                            if (!chat.nameHistory) {
+                                chat.nameHistory = [];
+                            }
+                            if (!chat.nameHistory.includes(oldName)) {
+                                chat.nameHistory.push(oldName);
+                            }
+                            
+                            chat.name = newName; 
 
-            const systemMessage = {
-                role: 'system',
-                type: 'pat_message',
-                content: `“${chat.originalName}” 将备注修改为 “${newName}”`,
-                timestamp: messageTimestamp++
-            };
-            chat.history.push(systemMessage);
+                            const systemMessage = {
+                                role: 'system',
+                                type: 'pat_message',
+                                content: `“${chat.originalName}” 将备注修改为 “${newName}”`,
+                                timestamp: messageTimestamp++
+                            };
+                            chat.history.push(systemMessage);
 
-            const hiddenMemoryMessage = {
-                role: 'system',
-                content: `[系统提示：你刚刚成功将自己的备注名修改为了“${newName}”。请自然地接受这个新名字，不要对此感到惊讶。]`,
-                timestamp: messageTimestamp++, 
-                isHidden: true
-            };
-            chat.history.push(hiddenMemoryMessage);
+                            const hiddenMemoryMessage = {
+                                role: 'system',
+                                content: `[系统提示：你刚刚成功将自己的备注名修改为了“${newName}”。请自然地接受这个新名字，不要对此感到惊讶。]`,
+                                timestamp: messageTimestamp++, 
+                                isHidden: true
+                            };
+                            chat.history.push(hiddenMemoryMessage);
 
-            if (isViewingThisChat) {
-                appendMessage(systemMessage, chat);
-                document.getElementById('chat-header-title').textContent = newName;
-            }
-            
-            await syncCharacterNameInGroups(chat); 
-        }
-    }
-    continue;
+                            if (isViewingThisChat) {
+                                appendMessage(systemMessage, chat);
+                                document.getElementById('chat-header-title').textContent = newName;
+                            }
+                            
+                            await syncCharacterNameInGroups(chat); 
+                        }
+                    }
+                    continue;
 
-case 'change_avatar': {
-    const avatarName = msgData.name;
-    const foundAvatar = chat.settings.aiAvatarLibrary.find(avatar => avatar.name === avatarName);
-    if (foundAvatar) {
-        chat.settings.aiAvatar = foundAvatar.url;
-        
-        const systemNotice = {
-            role: 'system',
-            type: 'pat_message',
-            content: `[${chat.name} 更换了头像]`,
-            timestamp: Date.now()
-        };
-        chat.history.push(systemNotice);
+                case 'change_avatar': {
+                    const avatarName = msgData.name;
+                    const foundAvatar = chat.settings.aiAvatarLibrary.find(avatar => avatar.name === avatarName);
+                    if (foundAvatar) {
+                        chat.settings.aiAvatar = foundAvatar.url;
+                        
+                        const systemNotice = {
+                            role: 'system',
+                            type: 'pat_message',
+                            content: `[${chat.name} 更换了头像]`,
+                            timestamp: Date.now()
+                        };
+                        chat.history.push(systemNotice);
 
-        await syncCharacterAvatarInGroups(chat);
-        
-        if (isViewingThisChat) {
-            appendMessage(systemNotice, chat);
-            renderChatInterface(chatId);
-        }
-    }
-    continue;
-}
-case 'change_user_avatar': {
-    const avatarName = msgData.name;
-    // 从“我的”头像库里查找
-    const foundAvatar = chat.settings.myAvatarLibrary.find(avatar => avatar.name === avatarName);
-    if (foundAvatar) {
-        // 更新“我的”头像
-        chat.settings.myAvatar = foundAvatar.url;
-        
-        // 创建一条对用户可见的系统消息
-        const systemNotice = {
-            role: 'system',
-            type: 'pat_message', // 复用居中样式
-            content: `[${chat.name} 更换了你的头像]`,
-            timestamp: Date.now()
-        };
-        chat.history.push(systemNotice);
-        
-        // 如果用户正在看，就实时显示
-        if (isViewingThisChat) {
-            appendMessage(systemNotice, chat);
-            renderChatInterface(chatId); // 刷新界面以显示新头像
-        }
-    }
-    continue; // 这是后台操作，不产生直接的AI消息
-}
+                        await syncCharacterAvatarInGroups(chat);
+                        
+                        if (isViewingThisChat) {
+                            appendMessage(systemNotice, chat);
+                            renderChatInterface(chatId);
+                        }
+                    }
+                    continue;
+                }
+                case 'change_user_avatar': {
+                    const avatarName = msgData.name;
+                    // 从“我的”头像库里查找
+                    const foundAvatar = chat.settings.myAvatarLibrary.find(avatar => avatar.name === avatarName);
+                    if (foundAvatar) {
+                        // 更新“我的”头像
+                        chat.settings.myAvatar = foundAvatar.url;
+                        
+                        // 创建一条对用户可见的系统消息
+                        const systemNotice = {
+                            role: 'system',
+                            type: 'pat_message', // 复用居中样式
+                            content: `[${chat.name} 更换了你的头像]`,
+                            timestamp: Date.now()
+                        };
+                        chat.history.push(systemNotice);
+                        
+                        // 如果用户正在看，就实时显示
+                        if (isViewingThisChat) {
+                            appendMessage(systemNotice, chat);
+                            renderChatInterface(chatId); // 刷新界面以显示新头像
+                        }
+                    }
+                    continue; // 这是后台操作，不产生直接的AI消息
+                }
+                case 'gomoku_move':
+                    if (typeof msgData.x === 'number' && typeof msgData.y === 'number') {
+                        handleAiGomokuMove({ x: msgData.x, y: msgData.y });
+                    }
+                    continue; // 这是一个后台动作，不产生可见消息
+
                 case 'qzone_delete_post': {
-    const postIdToDelete = parseInt(msgData.postId);
-    const postToDelete = await db.qzonePosts.get(postIdToDelete);
-    if (postToDelete && postToDelete.authorId === chatId) {
-        await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
-        
-        if (document.getElementById('qzone-screen').classList.contains('active')) {
-            renderQzonePosts();
-        }
-        const systemMessage = {
-            role: 'system',
-            type: 'post_deleted_notice',
-            content: `[${chat.name} 删除了自己的一条动态]`,
-            postId: postIdToDelete,
-            timestamp: messageTimestamp++
-        };
-        chat.history.push(systemMessage);
-        
-        if (isViewingThisChat) {
-            appendMessage(systemMessage, chat);
-        } else {
-            chat.unreadCount = (chat.unreadCount || 0) + 1;
-            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
-            notificationShown = true;
-        }
-    } else {
-        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
-    }
-    continue;
-}
+                    const postIdToDelete = parseInt(msgData.postId);
+                    const postToDelete = await db.qzonePosts.get(postIdToDelete);
+                    if (postToDelete && postToDelete.authorId === chatId) {
+                        await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
+                        
+                        if (document.getElementById('qzone-screen').classList.contains('active')) {
+                            renderQzonePosts();
+                        }
+                        const systemMessage = {
+                            role: 'system',
+                            type: 'post_deleted_notice',
+                            content: `[${chat.name} 删除了自己的一条动态]`,
+                            postId: postIdToDelete,
+                            timestamp: messageTimestamp++
+                        };
+                        chat.history.push(systemMessage);
+                        
+                        if (isViewingThisChat) {
+                            appendMessage(systemMessage, chat);
+                        } else {
+                            chat.unreadCount = (chat.unreadCount || 0) + 1;
+                            showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
+                            notificationShown = true;
+                        }
+                    } else {
+                        console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
+                    }
+                    continue;
+                }
                 case 'waimai_response':
                     const requestMessageIndex = chat.history.findIndex(m => m.timestamp === msgData.for_timestamp);
                     if (requestMessageIndex > -1) {
@@ -12193,19 +12338,19 @@ case 'change_user_avatar': {
                         }
                     }
                     continue;
-case 'red_packet':
-    aiMessage = {
-        ...baseMessage,
-        ...msgData,
-        totalAmount: msgData.amount, 
-        claimedBy: {}, 
-        isFullyClaimed: false
-    };
-    if (msgData.receiver) {
-        aiMessage.receiverName = msgData.receiver;
-        delete aiMessage.receiver;
-    }
-    break;
+                case 'red_packet':
+                    aiMessage = {
+                        ...baseMessage,
+                        ...msgData,
+                        totalAmount: msgData.amount, 
+                        claimedBy: {}, 
+                        isFullyClaimed: false
+                    };
+                    if (msgData.receiver) {
+                        aiMessage.receiverName = msgData.receiver;
+                        delete aiMessage.receiver;
+                    }
+                    break;
                 case 'open_red_packet':
                     const packetToOpen = chat.history.find(m => m.timestamp === msgData.packet_timestamp);
                     
@@ -12239,7 +12384,7 @@ case 'red_packet':
                             const claimerMember = chat.members.find(m => m.originalName === msgData.name);
                             const claimerDisplayName = claimerMember ? claimerMember.groupNickname : msgData.name;
                             const senderMember = chat.members.find(m => m.originalName === packetToOpen.senderName);
-                            const senderDisplayName = senderMember ? senderMember.groupNickname : packetToOpen.senderName;
+                            const senderDisplayName = senderMember ? senderMember.groupNickname : msgData.name;
                             
                             const aiClaimedMessage = {
                                 role: 'system',
@@ -19866,6 +20011,331 @@ function createWorldBookEntryBlock(entry = { keys: [], comment: '', content: '' 
     return block;
 }
 // ▲▲▲ 新增函数结束 ▲▲▲
+// ▼▼▼ 【全新】五子棋功能核心函数 ▼▼▼
+
+/**
+ * 【遮罩终极修复版】切换五子棋棋盘的显示与隐藏
+ */
+async function toggleGomokuBoard() {
+    if (!state.activeChatId) return;
+    const chatId = state.activeChatId;
+    const overlay = document.getElementById('gomoku-overlay');
+
+    // 如果棋盘是隐藏的 -> 打开它
+    if (!overlay.classList.contains('visible')) {
+        const header = document.querySelector('#chat-interface-screen > .header');
+        
+        overlay.style.top = `${header.offsetHeight}px`;
+        overlay.style.display = 'block';
+
+        if (!gomokuState[chatId] || !gomokuState[chatId].isActive) {
+            initGomokuGame(chatId);
+        }
+        renderGomokuBoard(chatId);
+
+        // 【核心】不再操作消息列表的 padding-top
+        setTimeout(async () => {
+            overlay.classList.add('visible');
+
+            const startMessage = {
+                role: 'system',
+                content: '[系统提示：用户打开了五子棋棋盘，游戏开始了。]',
+                timestamp: Date.now(),
+                isHidden: true
+            };
+            state.chats[chatId].history.push(startMessage);
+            await db.chats.put(state.chats[chatId]);
+        }, 10);
+
+    } else {
+        // 如果棋盘是显示的 -> 关闭它
+        await closeGomokuBoard();
+    }
+}
+/**
+ * 【遮罩终极修复版】关闭五子棋棋盘
+ */
+async function closeGomokuBoard() {
+    if (!state.activeChatId) return;
+    const chatId = state.activeChatId;
+    const overlay = document.getElementById('gomoku-overlay');
+    
+    overlay.classList.remove('visible');
+    
+    // 【核心】移除了恢复消息列表 padding-top 的代码
+
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 300);
+
+    if (gomokuState[chatId]) {
+        gomokuState[chatId].isActive = false;
+        
+        const endMessage = {
+            role: 'system',
+            content: '[系统提示：用户关闭了五子棋棋盘，游戏结束了。]',
+            timestamp: Date.now(),
+            isHidden: true
+        };
+        state.chats[chatId].history.push(endMessage);
+        await db.chats.put(state.chats[chatId]);
+    }
+}
+
+/**
+ * 【渲染时序修复版】初始化一局新的五子棋游戏
+ * @param {string} chatId 
+ */
+function initGomokuGame(chatId) {
+    const canvas = document.getElementById('gomoku-board');
+    const overlay = document.getElementById('gomoku-overlay');
+    const controls = document.getElementById('gomoku-controls');
+    
+    // 【核心修正】在保证 overlay 可见的前提下，更精确地计算可用空间
+    const availableWidth = overlay.offsetWidth - 40; 
+    const availableHeight = overlay.offsetHeight - controls.offsetHeight - 40;
+    const boardSize = Math.floor(Math.min(availableWidth, availableHeight));
+    
+    const GRID_SIZE = 15;
+    // 确保棋盘尺寸是格子尺寸的整数倍，避免模糊
+    const cell_size = Math.floor(boardSize / GRID_SIZE);
+    const final_size = cell_size * GRID_SIZE;
+    
+    canvas.width = final_size;
+    canvas.height = final_size;
+
+    gomokuState[chatId] = {
+        isActive: true,
+        board: Array(GRID_SIZE).fill(0).map(() => Array(GRID_SIZE).fill(0)),
+        currentPlayer: 1, 
+        history: [],
+        isGameOver: false,
+        GRID_SIZE: GRID_SIZE,
+        CELL_SIZE: cell_size
+    };
+}
+/**
+ * 渲染整个棋盘和棋子
+ * @param {string} chatId 
+ */
+function renderGomokuBoard(chatId) {
+    const gameState = gomokuState[chatId];
+    if (!gameState) return;
+    
+    const canvas = document.getElementById('gomoku-board');
+    const ctx = canvas.getContext('2d');
+    const { GRID_SIZE, CELL_SIZE } = gameState;
+    const padding = CELL_SIZE / 2;
+
+    // 1. 清空并绘制棋盘背景
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#e4b591';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 2. 绘制网格线
+    ctx.strokeStyle = '#5b3a29';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < GRID_SIZE; i++) {
+        // 横线
+        ctx.beginPath();
+        ctx.moveTo(padding, padding + i * CELL_SIZE);
+        ctx.lineTo(canvas.width - padding, padding + i * CELL_SIZE);
+        ctx.stroke();
+        // 竖线
+        ctx.beginPath();
+        ctx.moveTo(padding + i * CELL_SIZE, padding);
+        ctx.lineTo(padding + i * CELL_SIZE, canvas.height - padding);
+        ctx.stroke();
+    }
+
+    // 3. 绘制棋子
+    for (let y = 0; y < GRID_SIZE; y++) {
+        for (let x = 0; x < GRID_SIZE; x++) {
+            if (gameState.board[y][x] !== 0) {
+                drawStone(ctx, x, y, gameState.board[y][x], gameState);
+            }
+        }
+    }
+}
+
+/**
+ * 绘制单个棋子
+ */
+function drawStone(ctx, x, y, player, gameState) {
+    const { CELL_SIZE } = gameState;
+    const padding = CELL_SIZE / 2;
+    const radius = CELL_SIZE / 2 - 2;
+
+    ctx.beginPath();
+    ctx.arc(padding + x * CELL_SIZE, padding + y * CELL_SIZE, radius, 0, 2 * Math.PI);
+    
+    if (player === 1) { // User is black
+        ctx.fillStyle = 'black';
+    } else { // AI is white
+        ctx.fillStyle = 'white';
+    }
+    ctx.fill();
+}
+
+/**
+ * 处理鼠标在棋盘上的悬停效果
+ */
+function handleBoardHover(e) {
+    const chatId = state.activeChatId;
+    const gameState = gomokuState[chatId];
+    if (!gameState || gameState.isGameOver || gameState.currentPlayer !== 1) return;
+
+    const canvas = document.getElementById('gomoku-board');
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const gridX = Math.round((x - gameState.CELL_SIZE / 2) / gameState.CELL_SIZE);
+    const gridY = Math.round((y - gameState.CELL_SIZE / 2) / gameState.CELL_SIZE);
+
+    renderGomokuBoard(chatId); // Redraw to clear previous hover
+
+    if (gridX >= 0 && gridX < gameState.GRID_SIZE && gridY >= 0 && gridY < gameState.GRID_SIZE && gameState.board[gridY][gridX] === 0) {
+        const radius = gameState.CELL_SIZE / 2 - 2;
+        ctx.beginPath();
+        ctx.arc(gameState.CELL_SIZE / 2 + gridX * gameState.CELL_SIZE, gameState.CELL_SIZE / 2 + gridY * gameState.CELL_SIZE, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Faint black for preview
+        ctx.fill();
+    }
+}
+
+/**
+ * 处理用户点击棋盘下棋
+ */
+function handleBoardClick(e) {
+    const chatId = state.activeChatId;
+    const gameState = gomokuState[chatId];
+    if (!gameState || gameState.isGameOver || gameState.currentPlayer !== 1) return;
+
+    const canvas = document.getElementById('gomoku-board');
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const gridX = Math.round((x - gameState.CELL_SIZE / 2) / gameState.CELL_SIZE);
+    const gridY = Math.round((y - gameState.CELL_SIZE / 2) / gameState.CELL_SIZE);
+
+    if (gridX >= 0 && gridX < gameState.GRID_SIZE && gridY >= 0 && gridY < gameState.GRID_SIZE && gameState.board[gridY][gridX] === 0) {
+        // Place stone
+        gameState.board[gridY][gridX] = 1;
+        gameState.history.push({ x: gridX, y: gridY, player: 1 });
+        renderGomokuBoard(chatId);
+
+        // Check for win
+        if (checkWin(gridX, gridY, 1, gameState)) {
+            gameState.isGameOver = true;
+            setTimeout(() => alert("恭喜你，你赢了！"), 100);
+        } else {
+            gameState.currentPlayer = 2; // Switch to AI's turn
+            // Note: We don't trigger AI response here. It's triggered by the "Wait Reply" button.
+        }
+    }
+}
+
+/**
+ * AI下棋的处理器
+ */
+function handleAiGomokuMove(move) {
+    const chatId = state.activeChatId;
+    const gameState = gomokuState[chatId];
+    if (!gameState || gameState.isGameOver || gameState.currentPlayer !== 2) return;
+
+    const { x, y } = move;
+
+    if (x >= 0 && x < gameState.GRID_SIZE && y >= 0 && y < gameState.GRID_SIZE && gameState.board[y][x] === 0) {
+        gameState.board[y][x] = 2;
+        gameState.history.push({ x, y, player: 2 });
+        renderGomokuBoard(chatId);
+
+        if (checkWin(x, y, 2, gameState)) {
+            gameState.isGameOver = true;
+            setTimeout(() => alert("AI 获胜了！"), 100);
+        } else {
+            gameState.currentPlayer = 1; // Switch back to user's turn
+        }
+    } else {
+        console.warn("AI's move is invalid:", move);
+        // If AI makes an invalid move, just give the turn back to the user.
+        gameState.currentPlayer = 1;
+    }
+}
+
+/**
+ * 检查胜利条件
+ */
+function checkWin(x, y, player, gameState) {
+    const { board, GRID_SIZE } = gameState;
+    const directions = [[1, 0], [0, 1], [1, 1], [1, -1]]; // Horizontal, Vertical, Diagonal /, Diagonal \
+    for (const [dx, dy] of directions) {
+        let count = 1;
+        // Check in one direction
+        for (let i = 1; i < 5; i++) {
+            const newX = x + i * dx;
+            const newY = y + i * dy;
+            if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE && board[newY][newX] === player) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        // Check in the opposite direction
+        for (let i = 1; i < 5; i++) {
+            const newX = x - i * dx;
+            const newY = y - i * dy;
+            if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE && board[newY][newX] === player) {
+                count++;
+            } else {
+                break;
+            }
+        }
+        if (count >= 5) return true;
+    }
+    return false;
+}
+
+// ▼▼▼ 【性格下棋增强版】请用这个全新的函数，完整替换您现有的 formatGomokuStateForAI 函数 ▼▼▼
+/**
+ * 【V2.0 | 性格增强版】将棋盘状态格式化为AI可读的文本
+ */
+function formatGomokuStateForAI(gameState) {
+    if (!gameState || !gameState.isActive) return "";
+    
+    let boardString = "棋盘状态 (1是你(黑棋), 2是AI(白棋)):\n";
+    boardString += gameState.board.map(row => row.join(' ')).join('\n');
+    
+    let historyString = "下棋历史 (x,y坐标均从0开始):\n";
+    historyString += gameState.history.map(move => `玩家${move.player}下在(${move.x},${move.y})`).join(' -> ');
+    
+    // 【【【这就是本次升级的核心！】】】
+    return `
+# 当前五子棋局势
+${boardString}
+
+# ${historyString}
+
+# 【【【对弈风格指南 (至关重要！)】】】
+你的任务不仅仅是下棋，更重要的是要【根据你的角色设定来决定如何下棋】。你的每一步都应该反映出你的性格。
+-   如果你的性格是【好胜、聪明或腹黑】的，你应该下出最优解，积极进攻，设置陷阱，并精准地堵住用户的关键棋子。
+-   如果你的性格是【温柔、迷糊或喜爱放水】的，你可以偶尔“不小心”忽略用户的威胁，或者下一些看起来比较随意的棋，让用户有获胜的机会，享受过程。
+-   如果你的性格是【调皮或爱捉弄人】的，你可能会下一些出其不意的棋，甚至故意在一些无关紧要的地方落子来“迷惑”用户。
+-   如果你的性格设定是个【新手】，你就应该犯一些新手常犯的错误。
+
+# 你的任务
+1.  **决策**: 根据上面的棋盘局势和你的【对弈风格指南】，决定你的下一步棋。
+2.  **评论**: 你【必须】在下棋后，紧接着发送一条或多条 'text' 类型的消息，来评论你的棋步、局势，或者根据你的性格与用户互动（例如：挑衅、鼓励、装傻等）。
+3.  **格式**: 你的回复【必须】在JSON数组中包含一个 'gomoku_move' 类型的对象。
+    格式: \`{"type": "gomoku_move", "name": "你的角色本名", "x": (0-14的数字), "y": (0-14的数字)}\`
+`;
+}
+// ▲▲▲ 替换结束 ▲▲▲
+
+// ▲▲▲ 新增函数粘贴结束 ▲▲▲
        // ===================================================================
         // 4. 初始化函数 init()
         // ===================================================================
@@ -22940,6 +23410,15 @@ document.getElementById('memory-list-container').addEventListener('click', (e) =
     }
 });
 // ▲▲▲ 替换结束 ▲▲▲
+// ▼▼▼ 【全新】五子棋功能事件监听器 ▼▼▼
+document.getElementById('gomoku-btn').addEventListener('click', toggleGomokuBoard);
+document.getElementById('close-gomoku-btn').addEventListener('click', closeGomokuBoard);
+
+const gomokuCanvas = document.getElementById('gomoku-board');
+gomokuCanvas.addEventListener('mousemove', handleBoardHover);
+gomokuCanvas.addEventListener('mouseout', () => renderGomokuBoard(state.activeChatId)); // Clear hover on exit
+gomokuCanvas.addEventListener('click', handleBoardClick);
+// ▲▲▲ 新增代码结束 ▲▲▲
 // ▼▼▼ 【这是修复代码】请将这段代码粘贴到 init() 函数的事件监听器区域末尾 ▼▼▼
 document.getElementById('add-countdown-btn').addEventListener('click', () => {
     // 清空输入框
@@ -23081,7 +23560,6 @@ document.getElementById('add-my-avatar-batch-btn').addEventListener('click', asy
 <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
