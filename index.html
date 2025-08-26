@@ -5503,8 +5503,8 @@ input:checked + .slider:before {
     pointer-events: auto;
 }
 
-/* ▲▲▲ 修复结束 ▲▲▲ */
-/* --- 商品网格 --- */
+/* --- 请用这整块【最终布局修复版】代码，替换从 #product-grid 到 .product-footer 的所有相关样式 --- */
+
 #product-grid {
     flex-grow: 1; 
     overflow-y: auto; 
@@ -5513,17 +5513,16 @@ input:checked + .slider:before {
     gap: 10px;
     padding: 10px;
     padding-bottom: 80px;
-    /* 注意：这里我们不再需要任何 align-items 属性，使用Grid的默认拉伸行为 */
+    /* 【核心修改1】: 移除 align-items: start，恢复Grid默认的拉伸对齐，确保卡片等高 */
 }
 
-/* --- 商品卡片 --- */
 .product-item {
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.04);
-    display: flex; /* 【【【核心修复1】】】：让卡片成为一个垂直的Flex容器 */
+    display: flex;         /* 【核心修改2】: 必须是Flex容器，才能控制内部元素 */
     flex-direction: column;
-    overflow: hidden;
+
     cursor: pointer;
     position: relative;
 }
@@ -5534,9 +5533,13 @@ input:checked + .slider:before {
     object-fit: cover;
 }
 
+/* --- 请用这整块【最终紧凑布局版】代码，替换旧的 .product-info, .product-name, 和 .product-footer 样式 --- */
+
 .product-info {
-    padding: 8px;
-    /* 注意：这里不再需要 flex-grow 和 display:flex */
+    padding: 12px 10px;
+    flex-grow: 1;      /* 保持：让信息区填满，确保所有卡片等高 */
+    display: flex;
+    flex-direction: column;
 }
 
 .product-name {
@@ -5544,15 +5547,23 @@ input:checked + .slider:before {
     color: #333;
     line-height: 1.4;
     min-height: 36px;
-    /* 注意：这里移除了 flex-grow: 1 */
+    /* 移除所有flex-grow属性，让它只占据自己需要的高度 */
 }
 
 .product-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 8px; /* 和商品名保持固定的间距 */
+    margin-top: 8px;      /* 【核心修改】：不再使用 auto，而是设置一个固定的、较小的顶部间距 */
 }
+
+/* --- 替换结束 --- */
+
+
+
+
+
+/* --- 替换结束 --- */
 
 .product-price {
     font-size: 16px;
@@ -5768,6 +5779,7 @@ input:checked + .slider:before {
     font-weight: 500;
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+
     </style>
 </head>
 <body>
@@ -24673,7 +24685,6 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
