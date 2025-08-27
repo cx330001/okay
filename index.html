@@ -4400,22 +4400,24 @@ input:checked + .slider:before {
 /* ▼▼▼ 【全新】共享位置卡片样式 (微信风格) ▼▼▼ */
 
 
-/* 卡片总容器，负责圆角和阴影 */
+/* ▼▼▼ 【全新】共享位置卡片样式 (微信风格 V2 - 支持图片背景) ▼▼▼ */
+
+/* 1. 卡片总容器 (保持不变) */
 .location-share-card {
     width: 230px;
     border-radius: 10px;
-    overflow: hidden; /* 关键：让子元素的直角被裁剪成圆角 */
+    overflow: hidden; 
     background-color: #fff;
     border: 1px solid #f0f0f0;
     box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    cursor: pointer; /* 让卡片看起来可以点击 */
 }
 
-/* 上半部分：白色文字区 */
+/* 2. 上半部分：白色文字区 (保持不变) */
 .card-text-area {
     padding: 12px;
-    border-bottom: 1px solid #f0f0f0; /* 文字区和地图区的分割线 */
+    border-bottom: 1px solid #f0f0f0;
 }
-
 .card-text-primary {
     font-size: 16px;
     font-weight: 600;
@@ -4425,34 +4427,37 @@ input:checked + .slider:before {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 .card-text-secondary {
     font-size: 12px;
     color: #a0a0a0;
 }
 
-/* 下半部分：彩色地图区 */
+/* 3. 下半部分：【核心修改】地图/图片区 */
 .card-map-area {
-    height: 80px;
+    height: 100px; /* 增加高度以更好地展示图片 */
     display: flex;
     justify-content: center;
     align-items: center;
+    
+    /* 图片背景的关键样式 */
+    background-size: cover;
+    background-position: center;
+    
+    /* 默认的纯色背景 (当没有提供图片时生效) */
     background-color: #FFF0F5; /* AI的卡片用柔和粉色 */
 }
 
-/* 用户发送的卡片，地图区用柔和绿色 */
+/* 4. 用户发送的卡片，地图区默认用柔和绿色 */
 .message-bubble.user .location-share-card .card-map-area {
     background-color: #F0FFF8;
 }
 
+/* 5. 【核心修改】美化图钉图标，增加阴影使其更突出 */
 .card-pin-icon {
     font-size: 40px;
-    color: #FFB6C1; /* 粉色背景配深粉色图标 */
-}
+    color: #FF6B6B; /* 【核心修改】将颜色从 white 改为您喜欢的任意颜色 */
 
-/* 用户卡片的绿色背景，配一个和谐的绿色图标 */
-.message-bubble.user .location-share-card .card-pin-icon {
-    color: #A8D8B9; 
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); 
 }
 /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
 /* ▼▼▼ 【全新】AI 角色行动呼吸灯效果 ▼▼▼ */
@@ -10938,21 +10943,32 @@ function createMessageElement(msg, chat) {
                 </div>
             </div>
         `;
-    } else if (msg.type === 'location_share') {
-        bubble.classList.add('is-location-share');
-        contentHtml = `
-            <div class="location-share-card">
-                <div class="card-text-area">
-                    <div class="card-text-primary">${msg.content}</div>
-                    <div class="card-text-secondary">共享实时位置</div>
-                </div>
-                <div class="card-map-area">
-                    <div class="card-pin-icon">
-                        <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg>
-                    </div>
+
+} else if (msg.type === 'location_share') {
+    bubble.classList.add('is-location-share', 'is-card-like'); // 添加 is-card-like 确保布局正确
+    
+    // 【核心修改】检查消息中是否有图片URL
+    const imageUrl = msg.imageUrl;
+    let mapAreaStyle = '';
+    // 如果有，就生成一个内联样式来设置背景图
+    if (imageUrl) {
+        mapAreaStyle = `style="background-image: url('${imageUrl}');"`;
+    }
+
+    contentHtml = `
+        <div class="location-share-card">
+            <div class="card-text-area">
+                <div class="card-text-primary">${msg.content}</div>
+                <div class="card-text-secondary">位置分享</div>
+            </div>
+            <div class="card-map-area" ${mapAreaStyle}>
+                <div class="card-pin-icon">
+                    <svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg>
                 </div>
             </div>
-        `;
+        </div>
+    `;
+
     } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
         bubble.classList.add('is-ai-image');
         const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
@@ -13363,34 +13379,41 @@ case 'gift': {
         async function sendSticker(sticker) { if (!state.activeChatId) return; const chat = state.chats[state.activeChatId]; const msg = { role: 'user', content: sticker.url, meaning: sticker.name, timestamp: Date.now() }; chat.history.push(msg); await db.chats.put(chat); appendMessage(msg, chat); renderChatList(); document.getElementById('sticker-panel').classList.remove('visible'); }
 
         async function sendUserTransfer() { if (!state.activeChatId) return; const amountInput = document.getElementById('transfer-amount'); const noteInput = document.getElementById('transfer-note'); const amount = parseFloat(amountInput.value); const note = noteInput.value.trim(); if (isNaN(amount) || amount < 0 || amount > 999999) { alert('请输入有效的金额 (0 到 999999 之间)！'); return; } const chat = state.chats[state.activeChatId]; const senderName = chat.isGroup ? (chat.settings.myNickname || '我') : '我'; const receiverName = chat.isGroup ? '群聊' : chat.name; const msg = { role: 'user', type: 'transfer', amount: amount, note: note, senderName, receiverName, timestamp: Date.now() }; chat.history.push(msg); await db.chats.put(chat); appendMessage(msg, chat); renderChatList(); document.getElementById('transfer-modal').classList.remove('visible'); amountInput.value = ''; noteInput.value = ''; }
-// ▼▼▼ 【全新】请将这个函数粘贴到JS功能函数定义区 ▼▼▼
 /**
- * 发送一个位置共享卡片
+ * 【全新 V3.0】发送一个位置共享卡片 (背景图已内置)
  */
 async function sendLocationShare() {
     if (!state.activeChatId) return;
 
-    // 弹出输入框，让用户直接输入
+    // 步骤1: 询问位置名称 (这部分保持不变)
     const locationName = await showCustomPrompt("共享位置", "你现在在哪里呀？", "");
 
-    // 如果用户输入了有效内容
-    if (locationName && locationName.trim()) {
-        const chat = state.chats[state.activeChatId];
-        const msg = {
-            role: 'user',
-            type: 'location_share',
-            content: locationName.trim(), // `content` 字段存储位置名
-            timestamp: Date.now()
-        };
-        
-        // 保存并更新UI
-        chat.history.push(msg);
-        await db.chats.put(chat);
-        appendMessage(msg, chat);
-        renderChatList();
-    }
+    // 如果用户取消或没有输入位置，则直接退出
+    if (!locationName || !locationName.trim()) return; 
+
+    // 步骤2: 【核心修改】在这里直接定义好您想用的图片URL
+    // 您可以随时将这个链接替换为您喜欢的任何图片地址
+    const hardcodedImageUrl = 'https://s3plus.meituan.net/opapisdk/op_ticket_885190757_1756262526935_qdqqd_4uque3.jpeg';
+
+    const chat = state.chats[state.activeChatId];
+    
+    // 步骤3: 构建消息对象，直接使用我们定义好的图片URL
+    const msg = {
+        role: 'user',
+        type: 'location_share',
+        content: locationName.trim(),
+        imageUrl: hardcodedImageUrl, // 直接使用上面定义的URL
+        timestamp: Date.now()
+    };
+    
+    // 步骤4: 保存并更新UI (这部分保持不变)
+    chat.history.push(msg);
+    await db.chats.put(chat);
+    appendMessage(msg, chat);
+    renderChatList();
 }
-// ▲▲▲ 新函数粘贴结束 ▲▲▲
+
+
         function enterSelectionMode(initialMsgTimestamp) { if (isSelectionMode) return; isSelectionMode = true; document.getElementById('chat-interface-screen').classList.add('selection-mode'); toggleMessageSelection(initialMsgTimestamp); }
 
         function exitSelectionMode() {
@@ -24790,7 +24813,6 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
