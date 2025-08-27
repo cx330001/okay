@@ -5779,7 +5779,37 @@ input:checked + .slider:before {
     font-weight: 500;
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【全新】全局顶部歌词栏样式 ▼▼▼ */
+#global-lyrics-bar {
+    position: absolute;
+    /* 核心定位：将它“钉”在屏幕顶部，并留出安全距离 */
+    top: calc(15px + env(safe-area-inset-top)); 
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 199; /* 层级要足够高，能覆盖所有屏幕内容，但低于弹窗 */
+    
+    /* 外观样式 */
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 6px 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    text-shadow: 0 1px 2px black;
+    
+    /* 交互与动画 */
+    pointer-events: none; /* 关键：让鼠标/触摸可以“穿透”它，不影响下方的按钮 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+}
 
+#global-lyrics-bar.visible {
+    opacity: 1;
+    visibility: visible;
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5794,7 +5824,9 @@ input:checked + .slider:before {
                 </div>
             </div>
             <div id="notification-bar"><img id="notification-avatar" src=""><div id="notification-content"><div class="name"></div><div class="message"></div></div></div>
-            
+<!-- ▼▼▼ 【全新】请将这个 div 粘贴到 id="notification-bar" 的后面 ▼▼▼ -->
+<div id="global-lyrics-bar"></div>
+<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->            
             <div id="home-screen" class="screen active">
                 <div id="clock-container"><div id="main-time">12:00</div><div id="main-date">星期一, 1月1日</div></div>
                                                 <!-- ▼▼▼ 用这整块代码替换你原来的 id="app-grid" ▼▼▼ -->
@@ -6566,7 +6598,16 @@ input:checked + .slider:before {
             </svg>
         </span>
         <!-- 购物车按钮保持不变 -->
-        <span class="action-btn" id="go-to-cart-btn">🛒(<span id="cart-count">0</span>)</span>
+<!-- ▼▼▼ 【全新SVG图标版】请用这整块代码替换旧的购物车图标 ▼▼▼ -->
+<span class="action-btn" id="go-to-cart-btn" title="查看购物车">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+    </svg>
+    <span id="cart-count">0</span>
+</span>
+<!-- ▲▲▲ 替换结束 ▲▲▲ -->
     </div>
 </div>
 <!-- ▲▲▲ 替换结束 ▲▲▲ -->
@@ -13371,6 +13412,9 @@ function toggleMessageSelection(timestamp) {
 async function endListenTogetherSession(saveState = true) {
     if (!musicState.isActive) return;
     const oldChatId = musicState.activeChatId;
+    // ▼▼▼ 在这里添加新代码 ▼▼▼
+    document.getElementById('global-lyrics-bar').classList.remove('visible');
+    // ▲▲▲ 新增代码结束 ▲▲▲
     const cleanupLogic = async () => {
         if (musicState.timerId) clearInterval(musicState.timerId);
         if (musicState.isPlaying) audioPlayer.pause();
@@ -13469,6 +13513,15 @@ await addMusicActionSystemMessage(`将歌曲切换为了《${track.name}》`);
     updatePlaylistUI();
     updatePlayerUI();
     updateMusicProgressBar();
+    // ▼▼▼ 在这里添加新代码 ▼▼▼
+    const lyricBar = document.getElementById('global-lyrics-bar');
+    if (musicState.parsedLyrics && musicState.parsedLyrics.length > 0) {
+        lyricBar.textContent = '♪'; // 初始显示一个音符
+        lyricBar.classList.add('visible');
+    } else {
+        lyricBar.classList.remove('visible'); // 如果没歌词就不显示
+    }
+    // ▲▲▲ 新增代码结束 ▲▲▲
 }
 
 // ▲▲▲ 您要找的函数到此结束 ▲▲▲
@@ -18939,6 +18992,16 @@ function updateActiveLyric(currentTime) {
     if (newLyricIndex === musicState.currentLyricIndex) return;
     musicState.currentLyricIndex = newLyricIndex;
     updateLyricsUI();
+    // ▼▼▼ 在这里添加新代码 ▼▼▼
+    const lyricBar = document.getElementById('global-lyrics-bar');
+    if (lyricBar.classList.contains('visible')) {
+        if (newLyricIndex > -1 && musicState.parsedLyrics[newLyricIndex]) {
+            lyricBar.textContent = musicState.parsedLyrics[newLyricIndex].text;
+        } else {
+            lyricBar.textContent = '♪'; // 间奏或无歌词时显示音符
+        }
+    }
+    // ▲▲▲ 新增代码结束 ▲▲▲
 }
 
 function updateLyricsUI() {
