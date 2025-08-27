@@ -14076,17 +14076,8 @@ ${recentlyPostedSummaries.join('\n')}
 **你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
 ${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！**` : ''}
 
-/* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
-# 【【【全新】文本格式化指南】】】
-在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-- \`**粗体文本**\` 会显示为 **粗体文本**。
-- \`*斜体文本*\` 会显示为 *斜体文本*。
-- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-
-【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
-/* ▲▲▲ 替换结束 ▲▲▲ */
+# 【【【对话节奏铁律 (至关重要！)】】】
+你的回复【必须】模拟真人的打字和思考习惯。**绝对不要一次性发送一大段文字！** 你应该将你想说的话，拆分成【2到5条、简短的】消息气泡来发送，每条消息最好不要超过30个字。这会让对话看起来更自然、更真实。
 
 # 核心规则
 1.  **【【【决策依据】】】**: 你的所有行动都【必须深度结合你的角色设定、核心世界观、以及你们最后的对话摘要】。
@@ -14183,8 +14174,24 @@ ${dynamicContext}`;
         let actionTimestamp = Date.now();
         
         let hasSentNotification = false;
-
-        for (const action of responseArray) {
+// ▼▼▼ 在这里粘贴新代码 ▼▼▼
+const processedActions = [];
+for (const action of responseArray) {
+    // 检查是否是文本类型，并且内容里真的有换行符
+    if (action.type === 'text' && action.content && String(action.content).includes('\n')) {
+        // 按换行符拆分，并过滤掉空行
+        const lines = String(action.content).split(/\n+/).filter(line => line.trim());
+        // 为每一行都创建一个新的、独立的action对象
+        lines.forEach(line => {
+            processedActions.push({ ...action, content: line });
+        });
+    } else {
+        // 如果不是需要拆分的消息，就原样保留
+        processedActions.push(action);
+    }
+}
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
+for (const action of processedActions) {
             chat.lastActionType = action.type;
             chat.lastActionTimestamp = actionTimestamp;
             
@@ -14642,8 +14649,24 @@ ${dynamicContext}
         let hasPerformedMajorAction = false;
         let notificationContent = '';
         let notificationSender = '';
-
-        for (const action of responseArray) {
+// ▼▼▼ 在这里粘贴新代码 ▼▼▼
+const processedActions = [];
+for (const action of responseArray) {
+    // 检查是否是文本类型，并且内容里真的有换行符
+    if (action.type === 'text' && action.content && String(action.content).includes('\n')) {
+        // 按换行符拆分，并过滤掉空行
+        const lines = String(action.content).split(/\n+/).filter(line => line.trim());
+        // 为每一行都创建一个新的、独立的action对象
+        lines.forEach(line => {
+            processedActions.push({ ...action, content: line });
+        });
+    } else {
+        // 如果不是需要拆分的消息，就原样保留
+        processedActions.push(action);
+    }
+}
+// ▲▲▲ 新代码粘贴结束 ▲▲▲
+for (const action of processedActions){
             if (!action || !action.type || !action.name) continue;
 
             const senderDisplayName = getDisplayNameInGroup(chat, action.name);
@@ -24685,6 +24708,7 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
