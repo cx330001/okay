@@ -10000,7 +10000,25 @@ function parseAiResponse(content) {
     console.error("所有解析方案均失败！将返回原始文本。");
     return [{ type: 'text', content: content }];
 }
-
+/**
+ * 【全新】根据当前时间获取一天中的问候语
+ * @returns {string} - 返回如 "凌晨", "早上", "下午", "晚上" 等字符串
+ */
+function getTimeOfDayGreeting() {
+    const hour = new Date().getHours();
+    if (hour >= 0 && hour < 5) {
+        return "凌晨";
+    } else if (hour >= 5 && hour < 9) {
+        return "早上";
+    } else if (hour >= 9 && hour < 13) {
+        return "上午";
+    } else if (hour >= 13 && hour < 18) {
+        return "下午";
+    } else if (hour >= 18 && hour < 24) {
+        return "晚上";
+    }
+    return "现在"; // 默认情况
+}
 // ▼▼▼ 【请用这个新版本】替换旧的 renderApiSettings 函数 ▼▼▼
 function renderApiSettings() { 
     // 渲染主API
@@ -11597,7 +11615,7 @@ ${contextSummary || "（无有效对话记录）"}
 
         const now = new Date();
         const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
-        
+        const timeOfDayGreeting = getTimeOfDayGreeting();         
         let systemPrompt, messagesPayload;
 
         // 【核心新增】获取并格式化五子棋状态
@@ -11649,7 +11667,7 @@ ${contextSummary || "（无有效对话记录）"}
         const maxMemory = parseInt(chat.settings.maxMemory) || 10;
         const historySlice = chat.history.slice(-maxMemory);
 
-        let timeContext = `\n- **当前时间**: ${currentTime}`;
+        let timeContext = `\n- **当前时间**: ${currentTime} (${getTimeOfDayGreeting()})`;
         const lastAiMessage = historySlice.filter(m => m.role === 'assistant' && !m.isHidden).slice(-1);
         if (lastAiMessage) {
             const lastTime = new Date(lastAiMessage.timestamp);
@@ -11804,7 +11822,7 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 2.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有 "type" 和 "name" 字段的JSON对象】。
 3.  **角色扮演**: 严格遵守下方“群成员列表及人设”中的每一个角色的设定。
 4.  **禁止出戏**: 绝不能透露你是AI、模型，或提及“扮演”、“生成”等词语。并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展线下剧情！！
-5.  **情景感知**: 注意当前时间是 ${currentTime}。
+5.  **情景感知**: 注意当前时间是 ${currentTime} (${timeOfDayGreeting})。你们的对话【必须】要自然地体现出对当前时间的感知，例如在早上互道早安，在深夜提醒大家休息等。
 6.  **红包互动**:
     - **【【【红包类型】】】**: 红包分为两种：“拼手气红包”和“专属红包”。
     - **【【【领取规则】】】**:
@@ -12130,7 +12148,8 @@ ${nameHistoryContext}
 1.  **【【【输出格式】】】**: 你的回复【必须】是一个JSON数组格式的字符串。数组中的【每一个元素都必须是一个带有type字段的JSON对象】。
 2.  **对话节奏**: 模拟真人的聊天习惯，你可以一次性生成多条短消息。每次要回复至少3-8条消息！！！
 并且不能一直要求和用户见面，这是线上聊天，决不允许出现或者发展为线下剧情！！
-4.  **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。
+
+4.  **情景感知**: 你需要感知当前的时间(${currentTime})、我们正在一起听的歌、以及你的人设和世界观。你的对话【必须】自然地体现出对当前时间的感知，例如在早上说“早上好”，在深夜提醒用户早点休息，或在下午谈论相关话题。
     - **当我们在“一起听歌”时**，你会知道当前播放的歌曲和整个播放列表。你可以根据对话内容或氛围，【主动切换】到播放列表中的另一首歌。
 5.  **【新】更新状态**: 你可以在对话中【自然地】改变你的状态。比如，聊到一半你可能会说“我先去洗个澡”，然后更新你的状态。
 6.  **【【【最终手段】】】**: 只有在对话让你的角色感到不适、被冒犯或关系破裂时，你才可以使用 \`block_user\` 指令。这是一个非常严肃的操作，会中断你们的对话。
@@ -24771,6 +24790,7 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
