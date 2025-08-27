@@ -5792,15 +5792,13 @@ input:checked + .slider:before {
 }
 
 /* 2. 为歌词栏应用新的样式，使其外观和定位与原心率显示器完全一致 */
+/* ▼▼▼ 【全新】歌词栏位置控制样式 ▼▼▼ */
 #global-lyrics-bar {
-    /* 核心定位：绝对定位，水平居中，距离头部顶部10px */
+    /* 核心定位：绝对定位 */
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 10px;
     z-index: 20;
 
-    /* 外观样式：参考心率显示器，使其融入头部设计 */
+    /* 外观样式 (保持不变) */
     display: flex;
     align-items: center;
     font-size: 13px;
@@ -5810,17 +5808,23 @@ input:checked + .slider:before {
     padding: 4px 12px;
     border-radius: 12px;
     
-    /* 动画效果：保留平滑的淡入淡出 */
+    /* 动画效果 (保持不变) */
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.4s ease, visibility 0.4s ease;
+    /* 【核心修改】为位置属性添加平滑过渡 */
+    transition: opacity 0.4s ease, visibility 0.4s ease, top 0.3s ease, bottom 0.3s ease, left 0.3s ease, right 0.3s ease, transform 0.3s ease;
 
-    /* 附加样式：防止长歌词撑爆布局 */
-    pointer-events: none; /* 让歌词本身不可点击，以免遮挡下方元素 */
+    /* 附加样式 (保持不变) */
+    pointer-events: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 65%; /* 限制最大宽度 */
+    max-width: 65%;
+}
+
+#phone-screen.dark-mode #global-lyrics-bar {
+    color: #a0a0a0;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 3. 当JS添加.visible类时，显示歌词栏 */
@@ -6806,6 +6810,30 @@ input:checked + .slider:before {
             <option value="passionate">热血型 (88bpm)</option>
         </select>
         <input type="number" id="ai-heart-rate-baseline" placeholder="自定义基础心率 (bpm)" style="margin-top: 8px;">
+    </div>
+</div>
+<div class="form-group" id="lyrics-position-group" style="display: none;"> <hr style="opacity: 0.3; margin: 20px 0;">
+    <label>歌词栏位置</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+        <div>
+            <label for="lyrics-vertical-pos" style="font-size: 0.9em; color: var(--text-secondary);">垂直位置</label>
+            <select id="lyrics-vertical-pos" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                <option value="top">顶部</option>
+                <option value="bottom">底部</option>
+            </select>
+        </div>
+        <div>
+            <label for="lyrics-horizontal-pos" style="font-size: 0.9em; color: var(--text-secondary);">水平对齐</label>
+            <select id="lyrics-horizontal-pos" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                <option value="left">居左</option>
+                <option value="center">居中</option>
+                <option value="right">居右</option>
+            </select>
+        </div>
+    </div>
+    <div style="margin-top: 10px;">
+        <label for="lyrics-offset-input" style="font-size: 0.9em; color: var(--text-secondary);">垂直偏移 (px)</label>
+        <input type="number" id="lyrics-offset-input" value="10" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; box-sizing: border-box;">
     </div>
 </div>
 <!-- ▼▼▼ 【全新】线下模式设置 ▼▼▼ -->
@@ -7990,6 +8018,44 @@ let repostTargetId = null; // 用于存储当前要转发的动态ID
             modalConfirmBtn.classList.remove('btn-danger'); 
             if (modalResolve) modalResolve(null); 
         }
+/**
+ * 【全新】根据保存的设置，应用歌词栏的CSS样式
+ * @param {object} chat - 当前的聊天对象
+ */
+function applyLyricsBarPosition(chat) {
+    const lyricsBar = document.getElementById('global-lyrics-bar');
+    // 如果聊天没有设置，则使用默认值
+    const settings = chat.settings.lyricsPosition || { vertical: 'top', horizontal: 'center', offset: 10 };
+    
+    // 重置所有可能影响位置的属性
+    lyricsBar.style.top = 'auto';
+    lyricsBar.style.bottom = 'auto';
+    lyricsBar.style.left = 'auto';
+    lyricsBar.style.right = 'auto';
+    lyricsBar.style.transform = 'none';
+
+    // 1. 设置垂直位置和偏移量
+    if (settings.vertical === 'top') {
+        lyricsBar.style.top = `${settings.offset}px`;
+    } else { // 'bottom'
+        lyricsBar.style.bottom = `${settings.offset}px`;
+    }
+    
+    // 2. 设置水平对齐
+    switch (settings.horizontal) {
+        case 'left':
+            lyricsBar.style.left = '15px'; // 留出一些边距
+            break;
+        case 'right':
+            lyricsBar.style.right = '15px'; // 留出一些边距
+            break;
+        case 'center':
+        default:
+            lyricsBar.style.left = '50%';
+            lyricsBar.style.transform = 'translateX(-50%)';
+            break;
+    }
+}
 // ▼▼▼ 把这个【全新的函数】粘贴到你的JS功能函数定义区 ▼▼▼
 // ▼▼▼ 【全新】本地上传群头像并由副API识别的核心功能 ▼▼▼
 
@@ -9811,6 +9877,9 @@ async function loadAllDataFromDB() {
     ]);
 
     chatsArr.forEach(chat => {
+if (!chat.settings.lyricsPosition) {
+    chat.settings.lyricsPosition = { vertical: 'top', horizontal: 'center', offset: 10 };
+}
 if (!chat.isGroup && !chat.settings.myAvatarLibrary) {
     chat.settings.myAvatarLibrary = [];
 }
@@ -11341,7 +11410,7 @@ async function openChat(chatId) {
         chat.unreadCount = 0;
         await db.chats.put(chat);
     }
-
+    applyLyricsBarPosition(chat); 
     renderChatInterface(chatId);
     showScreen('chat-interface-screen');
     window.updateListenTogetherIconProxy(state.activeChatId);
@@ -15012,6 +15081,44 @@ function updateSettingsPreview() {
     const userMsg = { role: 'user', content: '我的消息预览', timestamp: 2 };
     const userBubble = createMessageElement(userMsg, chat);
     if(userBubble) previewArea.appendChild(userBubble);
+    // ▼▼▼ 【全新】实时更新预览区歌词栏位置 ▼▼▼
+    const previewLyricsBar = document.createElement('div');
+    previewLyricsBar.style.cssText = `
+        position: absolute; 
+        font-size: 11px; 
+        padding: 2px 6px; 
+        border-radius: 8px; 
+        background-color: rgba(0, 0, 0, 0.1); 
+        color: var(--text-secondary); 
+        white-space: nowrap; 
+        transition: all 0.3s ease;
+    `;
+    previewLyricsBar.textContent = '♪ 歌词位置预览 ♪';
+    previewArea.appendChild(previewLyricsBar);
+    
+    const vertical = document.getElementById('lyrics-vertical-pos').value;
+    const horizontal = document.getElementById('lyrics-horizontal-pos').value;
+    const offset = parseInt(document.getElementById('lyrics-offset-input').value) || 10;
+
+    if (vertical === 'top') {
+        previewLyricsBar.style.top = `${offset}px`;
+    } else {
+        previewLyricsBar.style.bottom = `${offset}px`;
+    }
+    
+    switch (horizontal) {
+        case 'left':
+            previewLyricsBar.style.left = '15px';
+            break;
+        case 'right':
+            previewLyricsBar.style.right = '15px';
+            break;
+        default:
+            previewLyricsBar.style.left = '50%';
+            previewLyricsBar.style.transform = 'translateX(-50%)';
+            break;
+    }
+    // ▲▲▲ 新增代码结束 ▲▲▲
     
     // 4. 应用自定义CSS到预览区
     applyScopedCss(customCss, '#settings-preview-area', 'preview-bubble-style');
@@ -21969,6 +22076,8 @@ function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheck
             bgPreview.style.display = 'none';
             removeBgBtn.style.display = 'none';
         }
+    // 控制歌词设置的显示/隐藏
+    document.getElementById('lyrics-position-group').style.display = isGroup ? 'none' : 'block';
         if (isGroup) {
             document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
             document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
@@ -22001,6 +22110,13 @@ function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheck
                 if (chat.groupId === group.id) option.selected = true;
                 select.appendChild(option);
             });
+        // ▼▼▼ 在这里添加第二部分代码 ▼▼▼
+        // 加载歌词位置设置
+        const lyricsPos = chat.settings.lyricsPosition || { vertical: 'top', horizontal: 'center', offset: 10 };
+        document.getElementById('lyrics-vertical-pos').value = lyricsPos.vertical;
+        document.getElementById('lyrics-horizontal-pos').value = lyricsPos.horizontal;
+        document.getElementById('lyrics-offset-input').value = lyricsPos.offset;
+        // ▲▲▲ 添加结束 ▲▲▲
         }
         const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
         worldBookCheckboxesContainer.innerHTML = '';
@@ -22145,6 +22261,14 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
             personality: document.getElementById('ai-heart-rate-personality').value,
             baseline: parseInt(document.getElementById('ai-heart-rate-baseline').value) || 65
         };
+        // ▼▼▼ 在这里添加新代码 ▼▼▼
+        // 保存歌词位置设置
+        chat.settings.lyricsPosition = {
+            vertical: document.getElementById('lyrics-vertical-pos').value,
+            horizontal: document.getElementById('lyrics-horizontal-pos').value,
+            offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
+        };
+        // ▲▲▲ 添加结束 ▲▲▲
         const selectedGroupId = document.getElementById('assign-group-select').value;
         chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
     }
@@ -22170,7 +22294,10 @@ if (!chat.isGroup) {
     await syncCharacterAvatarInGroups(chat);
 }
 // ▲▲▲ 替换结束 ▲▲▲
-
+    // ▼▼▼ 在这里添加新代码 ▼▼▼
+    // 保存后立即应用到真实的歌词栏
+    applyLyricsBarPosition(chat);
+    // ▲▲▲ 添加结束 ▲▲▲
     applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
     document.getElementById('chat-settings-modal').classList.remove('visible');
     renderChatInterface(state.activeChatId);
@@ -23308,7 +23435,10 @@ document.getElementById('reset-custom-css-btn').addEventListener('click', () => 
 });
 
 // ▲▲▲ 粘贴结束 ▲▲▲
-
+// 【请确保这段代码在您的 init() 函数内】
+document.getElementById('lyrics-vertical-pos').addEventListener('change', updateSettingsPreview);
+document.getElementById('lyrics-horizontal-pos').addEventListener('change', updateSettingsPreview);
+document.getElementById('lyrics-offset-input').addEventListener('input', updateSettingsPreview);
 // ▼▼▼ 请将这段【新代码】粘贴到 init() 的事件监听器区域末尾 ▼▼▼
 document.querySelectorAll('input[name="visibility"]').forEach(radio => {
     radio.addEventListener('change', function() {
