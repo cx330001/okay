@@ -5840,6 +5840,123 @@ input:checked + .slider:before {
 }
 
 /* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
+/* ▼▼▼ 【全新】世界书页面美化样式 (V2 - 页签切换版) ▼▼▼ */
+
+/* 1. 确保世界书页面背景色统一 */
+#world-book-screen {
+    background-color: #f0f2f5;
+    display: flex; /* 改为flex布局，让头部、页签、内容区垂直排列 */
+    flex-direction: column;
+}
+
+#phone-screen.dark-mode #world-book-screen {
+    background-color: #000000;
+}
+
+/* 2. 页签栏样式 */
+#world-book-tabs {
+    display: flex;
+    overflow-x: auto; /* 如果分类太多，可以横向滚动 */
+    padding: 10px 15px 0 15px;
+    flex-shrink: 0; /* 防止被压缩 */
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--secondary-bg);
+
+    /* 隐藏滚动条 */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+#world-book-tabs::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, and Opera */
+}
+
+
+/* 3. 单个页签按钮样式 */
+.world-book-tab {
+    padding: 8px 16px;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px; /* 让底边框与容器边框重合 */
+    transition: all 0.2s ease-in-out;
+    white-space: nowrap; /* 防止分类名换行 */
+}
+
+/* 4. 激活的页签样式 */
+.world-book-tab.active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+    font-weight: 600;
+}
+#phone-screen.dark-mode .world-book-tab.active {
+    color: #ffffff;
+}
+
+
+/* 5. 内容区总容器，负责滚动 */
+#world-book-content-container {
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+/* 6. 单个分类的内容面板，使用Grid布局美化 */
+.world-book-category-pane {
+    display: none; /* 默认隐藏 */
+    grid-template-columns: repeat(2, 1fr); /* 每行显示2本书 */
+    gap: 15px;
+    padding: 15px;
+}
+
+/* 7. 激活的内容面板 */
+.world-book-category-pane.active {
+    display: grid;
+}
+
+/* 8. 美化后的世界书卡片样式 */
+.world-book-card {
+    background-color: var(--secondary-bg);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* 标题和内容的间距 */
+}
+
+.world-book-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+}
+#phone-screen.dark-mode .world-book-card {
+    box-shadow: 0 2px 8px rgba(255,255,255,0.05);
+}
+
+.world-book-card .card-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 防止长标题溢出 */
+}
+
+.world-book-card .card-content-preview {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    /* 多行省略效果 */
+    display: -webkit-box;
+    -webkit-line-clamp: 3; /* 最多显示3行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+/* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5904,18 +6021,30 @@ input:checked + .slider:before {
 <!-- ▲▲▲ 替换结束 ▲▲▲ -->
             </div>
           
+<!-- ▼▼▼ 【请用这个新版本】完整替换旧的 world-book-screen ▼▼▼ -->
 <div id="world-book-screen" class="screen">
     <div class="header">
         <span class="back-btn" onclick="showScreen('home-screen')">‹</span>
         <span>世界书</span>
-        <div class="header-actions"> <!-- 【推荐】用一个容器把按钮包起来 -->
-            <span class="action-btn" id="manage-world-book-categories-btn">管理分类</span>
+        <div class="header-actions">
+            <!-- 【核心修改1】将文字按钮替换为SVG图标 -->
+            <span class="action-btn" id="manage-world-book-categories-btn" title="管理分类">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+            </span>
             <span class="action-btn" id="add-world-book-btn">+</span>
         </div>
     </div>
-    <div id="world-book-list"></div>
+    <!-- 【核心修改2】全新的页签和内容区结构 -->
+    <div id="world-book-tabs"></div>
+    <div id="world-book-content-container"></div>
 </div>
-<!-- ▼▼▼ 【请用这个新版本】完整替换旧的 world-book-editor-screen ▼▼▼ -->
+<!-- ▼▼▼ 【请将这个缺失的代码块】粘贴到 id="world-book-screen" 的 div 之后 ▼▼▼ -->
 <div id="world-book-editor-screen" class="screen">
     <div class="header">
         <span class="back-btn" onclick="showScreen('world-book-screen')">‹</span>
@@ -5932,7 +6061,7 @@ input:checked + .slider:before {
             <select id="world-book-category-select"></select>
         </div>
 
-        <!-- 【【【核心修改：这里是全新的编辑器区域】】】 -->
+        <!-- 编辑器区域 -->
         <div class="form-group" style="flex-grow: 1; display: flex; flex-direction: column;">
             <label>内容条目</label>
             <!-- 这个容器将用来动态装载所有可编辑的条目块 -->
@@ -5947,8 +6076,9 @@ input:checked + .slider:before {
         </button>
     </div>
 </div>
+<!-- ▲▲▲ 粘贴结束 ▲▲▲ -->
 <!-- ▲▲▲ 替换结束 ▲▲▲ -->
-            <!-- ▼▼▼ 请用这整块代码，完整替换你现有的 id="api-settings-screen" 的 div ▼▼▼ -->
+<!-- ▼▼▼ 用下面这段代码，完整替换掉你原来的 id="api-settings-screen" 的 div ▼▼▼ -->
 <div id="api-settings-screen" class="screen">
     <div class="header">
         <span class="back-btn" onclick="showScreen('home-screen')">‹</span>
@@ -5956,6 +6086,18 @@ input:checked + .slider:before {
         <span style="width: 30px;"></span>
     </div>
     <div class="form-container">
+        <!-- 【【【全新：API预设管理】】】 -->
+        <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;">API 预设管理</h3>
+        <div class="form-group">
+            <label for="api-preset-select">选择或切换预设</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <select id="api-preset-select" style="flex-grow: 1;"></select>
+                <button id="save-api-preset-btn" class="form-button-secondary" style="margin-top: 0; padding: 12px;">保存</button>
+                <button id="delete-api-preset-btn" class="form-button-secondary" style="margin-top: 0; padding: 12px; background-color: #ffebee; color: #d32f2f; border-color: #ffcdd2;">删除</button>
+            </div>
+        </div>
+        <hr style="margin: 30px 0; opacity: 0.3;">
+        
         <!-- 主API设置 -->
         <h3 style="margin-top:0; border-bottom: 1px solid #eee; padding-bottom: 10px;">主API设置 (用于聊天)</h3>
         <p style="font-size: 14px; color: #666; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
@@ -5975,7 +6117,7 @@ input:checked + .slider:before {
         </div>
         <button class="form-button" id="fetch-models-btn">拉取主模型</button>
 
-        <!-- 【【【全新：副API设置】】】 -->
+        <!-- 副API设置 -->
         <hr style="margin: 30px 0; opacity: 0.3;">
         <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px;">副API设置 (用于总结长期记忆)</h3>
         <p style="font-size: 14px; color: #666; background-color: #f0f0f0; padding: 10px; border-radius: 8px;">
@@ -8645,8 +8787,8 @@ async function getLrcContent() {
         // 2. 数据库结构定义
         // ===================================================================
 
-// ▼▼▼ 【请用这个 V26 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
-db.version(26).stores({ 
+// ▼▼▼ 【请用这个 V27 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
+db.version(27).stores({ 
     chats: '&id, isGroup, groupId, isPinned',
     apiConfig: '&id', 
     globalSettings: '&id', 
@@ -8663,8 +8805,9 @@ db.version(26).stores({
     qzoneGroups: '++id, name',
     memories: '++id, chatId, timestamp, type, targetDate',
     callRecords: '++id, chatId, timestamp, customName',
-    // 【【【核心修改：增加description字段索引】】】
-    shoppingProducts: '++id, name, description'
+    shoppingProducts: '++id, name, description',
+    // 【【【核心修改：新增API预设表】】】
+    apiPresets: '++id, name'
 }).upgrade(tx => {
     return tx.table('worldBooks').toCollection().modify(book => {
         if (typeof book.content === 'string' && book.content.trim() !== '') {
@@ -10112,20 +10255,151 @@ function getTimeOfDayGreeting(date = new Date()) { // 允许传入一个日期�
     }
     return "现在"; // 默认情况
 }
+// ▼▼▼ 【全新】API预设功能核心函数 ▼▼▼
+
+/**
+ * 从数据库加载API预设，并填充到下拉选择框中
+ */
+async function loadApiPresetsDropdown() {
+    const selectEl = document.getElementById('api-preset-select');
+    selectEl.innerHTML = '<option value="current">当前配置 (未保存)</option>';
+    
+    const presets = await db.apiPresets.toArray();
+    presets.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        option.textContent = preset.name;
+        selectEl.appendChild(option);
+    });
+
+    // 检查当前配置是否与某个预设完全匹配
+    const currentConfig = state.apiConfig;
+    let matchingPresetId = null;
+    for (const preset of presets) {
+        if (
+            preset.proxyUrl === currentConfig.proxyUrl &&
+            preset.apiKey === currentConfig.apiKey &&
+            preset.model === currentConfig.model &&
+            preset.secondaryProxyUrl === currentConfig.secondaryProxyUrl &&
+            preset.secondaryApiKey === currentConfig.secondaryApiKey &&
+            preset.secondaryModel === currentConfig.secondaryModel
+        ) {
+            matchingPresetId = preset.id;
+            break;
+        }
+    }
+
+    if (matchingPresetId) {
+        selectEl.value = matchingPresetId;
+    } else {
+        selectEl.value = 'current';
+    }
+}
+
+/**
+ * 当用户从下拉框选择一个预设时，加载该预设的配置
+ */
+async function handlePresetSelectionChange() {
+    const selectEl = document.getElementById('api-preset-select');
+    const selectedId = parseInt(selectEl.value);
+
+    // 如果选择的是“当前配置”，则不做任何事
+    if (isNaN(selectedId)) {
+        return;
+    }
+
+    const preset = await db.apiPresets.get(selectedId);
+    if (preset) {
+        // 将预设的配置加载到当前的全局状态中
+        state.apiConfig = {
+            id: 'main',
+            proxyUrl: preset.proxyUrl,
+            apiKey: preset.apiKey,
+            model: preset.model,
+            secondaryProxyUrl: preset.secondaryProxyUrl,
+            secondaryApiKey: preset.secondaryApiKey,
+            secondaryModel: preset.secondaryModel
+        };
+        // 将加载的配置保存为当前正在使用的配置
+        await db.apiConfig.put(state.apiConfig);
+        // 重新渲染整个设置页面以显示新加载的配置
+        renderApiSettings();
+        // 自动为新加载的配置拉取模型列表
+        document.getElementById('fetch-models-btn').click();
+        if (preset.secondaryProxyUrl && preset.secondaryApiKey) {
+            document.getElementById('fetch-secondary-models-btn').click();
+        }
+        alert(`已加载预设 “${preset.name}”`);
+    }
+}
+
+/**
+ * 将当前输入框中的配置保存为一个新的预设
+ */
+async function saveApiPreset() {
+    const name = await showCustomPrompt('保存 API 预设', '请输入预设名称');
+    if (!name || !name.trim()) return;
+
+    // 从输入框读取当前配置
+    const presetData = {
+        name: name.trim(),
+        proxyUrl: document.getElementById('proxy-url').value.trim(),
+        apiKey: document.getElementById('api-key').value.trim(),
+        model: document.getElementById('model-select').value,
+        secondaryProxyUrl: document.getElementById('secondary-proxy-url').value.trim(),
+        secondaryApiKey: document.getElementById('secondary-api-key').value.trim(),
+        secondaryModel: document.getElementById('secondary-model-select').value
+    };
+
+    // 检查是否已存在同名预设
+    const existingPreset = await db.apiPresets.where('name').equals(presetData.name).first();
+    if (existingPreset) {
+        const confirmed = await showCustomConfirm('覆盖预设', `名为 “${presetData.name}” 的预设已存在。要覆盖它吗？`, { confirmButtonClass: 'btn-danger' });
+        if (!confirmed) return;
+        presetData.id = existingPreset.id; // 指定ID以覆盖旧数据
+    }
+
+    await db.apiPresets.put(presetData);
+    await loadApiPresetsDropdown(); // 刷新下拉列表
+    alert('API 预设已保存！');
+}
+
+/**
+ * 删除当前选中的预设
+ */
+async function deleteApiPreset() {
+    const selectEl = document.getElementById('api-preset-select');
+    const selectedId = parseInt(selectEl.value);
+
+    if (isNaN(selectedId)) {
+        alert('请先从下拉框中选择一个要删除的预设。');
+        return;
+    }
+
+    const preset = await db.apiPresets.get(selectedId);
+    if (!preset) return;
+
+    const confirmed = await showCustomConfirm('删除预设', `确定要删除预设 “${preset.name}” 吗？`, { confirmButtonClass: 'btn-danger' });
+    if (confirmed) {
+        await db.apiPresets.delete(selectedId);
+        await loadApiPresetsDropdown(); // 刷新下拉列表
+        alert('预设已删除。');
+    }
+}
+// ▲▲▲ 新增函数结束 ▲▲▲
 // ▼▼▼ 【请用这个新版本】替换旧的 renderApiSettings 函数 ▼▼▼
 function renderApiSettings() { 
-    // 渲染主API
+    // 1. 渲染当前配置到输入框
     document.getElementById('proxy-url').value = state.apiConfig.proxyUrl || ''; 
     document.getElementById('api-key').value = state.apiConfig.apiKey || ''; 
-    
-    // 【核心新增】渲染副API
     document.getElementById('secondary-proxy-url').value = state.apiConfig.secondaryProxyUrl || '';
     document.getElementById('secondary-api-key').value = state.apiConfig.secondaryApiKey || '';
-
-    // 渲染后台活动设置
     document.getElementById('background-activity-switch').checked = state.globalSettings.enableBackgroundActivity || false;
     document.getElementById('background-interval-input').value = state.globalSettings.backgroundActivityInterval || 60;
     document.getElementById('block-cooldown-input').value = state.globalSettings.blockCooldownHours || 1;
+
+    // 2. 【核心新增】加载并渲染预设下拉菜单
+    loadApiPresetsDropdown();
 }
 // ▲▲▲ 替换结束 ▲▲▲
         window.renderApiSettingsProxy = renderApiSettings;
@@ -10492,9 +10766,24 @@ function renderWallpaperScreen() {
 
         function applyGlobalWallpaper() { const homeScreen = document.getElementById('home-screen'); const wallpaper = state.globalSettings.wallpaper; if (wallpaper && wallpaper.startsWith('data:image')) homeScreen.style.backgroundImage = `url(${wallpaper})`; else if (wallpaper) homeScreen.style.backgroundImage = wallpaper; }
 
+// ▼▼▼ 【全新】这个函数用于处理世界书页签的点击切换 ▼▼▼
+function switchWorldBookCategory(categoryId) {
+    // 1. 切换页签的激活状态
+    document.querySelectorAll('.world-book-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.categoryId === categoryId);
+    });
+    // 2. 切换内容面板的显示状态
+    document.querySelectorAll('.world-book-category-pane').forEach(pane => {
+        pane.classList.toggle('active', pane.dataset.categoryId === categoryId);
+    });
+}
+
+// ▼▼▼ 【请用这个全新版本】完整替换旧的 renderWorldBookScreen 函数 ▼▼▼
 async function renderWorldBookScreen() {
-    const listEl = document.getElementById('world-book-list');
-    listEl.innerHTML = '';
+    const tabsContainer = document.getElementById('world-book-tabs');
+    const contentContainer = document.getElementById('world-book-content-container');
+    tabsContainer.innerHTML = '';
+    contentContainer.innerHTML = '';
 
     // 1. 同时获取所有书籍和所有分类
     const [books, categories] = await Promise.all([
@@ -10505,42 +10794,99 @@ async function renderWorldBookScreen() {
     state.worldBooks = books; // 确保内存中的数据是同步的
 
     if (books.length === 0) {
-        listEl.innerHTML = '<p style="text-align:center; color: #8a8a8a; margin-top: 50px;">点击右上角 "+" 创建你的第一本世界书</p>';
+        contentContainer.innerHTML = '<p style="text-align:center; color: #8a8a8a; margin-top: 50px;">点击右上角 "+" 创建你的第一本世界书</p>';
         return;
     }
 
-    // 2. 将书籍按 categoryId 分组
-    const groupedBooks = books.reduce((acc, book) => {
-        const key = book.categoryId || 'uncategorized';
-        if (!acc[key]) {
-            acc[key] = [];
-        }
-        acc[key].push(book);
-        return acc;
-    }, {});
+    // --- 2. 创建并添加“全部”页签和其内容面板 ---
+    const allTab = document.createElement('button');
+    allTab.className = 'world-book-tab active';
+    allTab.textContent = '全部';
+    allTab.dataset.categoryId = 'all';
+    tabsContainer.appendChild(allTab);
 
-    // 3. 优先渲染已分类的书籍
+    const allPane = document.createElement('div');
+    allPane.className = 'world-book-category-pane active';
+    allPane.dataset.categoryId = 'all';
+    contentContainer.appendChild(allPane);
+
+    // --- 3. 创建并添加各个分类的页签和内容面板 ---
     categories.forEach(category => {
-        const booksInCategory = groupedBooks[category.id];
-        if (booksInCategory && booksInCategory.length > 0) {
-            const groupContainer = createWorldBookGroup(category.name, booksInCategory);
-            listEl.appendChild(groupContainer);
+        const categoryTab = document.createElement('button');
+        categoryTab.className = 'world-book-tab';
+        categoryTab.textContent = category.name;
+        categoryTab.dataset.categoryId = String(category.id);
+        tabsContainer.appendChild(categoryTab);
+
+        const categoryPane = document.createElement('div');
+        categoryPane.className = 'world-book-category-pane';
+        categoryPane.dataset.categoryId = String(category.id);
+        contentContainer.appendChild(categoryPane);
+    });
+    
+    // --- 4. 创建并添加“未分类”的页签和内容面板 (如果需要) ---
+    const hasUncategorized = books.some(book => !book.categoryId);
+    if (hasUncategorized) {
+        const uncategorizedTab = document.createElement('button');
+        uncategorizedTab.className = 'world-book-tab';
+        uncategorizedTab.textContent = '未分类';
+        uncategorizedTab.dataset.categoryId = 'uncategorized';
+        tabsContainer.appendChild(uncategorizedTab);
+    
+        const uncategorizedPane = document.createElement('div');
+        uncategorizedPane.className = 'world-book-category-pane';
+        uncategorizedPane.dataset.categoryId = 'uncategorized';
+        contentContainer.appendChild(uncategorizedPane);
+    }
+
+    // --- 5. 遍历书籍，将它们填充到对应的内容面板中 ---
+    books.forEach(book => {
+        let contentPreview = '暂无内容...';
+        if (Array.isArray(book.content) && book.content.length > 0) {
+            const firstEntry = book.content[0];
+            contentPreview = firstEntry.comment || firstEntry.content || '';
+        } else if (typeof book.content === 'string' && book.content.trim() !== '') {
+            contentPreview = book.content;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'world-book-card';
+        card.innerHTML = `
+            <div class="card-title">${book.name}</div>
+            <div class="card-content-preview">${contentPreview}</div>
+        `;
+        
+        // 为卡片本身添加点击和长按事件
+        const cardClickHandler = () => openWorldBookEditor(book.id);
+        const cardLongPressHandler = async () => { 
+            const confirmed = await showCustomConfirm('删除世界书', `确定要删除《${book.name}》吗？`, { confirmButtonClass: 'btn-danger' }); 
+            if (confirmed) { 
+                await db.worldBooks.delete(book.id); 
+                state.worldBooks = state.worldBooks.filter(wb => wb.id !== book.id); 
+                renderWorldBookScreen(); 
+            } 
+        };
+
+        card.addEventListener('click', cardClickHandler);
+        addLongPressListener(card, cardLongPressHandler);
+
+        // 克隆卡片并投放到“全部”面板
+        const clonedCardForAll = card.cloneNode(true);
+        clonedCardForAll.addEventListener('click', cardClickHandler);
+        addLongPressListener(clonedCardForAll, cardLongPressHandler);
+        allPane.appendChild(clonedCardForAll);
+        
+        // 将原始卡片投放到对应的分类面板
+        const categoryKey = book.categoryId ? String(book.categoryId) : 'uncategorized';
+        const targetPane = contentContainer.querySelector(`.world-book-category-pane[data-category-id="${categoryKey}"]`);
+        if (targetPane) {
+            targetPane.appendChild(card);
         }
     });
 
-    // 4. 最后渲染未分类的书籍
-    const uncategorizedBooks = groupedBooks['uncategorized'];
-    if (uncategorizedBooks && uncategorizedBooks.length > 0) {
-        const groupContainer = createWorldBookGroup('未分类', uncategorizedBooks);
-        listEl.appendChild(groupContainer);
-    }
-    
-    // 5. 为所有分组标题添加折叠事件
-    document.querySelectorAll('.world-book-group-header').forEach(header => {
-        header.addEventListener('click', () => {
-            header.classList.toggle('collapsed');
-            header.nextElementSibling.classList.toggle('collapsed');
-        });
+    // --- 6. 为所有页签绑定切换事件 ---
+    document.querySelectorAll('.world-book-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchWorldBookCategory(tab.dataset.categoryId));
     });
 }
 
@@ -10609,15 +10955,26 @@ function createWorldBookGroup(groupName, books) {
 // ▲▲▲ 替换结束 ▲▲▲
         window.renderWorldBookScreenProxy = renderWorldBookScreen;
 
-// ▼▼▼ 【请用这个新版本】替换旧的 openWorldBookEditor 函数 ▼▼▼
+// ▼▼▼ 【请用这个已修复BUG的版本】完整替换旧的 openWorldBookEditor 函数 ▼▼▼
 async function openWorldBookEditor(bookId) {
+    // 【核心修复】将切换屏幕的操作移动到函数的最前面
+    // 这样可以确保在操作DOM元素之前，它们所在的屏幕已经是激活状态
+    showScreen('world-book-editor-screen');
+
     editingWorldBookId = bookId;
     const [book, categories] = await Promise.all([
         db.worldBooks.get(bookId),
         db.worldBookCategories.toArray()
     ]);
-    if (!book) return;
 
+    // 如果在切换屏幕后发现书籍不存在，则安全返回列表页
+    if (!book) {
+        console.error("尝试打开一个不存在的世界书，ID:", bookId);
+        showScreen('world-book-screen');
+        return;
+    }
+
+    // 现在，因为屏幕已显示，所以可以安全地操作这些元素了
     document.getElementById('world-book-editor-title').textContent = book.name;
     document.getElementById('world-book-name-input').value = book.name;
 
@@ -10632,9 +10989,9 @@ async function openWorldBookEditor(bookId) {
         selectEl.appendChild(option);
     });
 
-    // 【【【核心修改：动态渲染条目】】】
+    // 动态渲染条目的逻辑保持不变
     const entriesContainer = document.getElementById('world-book-entries-container');
-    entriesContainer.innerHTML = ''; // 清空旧内容
+    entriesContainer.innerHTML = ''; 
 
     if (Array.isArray(book.content) && book.content.length > 0) {
         book.content.forEach(entry => {
@@ -10642,12 +10999,12 @@ async function openWorldBookEditor(bookId) {
             entriesContainer.appendChild(block);
         });
     } else {
-        // 如果是空的或格式不对，显示一个提示
         entriesContainer.innerHTML = '<p style="text-align:center; color: var(--text-secondary); margin-top: 20px;">还没有内容，点击下方按钮添加第一条吧！</p>';
     }
 
-    showScreen('world-book-editor-screen');
+    // 不再需要在函数末尾调用 showScreen，因为它已经在开头被调用了
 }
+// ▲▲▲ 替换结束 ▲▲▲
 
         // ▼▼▼ 【请用这个新版本】替换旧的 renderStickerPanel 函数 ▼▼▼
 function renderStickerPanel() { 
@@ -11004,7 +11361,13 @@ function createMessageElement(msg, chat) {
     let contentHtml;
 
     if (msg.type === 'offline_text') {
-        const dialogueHtml = msg.dialogue ? `<span class="offline-dialogue">「${parseMarkdown(msg.dialogue)}」</span>` : '';
+        // 【核心修正】在添加括号前，先检查内容是否已经自带括号
+        let dialogueText = msg.dialogue || '';
+        if (dialogueText && !dialogueText.startsWith('「') && !dialogueText.endsWith('」')) {
+            dialogueText = `「${parseMarkdown(dialogueText)}」`;
+        }
+
+        const dialogueHtml = dialogueText ? `<span class="offline-dialogue">${dialogueText}</span>` : '';
         const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
         contentHtml = dialogueHtml + descriptionHtml;
     } else if (msg.type === 'share_link') {
@@ -12118,6 +12481,7 @@ ${membersWithContacts}
             if (isOfflineMode) {
                 const minLength = chat.settings.offlineMinLength || 100;
                 const maxLength = chat.settings.offlineMaxLength || 300;
+// ▼▼▼ 【请用这个新版本】完整替换旧的 offline-mode systemPrompt ▼▼▼
                 const myNickname = chat.settings.myNickname || '我';
                 systemPrompt = `
 # 你的任务
@@ -12127,7 +12491,8 @@ ${membersWithContacts}
 1.  **输出格式**: 你的回复【必须】是一个JSON数组，数组中可以有一个或多个元素。每个元素都【必须】是以下格式的JSON对象:
     \`{"type": "offline_text", "dialogue": "角色说的话", "description": "角色的动作、神态、内心想法以及环境描写。"}\`
 2.  **内容风格**:
-    - **对话 (\`dialogue\`字段)**: 角色说的话，请使用「」包裹。
+    // 【核心修正】不再要求AI添加任何括号，让代码来负责格式
+    - **对话 (\`dialogue\`字段)**: 直接提供角色说的话的纯文本内容。
     - **描写 (\`description\`字段)**: 必须结合角色的动作、神态、心理活动和环境描写。动作使用()包裹，心理活动使用【】包裹，并且在描写动作和心理活动时，【必须】使用针对用户的第二人称视角（例如：他看着(你)的眼睛，【心里想着你真好看】）。
 3.  **字数要求**:
     - 你每次生成的总内容（所有JSON对象的 "dialogue" 和 "description" 字段加起来）应在 **${minLength}到${maxLength}字** 之间。
@@ -12144,7 +12509,8 @@ ${chat.settings.aiPersona}
 ${historySlice.map(msg => {
     let line = `${msg.role === 'user' ? myNickname : chat.name}: `;
     if (msg.type === 'offline_text') {
-        line += `「${msg.dialogue}」 ${msg.description}`;
+        // 【核心修正】这里也移除括号，保持与AI指令一致
+        line += `${msg.dialogue} ${msg.description}`;
     } else {
         line += String(msg.content);
     }
@@ -12155,6 +12521,7 @@ ${linkedMemoryContext}
 
 现在，请根据以上所有规则和对话历史，继续这场线下互动。
 `;
+// ▲▲▲ 替换结束 ▲▲▲
                 messagesPayload = historySlice.map(msg => {
                     if (msg.isHidden) return null;
                     let contentStr = '';
@@ -17093,17 +17460,30 @@ async function triggerAiFriendApplication(chatId) {
         })
         .join('\n');
 
-    let worldBookContent = '';
-    if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-        const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-            const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-            return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
-        }).filter(Boolean).join('');
-        if (linkedContents) {
-            worldBookContent = `\n\n# 核心世界观设定 (请参考)\n${linkedContents}\n`;
-        }
-    }
+// ▼▼▼ 在 triggerAiResponse 函数中，用下面这整块代码替换旧的世界书处理逻辑 ▼▼▼
+let worldBookContent = '';
+if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+        if (!worldBook || !Array.isArray(worldBook.content)) return '';
 
+        const formattedEntries = worldBook.content.map(entry => {
+            let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+            if (entry.keys.length > 0) {
+                entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+            }
+            entryString += `**内容:**\n${entry.content}`;
+            return entryString;
+        }).join('\n');
+
+        return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+    }).filter(Boolean).join('');
+    
+    if (linkedContents) {
+        worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲
     const systemPrompt = `
 # 你的任务
 你现在是角色“${chat.name}”。你之前被用户（你的聊天对象）拉黑了，你们已经有一段时间没有联系了。
@@ -22092,112 +22472,168 @@ document.getElementById('chat-messages').addEventListener('click', async (e) => 
             const chatSettingsModal = document.getElementById('chat-settings-modal');
             const worldBookSelectBox = document.querySelector('.custom-multiselect .select-box');
             const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
-function updateWorldBookSelectionDisplay() { const checkedBoxes = worldBookCheckboxesContainer.querySelectorAll('input:checked'); const displayText = document.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } }        
+// ▼▼▼ 【请用这个新版本】替换旧的 updateWorldBookSelectionDisplay 函数 ▼▼▼
+function updateWorldBookSelectionDisplay() {
+    const checkedBoxes = worldBookCheckboxesContainer.querySelectorAll('input:checked');
+    const displayText = document.querySelector('.selected-options-text');
+    
+    if (checkedBoxes.length === 0) {
+        displayText.textContent = '-- 点击选择 --';
+    } else if (checkedBoxes.length > 2) {
+        displayText.textContent = `已选择 ${checkedBoxes.length} 本世界书`;
+    } else {
+        const displayItems = Array.from(checkedBoxes).map(cb => {
+            return cb.parentElement.textContent.trim();
+        });
+        displayText.textContent = displayItems.join(', ');
+    }
+}
+// ▲▲▲ 替换结束 ▲▲▲   
             
             worldBookSelectBox.addEventListener('click', (e) => { e.stopPropagation(); worldBookCheckboxesContainer.classList.toggle('visible'); worldBookSelectBox.classList.toggle('expanded'); });
             document.getElementById('world-book-checkboxes-container').addEventListener('change', updateWorldBookSelectionDisplay);
             window.addEventListener('click', (e) => { if (!document.querySelector('.custom-multiselect').contains(e.target)) { worldBookCheckboxesContainer.classList.remove('visible'); worldBookSelectBox.classList.remove('expanded'); } });
-    // ▼▼▼ 【请用这个 V2.0 版本】替换旧的 chat-settings-btn 事件监听器 ▼▼▼
-    document.getElementById('chat-settings-btn').addEventListener('click', async () => {
-        if (!state.activeChatId) return;
-        const chat = state.chats[state.activeChatId];
-        const isGroup = chat.isGroup;
+// ▼▼▼ 【请用这个 V3.0 最终修复版】替换旧的 chat-settings-btn 事件监听器 ▼▼▼
+document.getElementById('chat-settings-btn').addEventListener('click', async () => {
+    if (!state.activeChatId) return;
+    const chat = state.chats[state.activeChatId];
+    const isGroup = chat.isGroup;
 
-        // 【【【核心修改：智能显示/隐藏“切换开场”按钮】】】
-        const switchGreetingGroup = document.getElementById('switch-greeting-group');
-        if (!isGroup && chat.settings.alternateGreetings && chat.settings.alternateGreetings.length > 0) {
-            switchGreetingGroup.style.display = 'block';
-        } else {
-            switchGreetingGroup.style.display = 'none';
-        }
-        
-        // --- 后续所有代码与您之前的版本完全相同 ---
-        document.getElementById('chat-name-group').style.display = 'block';
-        document.getElementById('my-persona-group').style.display = 'block';
-        // ... (此处省略了您之前已有的、所有其他的显示/隐藏和数据加载逻辑，无需改动) ...
-        document.getElementById('my-avatar-group').style.display = 'block';
-        document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
-        document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
-        document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
-        document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('offline-mode-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
-        document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
-        document.getElementById('chat-name-input').value = chat.name;
-        document.getElementById('my-persona').value = chat.settings.myPersona;
-        document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
-        document.getElementById('max-memory').value = chat.settings.maxMemory;
-        const bgPreview = document.getElementById('bg-preview');
-        const removeBgBtn = document.getElementById('remove-bg-btn');
-        if (chat.settings.background) {
-            bgPreview.src = chat.settings.background;
-            bgPreview.style.display = 'block';
-            removeBgBtn.style.display = 'inline-block';
-        } else {
-            bgPreview.style.display = 'none';
-            removeBgBtn.style.display = 'none';
-        }
-    // 控制歌词设置的显示/隐藏
+    // --- （这部分与之前相同，保持不变） ---
+    const switchGreetingGroup = document.getElementById('switch-greeting-group');
+    if (!isGroup && chat.settings.alternateGreetings && chat.settings.alternateGreetings.length > 0) {
+        switchGreetingGroup.style.display = 'block';
+    } else {
+        switchGreetingGroup.style.display = 'none';
+    }
+    
+    document.getElementById('chat-name-group').style.display = 'block';
+    document.getElementById('my-persona-group').style.display = 'block';
+    document.getElementById('my-avatar-group').style.display = 'block';
+    document.getElementById('my-group-nickname-group').style.display = isGroup ? 'block' : 'none';
+    document.getElementById('my-nickname-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('group-avatar-group').style.display = isGroup ? 'block' : 'none';
+    document.getElementById('group-members-group').style.display = isGroup ? 'block' : 'none';
+    document.getElementById('ai-persona-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('ai-avatar-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('assign-group-section').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('ai-original-name-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('offline-mode-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('ai-cooldown-group').style.display = isGroup ? 'none' : 'block';
+    document.getElementById('group-cooldown-group').style.display = isGroup ? 'block' : 'none';
+    document.getElementById('chat-name-input').value = chat.name;
+    document.getElementById('my-persona').value = chat.settings.myPersona;
+    document.getElementById('my-avatar-preview').src = chat.settings.myAvatar || (isGroup ? defaultMyGroupAvatar : defaultAvatar);
+    document.getElementById('max-memory').value = chat.settings.maxMemory;
+    const bgPreview = document.getElementById('bg-preview');
+    const removeBgBtn = document.getElementById('remove-bg-btn');
+    if (chat.settings.background) {
+        bgPreview.src = chat.settings.background;
+        bgPreview.style.display = 'block';
+        removeBgBtn.style.display = 'inline-block';
+    } else {
+        bgPreview.style.display = 'none';
+        removeBgBtn.style.display = 'none';
+    }
     document.getElementById('lyrics-position-group').style.display = isGroup ? 'none' : 'block';
-        if (isGroup) {
-            document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
-            document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
-            document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
-            renderGroupMemberSettings(chat.members);
-        } else {
-            const offlineModeToggle = document.getElementById('offline-mode-toggle');
-            const offlineModeOptions = document.getElementById('offline-mode-options');
-            const offlineMinInput = document.getElementById('offline-min-length-input');
-            const offlineMaxInput = document.getElementById('offline-max-length-input');
-            offlineModeToggle.checked = chat.settings.isOfflineMode || false;
-            offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
-            offlineMinInput.value = chat.settings.offlineMinLength || 100;
-            offlineMaxInput.value = chat.settings.offlineMaxLength || 300;
-            offlineModeToggle.addEventListener('change', () => {
-                offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
-            });
-            document.getElementById('ai-original-name-input').value = chat.originalName;
-            document.getElementById('ai-persona').value = chat.settings.aiPersona;
-            document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
-            document.getElementById('my-nickname-input').value = chat.settings.myNickname || '我';
-            document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
-            const select = document.getElementById('assign-group-select');
-            select.innerHTML = '<option value="">未分组</option>';
-            const groups = await db.qzoneGroups.toArray();
-            groups.forEach(group => {
-                const option = document.createElement('option');
-                option.value = group.id;
-                option.textContent = group.name;
-                if (chat.groupId === group.id) option.selected = true;
-                select.appendChild(option);
-            });
-        // ▼▼▼ 在这里添加第二部分代码 ▼▼▼
-        // 加载歌词位置设置
+    if (isGroup) {
+        document.getElementById('my-group-nickname-input').value = chat.settings.myNickname || '';
+        document.getElementById('group-avatar-preview').src = chat.settings.groupAvatar || defaultGroupAvatar;
+        document.getElementById('group-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
+        renderGroupMemberSettings(chat.members);
+    } else {
+        const offlineModeToggle = document.getElementById('offline-mode-toggle');
+        const offlineModeOptions = document.getElementById('offline-mode-options');
+        const offlineMinInput = document.getElementById('offline-min-length-input');
+        const offlineMaxInput = document.getElementById('offline-max-length-input');
+        offlineModeToggle.checked = chat.settings.isOfflineMode || false;
+        offlineModeOptions.style.display = offlineModeToggle.checked ? 'block' : 'none';
+        offlineMinInput.value = chat.settings.offlineMinLength || 100;
+        offlineMaxInput.value = chat.settings.offlineMaxLength || 300;
+        document.getElementById('ai-original-name-input').value = chat.originalName;
+        document.getElementById('ai-persona').value = chat.settings.aiPersona;
+        document.getElementById('ai-avatar-preview').src = chat.settings.aiAvatar || defaultAvatar;
+        document.getElementById('my-nickname-input').value = chat.settings.myNickname || '我';
+        document.getElementById('ai-action-cooldown-input').value = chat.settings.actionCooldownMinutes || 10;
+        const select = document.getElementById('assign-group-select');
+        select.innerHTML = '<option value="">未分组</option>';
+        const groups = await db.qzoneGroups.toArray();
+        groups.forEach(group => {
+            const option = document.createElement('option');
+            option.value = group.id;
+            option.textContent = group.name;
+            if (chat.groupId === group.id) option.selected = true;
+            select.appendChild(option);
+        });
         const lyricsPos = chat.settings.lyricsPosition || { vertical: 'top', horizontal: 'center', offset: 10 };
         document.getElementById('lyrics-vertical-pos').value = lyricsPos.vertical;
         document.getElementById('lyrics-horizontal-pos').value = lyricsPos.horizontal;
         document.getElementById('lyrics-offset-input').value = lyricsPos.offset;
-        // ▲▲▲ 添加结束 ▲▲▲
+    }
+    
+    // --- 【【【核心修复从这里开始】】】 ---
+    const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
+    worldBookCheckboxesContainer.innerHTML = ''; // 清空旧列表
+
+    const [allCategories, allBooks] = await Promise.all([
+        db.worldBookCategories.toArray(),
+        db.worldBooks.toArray()
+    ]);
+
+    const linkedBookIds = new Set(chat.settings.linkedWorldBookIds || []);
+
+    if (allBooks.length === 0) {
+        worldBookCheckboxesContainer.innerHTML = '<p style="text-align:center; color: #8a8a8a;">还没有创建任何世界书</p>';
+    } else {
+        // 1. 先按分类渲染书籍
+        allCategories.forEach(cat => {
+            const booksInCategory = allBooks.filter(book => book.categoryId === cat.id);
+            if (booksInCategory.length > 0) {
+                const categoryHeader = document.createElement('h4');
+                categoryHeader.textContent = cat.name; // 分类名作为标题
+                categoryHeader.style.cssText = 'margin: 10px 0 5px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 3px;';
+                worldBookCheckboxesContainer.appendChild(categoryHeader);
+
+                booksInCategory.forEach(book => {
+                    const isChecked = linkedBookIds.has(book.id);
+                    const label = document.createElement('label');
+                    // 统一使用 book_ 前缀
+                    label.innerHTML = `<input type="checkbox" value="book_${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`;
+                    worldBookCheckboxesContainer.appendChild(label);
+                });
+            }
+        });
+
+        // 2. 渲染未分类的书籍
+        const uncategorizedBooks = allBooks.filter(book => !book.categoryId);
+        if (uncategorizedBooks.length > 0) {
+            const bookHeader = document.createElement('h4');
+            bookHeader.textContent = '未分类';
+            bookHeader.style.cssText = 'margin: 15px 0 5px; color: #555; border-bottom: 1px solid #eee; padding-bottom: 3px;';
+            worldBookCheckboxesContainer.appendChild(bookHeader);
+
+            uncategorizedBooks.forEach(book => {
+                const isChecked = linkedBookIds.has(book.id);
+                const label = document.createElement('label');
+                label.innerHTML = `<input type="checkbox" value="book_${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`;
+                worldBookCheckboxesContainer.appendChild(label);
+            });
         }
-        const worldBookCheckboxesContainer = document.getElementById('world-book-checkboxes-container');
-        worldBookCheckboxesContainer.innerHTML = '';
-        const linkedIds = chat.settings.linkedWorldBookIds || [];
-        if (state.worldBooks.length > 0) { state.worldBooks.forEach(book => { const isChecked = linkedIds.includes(book.id); const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${book.id}" ${isChecked ? 'checked' : ''}> ${book.name}`; worldBookCheckboxesContainer.appendChild(label); }); }
-        updateWorldBookSelectionDisplay();
-        const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
-        const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
-        const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
-        const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
-        const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
-        updateSettingsPreview();
-        document.getElementById('auto-memory-toggle').checked = chat.settings.enableAutoMemory || false;
-        document.getElementById('auto-memory-interval').value = chat.settings.autoMemoryInterval || 20;
-        document.getElementById('chat-settings-modal').classList.add('visible');
-    });
+    }
+    // --- 【【【核心修复到这里结束】】】 ---
+
+    updateWorldBookSelectionDisplay();
+    // --- （这部分与之前相同，保持不变） ---
+    const heartRateGroup = document.getElementById('ai-heart-rate-group'); heartRateGroup.style.display = isGroup ? 'none' : 'block'; if (!isGroup) { const heartRateToggle = document.getElementById('ai-heart-rate-toggle'); const heartRateOptions = document.getElementById('ai-heart-rate-options'); const heartRatePersonality = document.getElementById('ai-heart-rate-personality'); const heartRateBaseline = document.getElementById('ai-heart-rate-baseline'); const settings = chat.settings.aiHeartRate || {}; heartRateToggle.checked = settings.enabled || false; heartRateOptions.style.display = heartRateToggle.checked ? 'block' : 'none'; heartRatePersonality.value = settings.personality || 'custom'; heartRateBaseline.value = settings.baseline || 65; }
+    const linkMemoryToggle = document.getElementById('link-memory-toggle'); const linkedMemorySelection = document.getElementById('linked-memory-selection'); const linkedChatsContainer = document.getElementById('linked-chats-checkboxes-container'); const linkedMemoryIds = chat.settings.linkedMemoryChatIds || []; linkMemoryToggle.checked = linkedMemoryIds.length > 0; linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; linkedChatsContainer.innerHTML = ''; Object.values(state.chats).forEach(c => { if (c.id === chat.id) return; const isChecked = linkedMemoryIds.includes(c.id); const prefix = c.isGroup ? '[群聊]' : '[私聊]'; const label = document.createElement('label'); label.innerHTML = `<input type="checkbox" value="${c.id}" ${isChecked ? 'checked' : ''}> ${prefix} ${c.name}`; linkedChatsContainer.appendChild(label); }); function updateLinkedMemorySelectionDisplay() { const checkedBoxes = linkedChatsContainer.querySelectorAll('input:checked'); const displayText = linkedMemorySelection.querySelector('.selected-options-text'); if (checkedBoxes.length === 0) { displayText.textContent = '-- 点击选择 --'; } else if (checkedBoxes.length > 2) { displayText.textContent = `已选择 ${checkedBoxes.length} 项`; } else { displayText.textContent = Array.from(checkedBoxes).map(cb => cb.parentElement.textContent.trim()).join(', '); } } updateLinkedMemorySelectionDisplay(); linkMemoryToggle.addEventListener('change', () => { linkedMemorySelection.style.display = linkMemoryToggle.checked ? 'block' : 'none'; }); const linkedMemorySelectBox = linkedMemorySelection.querySelector('.select-box'); const newLinkedMemorySelectBox = linkedMemorySelectBox.cloneNode(true); linkedMemorySelectBox.parentNode.replaceChild(newLinkedMemorySelectBox, linkedMemorySelectBox); newLinkedMemorySelectBox.addEventListener('click', (e) => { e.stopPropagation(); linkedChatsContainer.classList.toggle('visible'); newLinkedMemorySelectBox.classList.toggle('expanded'); }); linkedChatsContainer.addEventListener('change', updateLinkedMemorySelectionDisplay);
+    const themeRadio = document.querySelector(`input[name="theme-select"][value="${chat.settings.theme || 'default'}"]`); if (themeRadio) themeRadio.checked = true;
+    const fontSizeSlider = document.getElementById('font-size-slider'); fontSizeSlider.value = chat.settings.fontSize || 13; document.getElementById('font-size-value').textContent = `${fontSizeSlider.value}px`;
+    const customCssInput = document.getElementById('custom-css-input'); customCssInput.value = chat.settings.customCss || '';
+    updateSettingsPreview();
+    document.getElementById('auto-memory-toggle').checked = chat.settings.enableAutoMemory || false;
+    document.getElementById('auto-memory-interval').value = chat.settings.autoMemoryInterval || 20;
+    document.getElementById('chat-settings-modal').classList.add('visible');
+});
 // ▲▲▲ 替换结束 ▲▲▲
             
 // ▼▼▼ 【请用这个新版本】替换旧的 renderGroupMemberSettings 函数 ▼▼▼
@@ -22286,28 +22722,43 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     if (!state.activeChatId) return;
     const chat = state.chats[state.activeChatId];
     
+    // --- （这部分与之前相同，保持不变） ---
     const newName = document.getElementById('chat-name-input').value.trim();
     if (!newName) return alert('备注名/群名不能为空！');
-
     if (!chat.isGroup && newName !== chat.name) {
         if (!chat.nameHistory) chat.nameHistory = [];
         if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
     }
     chat.name = newName;
-
     const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
     chat.settings.theme = selectedThemeRadio ? selectedThemeRadio.value : 'default';
     chat.settings.fontSize = parseInt(document.getElementById('font-size-slider').value);
     chat.settings.customCss = document.getElementById('custom-css-input').value.trim();
     chat.settings.myPersona = document.getElementById('my-persona').value;
     chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
-    const checkedBooks = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
-    chat.settings.linkedWorldBookIds = Array.from(checkedBooks).map(cb => cb.value);
 
+    // --- 【【【核心修改从这里开始】】】 ---
+    const checkedBookItems = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
+    const newLinkedBookIds = [];
+
+    checkedBookItems.forEach(cb => {
+        const value = cb.value;
+        // 我们只关心书籍的ID
+        if (value.startsWith('book_')) {
+            newLinkedBookIds.push(value.replace('book_', ''));
+        }
+    });
+    
+    // 只保存单本书的ID
+    chat.settings.linkedWorldBookIds = newLinkedBookIds;
+    // 不再需要保存分类ID，将其从设置中移除以保持数据干净
+    delete chat.settings.linkedWorldBookCategoryIds; 
+    // --- 【【【核心修改到这里结束】】】 ---
+
+    // --- （这部分与之前相同，保持不变） ---
     if (chat.isGroup) {
         chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
         chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
-        // 【【【核心修改：保存群聊冷却时间】】】
         chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
     } else {
         chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
@@ -22318,26 +22769,21 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
         chat.originalName = newOriginalName;
         chat.settings.aiPersona = document.getElementById('ai-persona').value;
         chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
-       chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
-        // 【【【核心修改：保存单聊冷却时间】】】
+        chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
         chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
         chat.settings.aiHeartRate = {
             enabled: document.getElementById('ai-heart-rate-toggle').checked,
             personality: document.getElementById('ai-heart-rate-personality').value,
             baseline: parseInt(document.getElementById('ai-heart-rate-baseline').value) || 65
         };
-        // ▼▼▼ 在这里添加新代码 ▼▼▼
-        // 保存歌词位置设置
         chat.settings.lyricsPosition = {
             vertical: document.getElementById('lyrics-vertical-pos').value,
             horizontal: document.getElementById('lyrics-horizontal-pos').value,
             offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
         };
-        // ▲▲▲ 添加结束 ▲▲▲
         const selectedGroupId = document.getElementById('assign-group-select').value;
         chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
     }
-
     chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
     chat.settings.linkedMemoryCount = parseInt(document.getElementById('linked-memory-count').value) || 10;
     const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
@@ -22350,19 +22796,11 @@ document.getElementById('save-chat-settings-btn').addEventListener('click', asyn
     chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
     chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
     await db.chats.put(chat);
-
-   // ▼▼▼ 【请用这个新版本】替换旧的 if (!chat.isGroup) { ... } 代码块 ▼▼▼
-if (!chat.isGroup) {
-    // 调用我们现有的函数同步【名字】
-    await syncCharacterNameInGroups(chat);
-    // 【【【核心修复】】】调用我们刚刚创建的新函数，同步【头像】
-    await syncCharacterAvatarInGroups(chat);
-}
-// ▲▲▲ 替换结束 ▲▲▲
-    // ▼▼▼ 在这里添加新代码 ▼▼▼
-    // 保存后立即应用到真实的歌词栏
+    if (!chat.isGroup) {
+        await syncCharacterNameInGroups(chat);
+        await syncCharacterAvatarInGroups(chat);
+    }
     applyLyricsBarPosition(chat);
-    // ▲▲▲ 添加结束 ▲▲▲
     applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
     document.getElementById('chat-settings-modal').classList.remove('visible');
     renderChatInterface(state.activeChatId);
@@ -23219,6 +23657,11 @@ document.getElementById('refine-memory-btn-header').addEventListener('click', ()
         summarizeExistingLongTermMemory(state.activeChatId);
     }
 });
+            // ▼▼▼ 【全新】API预设功能事件监听器 ▼▼▼
+            document.getElementById('api-preset-select').addEventListener('change', handlePresetSelectionChange);
+            document.getElementById('save-api-preset-btn').addEventListener('click', saveApiPreset);
+            document.getElementById('delete-api-preset-btn').addEventListener('click', deleteApiPreset);
+            // ▲▲▲ 新增结束 ▲▲▲
 // ▼▼▼ 在 init() 的事件监听器区域添加这行代码 ▼▼▼
 document.getElementById('add-world-book-entry-btn').addEventListener('click', () => {
     const container = document.getElementById('world-book-entries-container');
