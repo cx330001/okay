@@ -5784,37 +5784,58 @@ input:checked + .slider:before {
     font-weight: 500;
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
-/* ▼▼▼ 【全新】全局顶部歌词栏样式 ▼▼▼ */
+/* ▼▼▼ 【全新】歌词栏替换心率显示器样式 (最终版) ▼▼▼ */
+
+/* 1. 彻底隐藏旧的心率显示器，不再需要它了 */
+#ai-heart-rate-display {
+    display: none !important;
+}
+
+/* 2. 为歌词栏应用新的样式，使其外观和定位与原心率显示器完全一致 */
 #global-lyrics-bar {
+    /* 核心定位：绝对定位，水平居中，距离头部顶部10px */
     position: absolute;
-    /* 核心定位：将它“钉”在屏幕顶部，并留出安全距离 */
-    top: calc(15px + env(safe-area-inset-top)); 
     left: 50%;
     transform: translateX(-50%);
-    z-index: 199; /* 层级要足够高，能覆盖所有屏幕内容，但低于弹窗 */
-    
-    /* 外观样式 */
-    background-color: rgba(0, 0, 0, 0.3);
-    color: white;
-    font-size: 14px;
+    top: 10px;
+    z-index: 20;
+
+    /* 外观样式：参考心率显示器，使其融入头部设计 */
+    display: flex;
+    align-items: center;
+    font-size: 13px;
     font-weight: 500;
-    padding: 6px 15px;
+    color: var(--text-secondary);
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 4px 12px;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    text-shadow: 0 1px 2px black;
     
-    /* 交互与动画 */
-    pointer-events: none; /* 关键：让鼠标/触摸可以“穿透”它，不影响下方的按钮 */
+    /* 动画效果：保留平滑的淡入淡出 */
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.4s ease, visibility 0.4s ease;
+
+    /* 附加样式：防止长歌词撑爆布局 */
+    pointer-events: none; /* 让歌词本身不可点击，以免遮挡下方元素 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 65%; /* 限制最大宽度 */
 }
 
+/* 3. 当JS添加.visible类时，显示歌词栏 */
 #global-lyrics-bar.visible {
     opacity: 1;
     visibility: visible;
 }
-/* ▲▲▲ 新增CSS结束 ▲▲▲ */
+
+/* 4. 适配夜间模式 */
+#phone-screen.dark-mode #global-lyrics-bar {
+    color: #a0a0a0;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ▲▲▲ 新样式粘贴结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -5829,9 +5850,7 @@ input:checked + .slider:before {
                 </div>
             </div>
             <div id="notification-bar"><img id="notification-avatar" src=""><div id="notification-content"><div class="name"></div><div class="message"></div></div></div>
-<!-- ▼▼▼ 【全新】请将这个 div 粘贴到 id="notification-bar" 的后面 ▼▼▼ -->
-<div id="global-lyrics-bar"></div>
-<!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->            
+        
             <div id="home-screen" class="screen active">
                 <div id="clock-container"><div id="main-time">12:00</div><div id="main-date">星期一, 1月1日</div></div>
                                                 <!-- ▼▼▼ 用这整块代码替换你原来的 id="app-grid" ▼▼▼ -->
@@ -6193,7 +6212,7 @@ input:checked + .slider:before {
     <div class="header">
         <div class="default-controls">
     <span class="back-btn" id="back-to-list-btn">‹</span>
-    
+    <div id="global-lyrics-bar"></div>    
     <div id="ai-heart-rate-display" style="display: none;">
         <span class="heart-icon">❤️</span>
         <span class="heart-rate-value">85</span>
