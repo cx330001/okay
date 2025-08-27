@@ -10097,8 +10097,8 @@ function parseAiResponse(content) {
  * 【全新】根据当前时间获取一天中的问候语
  * @returns {string} - 返回如 "凌晨", "早上", "下午", "晚上" 等字符串
  */
-function getTimeOfDayGreeting() {
-    const hour = new Date().getHours();
+function getTimeOfDayGreeting(date = new Date()) { // 允许传入一个日期对象
+    const hour = date.getHours(); // 使用传入的日期对象来获取小时
     if (hour >= 0 && hour < 5) {
         return "凌晨";
     } else if (hour >= 5 && hour < 9) {
@@ -11246,9 +11246,19 @@ function createMessageElement(msg, chat) {
             headerText = `送给大家的礼物`;
         }
     } else {
-        // 【核心新增】单聊中，根据消息角色判断标题
-        headerText = isUser ? `送给 ${chat.name} 的礼物` : `送给你的礼物`;
-    }
+            // 【【【核心修复：为单聊添加更智能的判断逻辑】】】
+            if (isUser) {
+                // 如果是用户发送的礼物，接收方是AI，显示AI的备注名
+                headerText = `送给 ${chat.name} 的礼物`;
+            } else {
+                // 如果是AI发送的礼物，接收方是用户
+                // 我们就从当前聊天设置中，获取用户为自己设置的专属昵称
+                const recipientDisplayName = chat.settings.myNickname || '你';
+                headerText = `送给 ${recipientDisplayName} 的礼物`;
+            }
+        }
+        // ▲▲▲ 替换结束 ▲▲▲
+    
 
     // 截取最多3个商品作为预览
     const previewItems = msg.items.slice(0, 3);
@@ -11435,9 +11445,10 @@ async function openChat(chatId) {
     const shoppingBtn = document.getElementById('open-shopping-btn');
     const gomokuBtn = document.getElementById('gomoku-btn');
     if (shoppingBtn && gomokuBtn) {
-        const displayStyle = isGroup ? 'none' : 'flex'; // 如果是群聊，则隐藏
-        shoppingBtn.style.display = displayStyle;
-        gomokuBtn.style.display = displayStyle;
+        // 购物按钮在所有聊天中都显示
+        shoppingBtn.style.display = 'flex';
+        // 五子棋按钮只在单聊中显示
+        gomokuBtn.style.display = isGroup ? 'none' : 'flex';
     }
     // --- 修改结束 ---
 
@@ -11717,9 +11728,16 @@ ${contextSummary || "（无有效对话记录）"}
             return; 
         }
 
+// --- 核心修改：强制使用中国标准时间 (UTC+8) ---
         const now = new Date();
-        const currentTime = now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' });
-        const timeOfDayGreeting = getTimeOfDayGreeting();         
+        // 1. 获取当前时间的UTC毫秒数，并加上8小时的偏移量
+        const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 8));
+        
+        // 2. 使用修正后的中国时间来格式化字符串
+        const currentTime = chinaTime.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'full', timeStyle: 'short' });
+
+        // 3. 使用修正后的中国时间来获取问候语
+        const timeOfDayGreeting = getTimeOfDayGreeting(chinaTime); // 将修正后的时间传入      
         let systemPrompt, messagesPayload;
 
         // 【核心新增】获取并格式化五子棋状态
@@ -11864,6 +11882,18 @@ ${formattedHistory}
         console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
 
         if (chat.isGroup) {
+    // ★★★★★ 新增代码开始 ★★★★★
+    // 1. 获取所有商品信息，为AI提供上下文
+    const allProducts = await db.shoppingProducts.toArray();
+    let shoppingContext = "";
+    if (allProducts.length > 0) {
+        shoppingContext = "\n\n# 你的商店 (你可以为群成员购买礼物):\n";
+        allProducts.forEach(product => {
+            // 为AI提供清晰的商品列表，包含ID、名称和价格
+            shoppingContext += `- (ID: ${product.id}) 商品: ${product.name}, 价格: ¥${product.price.toFixed(2)}\n`;
+        });
+    }
+    // ★★★★★ 新增代码结束 ★★★★★
             let membersWithContacts = chat.members.map(member => {
                 const memberChat = state.chats[member.id];
                 let contactsText = "无共同好友";
@@ -11909,14 +11939,6 @@ ${formattedHistory}
             systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
 # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
 ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
-# 【【【全新】文本格式化指南】】】
-在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-- \`**粗体文本**\` 会显示为 **粗体文本**。
-- \`*斜体文本*\` 会显示为 *斜体文本*。
-- \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-- \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-- \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
 # 核心规则
 1.  **【【【身份与称呼指南】】】**: 
     - 用户的身份是【${myNickname}】，用户的【本名】是【${myOriginalName}】。当你要发专属红包给用户时，【必须】在 'receiver' 字段中使用这个本名。
@@ -11944,6 +11966,7 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 -   你的所有评论和反应都【必须】围绕【用户的行为】展开，例如：“这首歌不错！”、“哦哦，你喜欢这首啊”，或者“怎么暂停了？”。
 -   你也可以根据对话内容或群聊氛围，主动使用 "change_music" 指令来切换到播放列表中的另一首歌。
 -   【【【绝对禁止】】】将用户切换歌曲的行为，错误地归因于群内的任何其他AI成员。不要说“XX切歌了”或“怎么换这首了？”这类话。
+
 ## 你可以使用的操作指令 (JSON数组中的元素):
 -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
 -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
@@ -11954,6 +11977,7 @@ ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.ma
 -   **发起外卖代付**: '{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
 -   **【新】发起群视频**: '{"type": "group_call_request", "name": "你的角色本名"}'
 -   **【新】回应群视频**: '{"type": "group_call_response", "name": "你的角色本名", "decision": "join" or "decline"}'
+-   **【【【全新】】】送出礼物**: '{"type": "gift", "name": "你的角色本名", "productId": 123, "quantity": 1, "recipients": ["收礼人A的本名", "收礼人B的本名"]}' (productId 必须从下方的商店列表中选择，一次只能送一种, recipients是收礼人本名数组)
 -   **拍一拍用户**: '{"type": "pat_user", "name": "你的角色本名", "suffix": "(可选)你想加的后缀"}'
 -   **发拼手气红包**: '{"type": "red_packet", "packetType": "lucky", "name": "你的角色本名", "amount": 8.88, "count": 5, "greeting": "祝大家天天开心！"}'
 -   **发专属红包**: '{"type": "red_packet", "packetType": "direct", "name": "你的角色本名", "amount": 5.20, "receiver": "接收者角色本名", "greeting": "给你的~"}'
@@ -11983,7 +12007,7 @@ ${musicContext}
 ${sharedContext} 
 ${linkedMemoryContext}
 ${groupAvatarLibraryContext} 
-
+${shoppingContext} 
 ${announcementContext}
 # 群成员列表、人设及社交背景 (至关重要！)
 你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
@@ -12049,6 +12073,26 @@ ${membersWithContacts}
                     }
                     content = instructionText;
                 }
+                // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+                else if (msg.type === 'gift') {
+                    const sender = msg.role === 'user' ? myNickname : getDisplayNameInGroup(chat, msg.senderName);
+                    const itemsSummary = msg.items.map(item => `${item.name} x${item.quantity}`).join('、 ');
+                    
+                    let recipientSummary = '';
+                    if (msg.recipients && msg.recipients.length > 0) {
+                        const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName)).join('、 ');
+                        recipientSummary = `送给了 ${recipientDisplayNames}`;
+                    } else {
+                        recipientSummary = "送给了大家一份礼物";
+                    }
+                    
+                    content = `[系统提示：${sender} ${recipientSummary}，礼物是：${itemsSummary}]`;
+                    // 【【【核心修复】】】
+                    // 在处理完礼物消息后，必须立刻返回，阻止代码继续往下执行错误的逻辑
+                    return { role: 'user', content: content };
+                }
+                // ▲▲▲ 粘贴结束 ▲▲▲
+
                 else if (msg.type === 'poll') {
                     const whoVoted = Object.values(msg.votes || {}).flat().join(', ') || '还没有人';
                     content = `[系统提示：${msg.senderName} 发起了一个投票 (时间戳: ${msg.timestamp})，问题是：“${msg.question}”，选项有：[${msg.options.join(', ')}]。目前投票的人有：${whoVoted}。你可以使用 'vote' 指令参与投票。]`;
@@ -12391,7 +12435,25 @@ ${linkedMemoryContext}
                     if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户描述的照片，内容是：'${msg.content}']` };
                     if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
                     if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
+
                     if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
+                    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+                    else if (msg.type === 'gift') {
+                        const sender = msg.role === 'user' ? myNickname : (msg.senderName || chat.name);
+                        const itemsSummary = msg.items.map(item => `${item.name} x${item.quantity}`).join('、 ');
+                        
+                        let recipientSummary = '';
+                        if (msg.role === 'user') {
+                            recipientSummary = `送给了 ${chat.name}`;
+                        } else {
+                            recipientSummary = `送给了你`;
+                        }
+
+                        const content = `[系统提示：${sender} ${recipientSummary}，礼物是：${itemsSummary}] (Timestamp: ${msg.timestamp})`;
+                        // 【【【核心修复】】】
+                        return { role: 'user', content: content };
+                    }
+                    // ▲▲▲ 粘贴结束 ▲▲▲
                     if (Array.isArray(msg.content) && msg.content?.type === 'image_url') {
                         const prefix = `(Timestamp: ${msg.timestamp}) `;
                         return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
@@ -12992,34 +13054,37 @@ ${contextSummaryForApproval}
                         isClosed: false,
                     };
                     break;
-// ▼▼▼ 在 triggerAiResponse 函数的 switch 语句内，用这个【已修复】的版本替换旧的 case 'gift' ▼▼▼
-case 'gift': {
-    // 【核心修复】检查新的、简化的指令格式是否有效
-    if (msgData.productId && msgData.quantity > 0) { // <-- 错误已从 action.productId 修正为 msgData.productId
-        const productId = parseInt(msgData.productId);
-        const product = await db.shoppingProducts.get(productId);
-
-        // 如果商品存在于数据库中
-        if (product) {
-            // 构建与用户发送时完全一致的消息结构
-            aiMessage = {
-                ...baseMessage,
-                type: 'gift',
-                items: [{
-                    name: product.name,
-                    price: product.price,
-                    imageUrl: product.imageUrl,
-                    quantity: parseInt(msgData.quantity) // <-- 错误已从 action.quantity 修正为 msgData.quantity
-                }],
-                total: product.price * parseInt(msgData.quantity) // <-- 错误已从 action.quantity 修正为 msgData.quantity
-            };
-        } else {
-            console.warn(`AI 尝试赠送一个不存在的商品 (ID: ${productId})`);
-        }
-    }
-    break;
-}
-// ▲▲▲ 替换结束 ▲▲▲
+                // ▼▼▼ 从这里开始替换 ▼▼▼
+                case 'gift': {
+                    // 【核心修复】将所有 'action' 变量名修正为正确的 'msgData'
+                    const productId = parseInt(msgData.productId);
+                    const quantity = parseInt(msgData.quantity) || 1;
+                
+                    if (!isNaN(productId) && quantity > 0) {
+                        // 使用 await 确保能正确查找到商品
+                        const product = await db.shoppingProducts.get(productId);
+                
+                        if (product) {
+                            aiMessage = {
+                                ...baseMessage,
+                                type: 'gift',
+                                items: [{
+                                    name: product.name,
+                                    price: product.price,
+                                    imageUrl: product.imageUrl,
+                                    quantity: quantity
+                                }],
+                                total: product.price * quantity,
+                                // 同时保留我们上次修复的 recipients 逻辑
+                                recipients: msgData.recipients || null 
+                            };
+                        } else {
+                            console.warn(`AI 尝试赠送一个不存在的商品 (ID: ${productId})`);
+                        }
+                    }
+                    break;
+                }
+                // ▲▲▲ 替换结束 ▲▲▲
 // ▲▲▲ 将这个 case 添加到其他 case (如 'transfer', 'waimai_request' 等) 的旁边 ▲▲▲
                 case 'vote':
                     const pollToVote = chat.history.find(m => m.timestamp === msgData.poll_timestamp);
@@ -24962,6 +25027,7 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
