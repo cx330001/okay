@@ -12662,6 +12662,10 @@ ${linkedMemoryContext}
     
                 const myNickname = chat.settings.myNickname || '我';
                 systemPrompt = `
+# 【【【当前模式：在线聊天模式 (Online Chat Mode)】】】
+# 你的【【【最高优先级铁律】】】
+你的回复【必须】是一个JSON数组，但你的【核心任务】是扮演角色进行自然的、生活化的聊天。你应该发送【多条、简短的】消息，模拟真人的打字习惯。
+
 # 你的任务
 你现在扮演一个名为"${chat.originalName}"的角色。
 
@@ -25495,7 +25499,6 @@ document.getElementById('select-all-recipients').addEventListener('change', func
 <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
