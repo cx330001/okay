@@ -6065,7 +6065,22 @@
         
         /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
 
-
+        /* ▼▼▼ 【全新美化版】重新生成回复按钮样式 ▼▼▼ */
+        .control-btn.regenerate-btn {
+            /* 核心修改：将背景色改为与其他功能按钮一致的半透明灰色 */
+            background-color: rgba(255, 255, 255, 0.2);
+            background-size: 55%; /* 图标大小保持不变 */
+            /* SVG图标保持不变，依然是我们的刷新图标 */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/></svg>');
+        }
+        /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+        /* ▼▼▼ 【全新】推进剧情按钮样式 ▼▼▼ */
+        .control-btn.propel-btn {
+            background-color: rgba(255, 255, 255, 0.2);
+            background-size: 55%;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>');
+        }
+        /* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -6579,6 +6594,22 @@
                         </svg>
                     </button>
                     <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
+                        <!-- ▼▼▼ 在这里粘贴新按钮 ▼▼▼ -->
+                        <button id="regenerate-btn" class="chat-action-icon-btn action-button" title="重新生成回复" style="display: flex;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 11A8.1 8.1 0 0 0 4.5 9M4 5v4h4"></path>
+                                <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"></path>
+                            </svg>
+                        </button>
+                        <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
+<!-- ▼▼▼ 在这里粘贴新按钮 ▼▼▼ -->
+                        <button id="propel-btn" class="chat-action-icon-btn action-button" title="推进剧情" style="display: flex;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 19 22 12 13 5 13 19"></polygon>
+                                <polygon points="2 19 11 12 2 5 2 19"></polygon>
+                            </svg>
+                        </button>
+                        <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
                     <button id="show-announcement-board-btn" class="chat-action-icon-btn action-button" title="群公告板" style="display: none;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M21.782 6.132a1 1 0 0 0-1.053-.08l-4.729 2.489a1 1 0 0 0-.5.88v4.158a1 1 0 0 0 .5.88l4.729 2.489a1 1 0 0 0 1.053-.08a1 1 0 0 0 .499-.921V7.052a1 1 0 0 0-.499-.92zm-6 3.207L11 7.05v9.9l4.782-2.281V9.339zM10 6H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6V6z" />
@@ -6810,7 +6841,11 @@
             <!-- 4. 【升级】底部控制栏，现在包含一个“加入”按钮 -->
             <div class="video-call-controls">
                 <button id="user-speak-btn" class="control-btn speak-btn"></button>
+
                 <button id="hang-up-btn" class="control-btn hangup-btn"></button>
+                <!-- ▼▼▼ 在这里粘贴新按钮 ▼▼▼ -->
+                <button id="regenerate-call-btn" class="control-btn regenerate-btn"></button>
+                <!-- ▲▲▲ 新增HTML结束 ▲▲▲ -->
                 <!-- 这个按钮默认隐藏，只在用户“旁观”时显示 -->
                 <button id="join-call-btn" class="control-btn join-btn" style="display: none;"></button>
             </div>
@@ -22359,6 +22394,109 @@
             wrapper.appendChild(bubble);
             return wrapper;
         }
+        // ▼▼▼ 【全新】重新生成回复功能核心函数 ▼▼▼
+        
+        /**
+         * 【总入口】处理聊天界面的“重新生成”请求
+         */
+        async function handleRegenerateResponse() {
+            const chat = state.chats[state.activeChatId];
+            if (!chat) return;
+        
+            // 1. 找到最后一条用户消息的位置
+            const lastUserMsgIndex = chat.history.findLastIndex(msg => msg.role === 'user' && !msg.isHidden);
+        
+            if (lastUserMsgIndex === -1) {
+                alert("没有可供重新生成回复的用户消息。");
+                return;
+            }
+        
+            // 2. 检查AI是否已经对最后一条用户消息做出了回应
+            const lastAiMsgIndex = chat.history.findLastIndex(msg => msg.role === 'assistant');
+            if (lastAiMsgIndex < lastUserMsgIndex) {
+                alert("AI 尚未对您的最后一条消息做出回应，无法重新生成。");
+                return;
+            }
+        
+            // 3. 删除最后一条用户消息之后的所有内容（即AI的上一轮完整回复）
+            chat.history.splice(lastUserMsgIndex + 1);
+        
+            // 4. 保存更改并刷新UI
+            await db.chats.put(chat);
+            await renderChatInterface(state.activeChatId);
+            
+            // 5. 再次触发AI响应
+            triggerAiResponse();
+        }
+        
+        /**
+         * 【总入口】处理通话界面的“重新生成”请求
+         */
+        async function handleRegenerateCallResponse() {
+            if (!videoCallState.isActive) return;
+        
+            // 1. 找到通话历史中最后一条用户发言的位置
+            const lastUserSpeechIndex = videoCallState.callHistory.findLastIndex(msg => msg.role === 'user');
+        
+            if (lastUserSpeechIndex === -1) {
+                alert("通话中还没有你的发言，无法重新生成回应。");
+                return;
+            }
+        
+            // 2. 删除用户发言之后的所有AI回应
+            videoCallState.callHistory.splice(lastUserSpeechIndex + 1);
+        
+            // 3. 重新渲染通话界面，移除被删除的气泡
+            const callFeed = document.getElementById('video-call-main');
+            callFeed.innerHTML = ''; // 清空
+            videoCallState.callHistory.forEach(msg => {
+                // 复用创建气泡的逻辑
+                const bubble = document.createElement('div');
+                bubble.className = `call-message-bubble ${msg.role}-speech`;
+                bubble.dataset.timestamp = msg.timestamp;
+                if (msg.role === 'user') {
+                    bubble.textContent = msg.content;
+                } else {
+                     bubble.innerHTML = msg.content;
+                }
+                addLongPressListener(bubble, () => showCallMessageActions(msg.timestamp));
+                callFeed.appendChild(bubble);
+            });
+            callFeed.scrollTop = callFeed.scrollHeight;
+        
+            // 4. 再次触发AI在通话中的行动
+            triggerAiInCallAction(null); // 传入null表示不是用户的新输入，而是基于现有历史重试
+        }
+        
+        // ▲▲▲ 新增函数粘贴结束 ▲▲▲
+        // ▼▼▼ 【全新】推进剧情功能核心函数 ▼▼▼
+        
+        /**
+         * 【总入口】处理聊天界面的“推进”请求
+         */
+        async function handlePropelAction() {
+            const chat = state.chats[state.activeChatId];
+            if (!chat) return;
+        
+            // 1. 创建一条对用户隐藏，但对AI可见的特殊系统指令
+            const propelInstruction = {
+                role: 'system',
+                content: `[系统指令：用户按下了“推进”按钮，现在轮到你来主导。请根据当前情景、你的性格和你们的关系，主动做一件事或说一句话来推动故事发展。你可以描述一个环境变化、发起一个动作、揭示一个秘密或开启一个新话题。请不要询问用户接下来该做什么。]`,
+                timestamp: Date.now(),
+                isHidden: true // 这个标记确保用户在界面上看不到这条指令
+            };
+        
+            // 2. 将这条指令添加到历史记录中
+            chat.history.push(propelInstruction);
+        
+            // 3. 保存更新
+            await db.chats.put(chat);
+            
+            // 4. 像平常一样触发AI响应，AI会读取到我们刚刚添加的隐藏指令
+            triggerAiResponse();
+        }
+        
+
                // ===================================================================
                 // 4. 初始化函数 init()
                 // ===================================================================
@@ -25864,7 +26002,16 @@
             });
         });
         // ▲▲▲ 新增事件绑定结束 ▲▲▲
-        
+        // ▼▼▼ 【全新】为重新生成按钮绑定事件 ▼▼▼
+        document.getElementById('regenerate-btn').addEventListener('click', handleRegenerateResponse);
+        document.getElementById('regenerate-call-btn').addEventListener('click', handleRegenerateCallResponse);
+        // ▲▲▲ 新增事件绑定结束 ▲▲▲  
+        // ▼▼▼ 【全新】为推进剧情按钮绑定事件 ▼▼▼
+        document.getElementById('propel-btn').addEventListener('click', handlePropelAction);
+        // 下面这行代码已被安全地注释掉，因为它对应的HTML按钮不存在
+        // document.getElementById('propel-call-btn').addEventListener('click', handlePropelCallAction);
+        // ▲▲▲ 新增事件绑定结束 ▲▲▲
+      
                     showScreen('home-screen');
                 }
         
@@ -26029,7 +26176,6 @@
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
