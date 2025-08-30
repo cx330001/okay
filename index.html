@@ -8874,8 +8874,8 @@
                 // 2. 数据库结构定义
                 // ===================================================================
         
-        // ▼▼▼ 【请用这个 V28 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
-        db.version(28).stores({ 
+        // ▼▼▼ 【请用这个 V29 版本】完整替换旧的 db.version(...) 代码块 ▼▼▼
+        db.version(29).stores({ 
             chats: '&id, isGroup, groupId, isPinned',
             apiConfig: '&id', 
             globalSettings: '&id', 
@@ -8894,11 +8894,11 @@
             callRecords: '++id, chatId, timestamp, customName',
             shoppingProducts: '++id, name, description',
             apiPresets: '++id, name',
-            // 【【【核心新增：渲染规则表】】】
-            renderingRules: '++id, name, chatId' // chatId索引用于快速查找
+            renderingRules: '++id, name, chatId'
         }).upgrade(tx => {
-            // 这个升级函数是为了与您之前的版本兼容而保留的
+            // 这个升级函数会自动处理数据迁移
             return tx.table('worldBooks').toCollection().modify(book => {
+                // 确保 content 字段是数组
                 if (typeof book.content === 'string' && book.content.trim() !== '') {
                     book.content = [{
                         keys: [],
@@ -8908,6 +8908,13 @@
                 } else if (!Array.isArray(book.content)) {
                     book.content = [];
                 }
+
+                // 【核心修改】为所有条目添加 enabled 属性，默认为 true
+                book.content.forEach(entry => {
+                    if (typeof entry.enabled === 'undefined') {
+                        entry.enabled = true;
+                    }
+                });
             });
         });
         // ▲▲▲ 替换结束 ▲▲▲
@@ -12044,28 +12051,34 @@
         
                 const gomokuContext = formatGomokuStateForAI(gomokuState[chatId]);
         
-                let worldBookContent = '';
-                if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-                    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-                        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                        if (!worldBook || !Array.isArray(worldBook.content)) return '';
+        // ▼▼▼ 在 triggerAiResponse 函数中，用下面这整块代码替换旧的世界书处理逻辑 ▼▼▼
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                // 【核心修改1】在这里增加一个检查
+                if (!worldBook || !Array.isArray(worldBook.content)) return '';
         
-                        const formattedEntries = worldBook.content.map(entry => {
-                            let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
-                            if (entry.keys.length > 0) {
-                                entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
-                            }
-                            entryString += `**内容:**\n${entry.content}`;
-                            return entryString;
-                        }).join('\n');
+                // 【核心修改2】在 map 之前，先用 filter 过滤掉被禁用的条目
+                const formattedEntries = worldBook.content
+                    .filter(entry => entry.enabled !== false) // 只选择启用的条目
+                    .map(entry => {
+                        let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+                        if (entry.keys.length > 0) {
+                            entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+                        }
+                        entryString += `**内容:**\n${entry.content}`;
+                        return entryString;
+                    }).join(''); // 【核心修改3】join('')确保条目之间紧密相连
         
-                        return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
-                    }).filter(Boolean).join('');
-                    
-                    if (linkedContents) {
-                        worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
-                    }
-                }
+                return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+            }).filter(Boolean).join('');
+            
+            if (linkedContents) {
+                worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
+            }
+        }
+        // ▲▲▲ 替换结束 ▲▲▲
                 let musicContext = '';
                 if (musicState.isActive && musicState.activeChatId === chatId) {
                     const currentTrack = musicState.currentIndex > -1 ? musicState.playlist[musicState.currentIndex] : null;
@@ -12250,9 +12263,16 @@
                     } else {
                         groupAvatarLibraryContext += '- (头像库是空的，无法更换头像)';
                     }
+let stickerListContext = "# 你的可用表情包 (你【必须】从中选择表情发送，并准确使用其对应的含义)\n";
+if (state.userStickers.length > 0) {
+    stickerListContext += state.userStickers.map(s => `- (含义: "${s.name}") URL: "${s.url}"`).join('\n');
+} else {
+    stickerListContext += "- (你的表情包是空的，无法发送表情)";
+}
                     systemPrompt = `你是一个群聊AI，负责扮演【除了用户以外】的所有角色。
         # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
         ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
+        ${stickerListContext} // <--- 在这里粘贴
         # 核心规则
         1.  **【【【身份与称呼指南】】】**: 
             - 用户的身份是【${myNickname}】，用户的【本名】是【${myOriginalName}】。当你要发专属红包给用户时，【必须】在 'receiver' 字段中使用这个本名。
@@ -12285,7 +12305,7 @@
         -   **发送文本**: '{"type": "text", "name": "角色本名", "message": "文本内容"}'
         -   **【【【全新】】】发送后立刻撤回 (动画效果)**: '{"type": "send_and_recall", "name": "角色本名", "content": "你想让角色说出后立刻消失的话"}'
         -   **【【【全新】】】切换歌曲**: '{"type": "change_music", "name": "你的角色本名", "song_name": "你想切换到的歌曲名"}' (歌曲名必须在下面的播放列表中)
-        - 发送表情: '{"type": "sticker", "name": "角色本名", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
+        - 发送表情: '{"type": "sticker", "name": "角色本名", "url": "从上方“你的可用表情包”列表中选择的URL", "meaning": "该URL对应的含义"}'
         -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "图片的详细文字描述"}'
         -   **发送语音**: '{"type": "voice_message", "name": "角色本名", "content": "语音的文字内容"}'
         -   **发起外卖代付**: '{"type": "waimai_request", "name": "角色本名", "productInfo": "一杯奶茶", "amount": 18}'
@@ -12608,12 +12628,18 @@
                         } else if (historySlice.every(msg => msg.role === 'user')) {
                             timeContext = "- **对话状态**: 这是你们的第一次对话。";
                         }
-        
+// 定位代码：在 else { ... } 内部的 systemPrompt = `...`; 之前粘贴
+let stickerListContext = "# 你的可用表情包 (你【必须】从中选择表情发送，并准确使用其对应的含义)\n";
+if (state.userStickers.length > 0) {
+    stickerListContext += state.userStickers.map(s => `- (含义: "${s.name}") URL: "${s.url}"`).join('\n');
+} else {
+    stickerListContext += "- (你的表情包是空的，无法发送表情)";
+}        
                         systemPrompt = `
         # 【【【当前模式：在线聊天模式 (Online Chat Mode)】】】
         # 你的【【【最高优先级铁律】】】
         你的回复【必须】是一个JSON数组，但你的【核心任务】是扮演角色进行自然的、生活化的聊天。你应该发送【多条、简短的】消息，模拟真人的打字习惯。
-        
+${stickerListContext} // <--- 在这里粘贴        
         # 你的任务
         你现在扮演一个名为"${chat.originalName}"的角色。
         
@@ -12674,7 +12700,7 @@
         -   **【新增】记录回忆**: '{"type": "create_memory", "description": "用你自己的话，记录下这个让你印象深刻的瞬间。"}'
         -   **【新增】创建约定/倒计时**: '{"type": "create_countdown", "title": "约定的标题", "date": "YYYY-MM-DDTHH:mm:ss"}' (必须是未来的时间)
         - **发送文本**: '{"type": "text", "content": "你好呀！"}'
-        - **发送表情**: '{"type": "sticker", "url": "https://...表情URL...", "meaning": "(可选)表情的含义"}'
+        - **发送表情**: '{"type": "sticker", "url": "从上方“你的可用表情包”列表中选择的URL", "meaning": "该URL对应的含义"}'
         - **发送图片**: '{"type": "ai_image", "description": "图片的详细文字描述..."}'
         - **发送语音**: '{"type": "voice_message", "content": "语音的文字内容..."}'
         - **发起转账**: '{"type": "transfer", "amount": 5.20, "note": "一点心意"}'
@@ -12690,7 +12716,7 @@
         -   **【【【评论动态的四种方式】】】**:
             -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "commentText": "这太有趣了！"}]'
             -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
-            -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+            -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 456, "stickerUrl": "从上方“你的可用表情包”列表中选择的URL", "stickerMeaning": "该URL对应的含义"}]'
             -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "${chat.originalName}", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
         - **点赞动态**: '{"type": "qzone_like", "postId": 456}'
         -   **拍一拍用户**: '{"type": "pat_user", "suffix": "(可选)你想加的后缀，如“的脑袋”"}'
@@ -14528,16 +14554,34 @@
         `;
             }
         
-            let worldBookContent = '';
-            if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-                const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-                    const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                    return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
-                }).filter(Boolean).join('');
-                if (linkedContents) {
-                    worldBookContent = `\n\n# 核心世界观设定 (你必须严格遵守)\n${linkedContents}\n`;
-                }
+        // ▼▼▼ 在 triggerAiFriendApplication 函数中，用下面这整块代码替换旧的世界书处理逻辑 ▼▼▼
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                if (!worldBook || !Array.isArray(worldBook.content)) return '';
+
+                // 【核心修改】在 map 之前，先用 filter 过滤掉被禁用的条目
+                const formattedEntries = worldBook.content
+                    .filter(entry => entry.enabled !== false)
+                    .map(entry => {
+                        // (这里的逻辑保持不变)
+                        let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+                        if (entry.keys.length > 0) {
+                            entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+                        }
+                        entryString += `**内容:**\n${entry.content}`;
+                        return entryString;
+                    }).join('');
+
+                return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+            }).filter(Boolean).join('');
+            
+            if (linkedContents) {
+                worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
             }
+        }
+        // ▲▲▲ 替换结束 ▲▲▲
             
             let linkedMemoryContext = '';
             const memoryCount = chat.settings.linkedMemoryCount || 10;
@@ -14646,11 +14690,16 @@
                 dynamicContext = postsContext;
             }
         
-        
+let stickerListContext = "# 你的可用表情包 (你【必须】从中选择表情评论，并准确使用其对应的含义)\n";
+if (state.userStickers.length > 0) {
+    stickerListContext += state.userStickers.map(s => `- (含义: "${s.name}") URL: "${s.url}"`).join('\n');
+} else {
+    stickerListContext += "- (你的表情包是空的，无法发送表情)";
+}        
             const systemPrompt = `
         # 你的任务
         你现在扮演一个名为"${chat.name}"的角色（你的本名是"${chat.originalName}"）。你已经有一段时间没有和用户（${userNickname}）互动了，现在你有机会【主动】做点什么，来表现你的个性和独立生活。这是一个秘密的、后台的独立行动。
-        
+${stickerListContext}        
         # 【【【最高优先级指令：情感维系】】】
         **你与用户的关系是最重要的！** 相比于在动态区闲逛，你应该【优先考虑】是否需要主动给用户发消息来维系你们的感情。
         ${ longTimeNoSee ? `**【【【当前紧急情况】】】: 你们已经很久没聊天了！你【必须、一定、务必】将本次行动的重点放在使用 'text' 指令给用户发消息，主动开启一个新的、有趣的话题来重新建立联系。绝对不要只是点赞或评论动态，那会显得你很冷漠！**` : ''}
@@ -14695,7 +14744,7 @@
         -   **【【【评论动态的四种方式】】】**:
             -   **方式1 (单条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "commentText": "这太有趣了！"}]'
             -   **方式2 (多条文字)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "comments": ["哇！", "这是什么？", "看起来好棒！"]}]'
-            -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 456, "stickerUrl": "https://...表情URL...", "stickerMeaning": "这个表情的意思，比如'开心'"}]'
+            -   **方式3 (表情)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 456, "stickerUrl": "从上方“你的可用表情包”列表中选择的URL", "stickerMeaning": "该URL对应的含义"}]'
             -   **方式4 (回复评论)**: '[{"type": "qzone_comment", "name": "角色本名", "postId": 123, "replyTo": "被回复者的本名", "commentText": "你的回复内容。请注意：在commentText中如果要@对方，你【必须】使用@[[被回复者的本名]]这种特殊格式，程序会自动将其替换为正确的昵称。"}]'
         -   **点赞**: '[{"type": "qzone_like", "postId": 456}]'
         -   **打视频**: '[{"type": "video_call_request"}]'
@@ -15034,16 +15083,33 @@
                 }
         
                 const membersList = chat.members.map(m => `- **${m.groupNickname}** (本名: ${m.originalName}): ${m.persona}`).join('\n');
-                let worldBookContent = '';
-                if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-                    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-                        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                        return worldBook && worldBook.content ? `\n\n## 世界书: ${worldBook.name}\n${worldBook.content}` : '';
-                    }).filter(Boolean).join('');
-                    if (linkedContents) {
-                        worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
-                    }
-                }
+        // ▼▼▼ 在 triggerGroupAiAction 函数中，用下面这整块代码替换旧的世界书处理逻辑 ▼▼▼
+        let worldBookContent = '';
+        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                if (!worldBook || !Array.isArray(worldBook.content)) return '';
+
+                // 【核心修改】在这里也加入过滤逻辑
+                const formattedEntries = worldBook.content
+                    .filter(entry => entry.enabled !== false) // 只读取启用的条目
+                    .map(entry => {
+                        let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+                        if (entry.keys.length > 0) {
+                            entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+                        }
+                        entryString += `**内容:**\n${entry.content}`;
+                        return entryString;
+                    }).join('');
+
+                return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+            }).filter(Boolean).join('');
+            
+            if (linkedContents) {
+                worldBookContent = `\n\n# 核心世界观设定 (群内所有角色都必须严格遵守)\n${linkedContents}\n`;
+            }
+        }
+        // ▲▲▲ 替换结束 ▲▲▲
         
                 let linkedMemoryContext = '';
                 const memoryCount = chat.settings.linkedMemoryCount || 10;
@@ -15146,31 +15212,29 @@
                     }
                     dynamicContext = postsContext;
                 }
-        
+// 定位代码：在 systemPrompt = `...`; 之前粘贴
+let stickerListContext = "# 你的可用表情包 (你【必须】从中选择表情评论，并准确使用其对应的含义)\n";
+if (state.userStickers.length > 0) {
+    stickerListContext += state.userStickers.map(s => `- (含义: "${s.name}") URL: "${s.url}"`).join('\n');
+} else {
+    stickerListContext += "- (你的表情包是空的，无法发送表情)";
+}        
                 systemPrompt = `
         # 你的任务
         你是一个群聊AI导演。你现在控制着一个名为“${chat.name}”的群聊。
+      ${stickerListContext} // <--- 在这里粘贴
+
         当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
         ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
         
-        /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
-        # 【【【全新】文本格式化指南】】】
-        在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-        - \`**粗体文本**\` 会显示为 **粗体文本**。
-        - \`*斜体文本*\` 会显示为 *斜体文本*。
-        - \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-        - \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-        - \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-        
-        【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
-        /* ▲▲▲ 替换结束 ▲▲▲ */
+
         
         # 核心规则
         你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
         
         # 你的可选行动指令:
         -   **发送文本**: '{"type": "text", "name": "角色本名", "content": "文本内容"}'
-        -   **发送表情**: '{"type": "sticker", "name": "角色本名", "url": "...", "meaning": "..."}'
+        - 发送表情: '{"type": "sticker", "name": "角色本名", "url": "从上方“你的可用表情包”列表中选择的URL", "meaning": "该URL对应的含义"}'
         -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
         -   **发起投票**: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
         -   **发起群视频**: '{"type": "group_call_request", "name": "角色本名"}'
@@ -21118,20 +21182,28 @@
             }
             // ▲▲▲ 新增函数结束 ▲▲▲
         
-        // ▼▼▼ 【全新】这是新的世界书编辑器核心功能，请粘贴到 init() 函数的前面 ▼▼▼
-        
+        // ▼▼▼ 【请用这个新版本】替换旧的 createWorldBookEntryBlock 函数 ▼▼▼
         /**
          * 【辅助函数】创建一个可编辑的世界书条目块
-         * @param {object} entry - 单个条目的数据 { keys, comment, content }
+         * @param {object} entry - 单个条目的数据 { keys, comment, content, enabled }
          * @returns {HTMLElement} - 创建好的DOM元素
          */
-        function createWorldBookEntryBlock(entry = { keys: [], comment: '', content: '' }) {
+        function createWorldBookEntryBlock(entry = { keys: [], comment: '', content: '', enabled: true }) {
             const block = document.createElement('div');
             // 复用我们之前为消息编辑器创建的样式
             block.className = 'message-editor-block';
         
+            // 【核心修改】根据条目的 enabled 状态决定开关是否被选中
+            const isChecked = entry.enabled !== false ? 'checked' : '';
+
             block.innerHTML = `
-                <button class="delete-block-btn" title="删除此条目">×</button>
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 5px;">
+                    <label class="toggle-switch" title="启用/禁用此条目">
+                        <input type="checkbox" class="entry-enabled-switch" ${isChecked}>
+                        <span class="slider"></span>
+                    </label>
+                    <button class="delete-block-btn" title="删除此条目">×</button>
+                </div>
                 <div class="form-group" style="margin-bottom: 10px;">
                     <label style="font-size: 0.8em;">备注 (可选)</label>
                     <input type="text" class="entry-comment-input" value="${entry.comment || ''}" placeholder="例如：关于角色的童年" style="padding: 8px;">
@@ -21153,7 +21225,7 @@
         
             return block;
         }
-        // ▲▲▲ 新增函数结束 ▲▲▲
+        // ▲▲▲ 替换结束 ▲▲▲
         // ▼▼▼ 【全新】五子棋功能核心函数 ▼▼▼
         
         /**
@@ -22890,7 +22962,7 @@
         });
         // ▲▲▲ 替换结束 ▲▲▲
                     document.getElementById('add-world-book-btn').addEventListener('click', async () => { const name = await showCustomPrompt('创建世界书', '请输入书名'); if (name && name.trim()) { const newBook = { id: 'wb_' + Date.now(), name: name.trim(), content: '' }; await db.worldBooks.add(newBook); state.worldBooks.push(newBook); renderWorldBookScreen(); openWorldBookEditor(newBook.id); } });
-        // ▼▼▼ 在 init() 中，用这个【新版本】替换旧的 save-world-book-btn 事件监听器 ▼▼▼
+        // ▼▼▼ 【请用这个新版本】替换旧的 save-world-book-btn 事件监听器 ▼▼▼
         document.getElementById('save-world-book-btn').addEventListener('click', async () => {
             if (!editingWorldBookId) return;
             const book = state.worldBooks.find(wb => wb.id === editingWorldBookId);
@@ -22903,7 +22975,6 @@
             const categoryId = document.getElementById('world-book-category-select').value;
             book.categoryId = categoryId ? parseInt(categoryId) : null;
         
-            // 【【【核心修改：从编辑块中收集数据】】】
             const entriesContainer = document.getElementById('world-book-entries-container');
             const entryBlocks = entriesContainer.querySelectorAll('.message-editor-block');
             const newEntries = [];
@@ -22912,18 +22983,19 @@
                 const keysInput = block.querySelector('.entry-keys-input').value.trim();
                 const content = block.querySelector('.entry-content-textarea').value.trim();
                 
-                // 只有当内容不为空时，才保存这个条目
+                // 【核心修改】获取开关的状态
+                const isEnabled = block.querySelector('.entry-enabled-switch').checked;
+
                 if (content) {
                     newEntries.push({
                         comment: block.querySelector('.entry-comment-input').value.trim(),
-                        // 将逗号分隔的关键词字符串，转换回数组
                         keys: keysInput ? keysInput.split(',').map(k => k.trim()).filter(k => k) : [],
-                        content: content
+                        content: content,
+                        enabled: isEnabled // 【核心修改】保存开关状态
                     });
                 }
             });
         
-            // 将收集到的新条目数组存入 book.content
             book.content = newEntries;
         
             await db.worldBooks.put(book);
@@ -22932,6 +23004,7 @@
             renderWorldBookScreen();
             showScreen('world-book-screen');
         });
+        // ▲▲▲ 替换结束 ▲▲▲
         // ▼▼▼ 【最终修复版】请用这整块代码，完整替换旧的 chat-messages 事件监听器 ▼▼▼
         document.getElementById('chat-messages').addEventListener('click', async (e) => {
             // 检查是否点击了 "查看详情" 按钮
