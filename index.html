@@ -6064,6 +6064,8 @@
         }
         
         /* ▲▲▲ 新CSS粘贴结束 ▲▲▲ */
+
+
     </style>
 </head>
 <body>
@@ -6471,7 +6473,10 @@
                         <span id="selection-screenshot-btn" class="action-btn">长截图</span>
                         <span id="selection-favorite-btn" class="action-btn">收藏</span>
                         <span id="selection-share-btn" class="action-btn">分享</span>
-                        <span id="selection-delete-btn" class="action-btn" style="color: #ff3b30;">删除</span>
+                        <!-- 【核心修改1】旧按钮重命名，功能不变 -->
+                        <span id="selection-soft-delete-btn" class="action-btn">删除(通知AI)</span>
+                        <!-- 【核心修改2】新增一个红色的、更强力的删除按钮 -->
+                        <span id="selection-erase-btn" class="action-btn" style="color: #ff3b30;">彻底删除</span>
                     </div>
                 </div>
                 <!-- ▲▲▲ 替换结束 ▲▲▲ -->
@@ -10779,12 +10784,23 @@
             const totalMessages = history.length;
             currentRenderedCount = 0;
             const initialMessages = history.slice(-MESSAGE_RENDER_WINDOW);
-        
-            // ▼▼▼ 关键修改2：将 forEach 替换为 for...of 循环 ▼▼▼
+            // --- ★★★ 核心修改就在这里 ★★★ ---
+            let lastTimestamp = 0;
+            const fragment = document.createDocumentFragment();
+
             for (const msg of initialMessages) {
-                await appendMessage(msg, chat, true); // <-- 使用 await 等待
+                // 检查与上一条消息的时间间隔
+                if (lastTimestamp > 0 && (msg.timestamp - lastTimestamp > 600000)) {
+                    fragment.appendChild(createSystemTimestampElement(msg.timestamp));
+                }
+                const messageEl = await createMessageElement(msg, chat, true);
+                if (messageEl) {
+                    fragment.appendChild(messageEl);
+                }
+                lastTimestamp = msg.timestamp; // 更新时间戳
             }
-            // ▲▲▲ 修改结束 ▲▲▲
+            messagesContainer.appendChild(fragment);
+            // --- ★★★ 修改结束 ★★★ ---
         
             currentRenderedCount = initialMessages.length;
             if (totalMessages > currentRenderedCount) {
@@ -11631,21 +11647,31 @@
         }
         // ▲▲▲ 替换结束 ▲▲▲
         
-        // ▼▼▼ 【请用这个已修复的版本】完整替换旧的 appendMessage 函数 ▼▼▼
+        /**
+         * 【V3.0 | 已延长间隔】将消息元素追加到聊天窗口
+         */
         async function appendMessage(msg, chat, isInitialLoad = false) {
             const messagesContainer = document.getElementById('chat-messages');
+            const typingIndicator = document.getElementById('typing-indicator');
+
+            // --- 核心修改：判断时间间隔 ---
+            const historyWithoutNewMsg = chat.history.slice(0, -1);
+            const lastMessage = historyWithoutNewMsg.filter(m => !m.isHidden).pop();
+
+            // 将间隔从 300000 (5分钟) 延长到 3600000 (1小时)
+            if (lastMessage && (msg.timestamp - lastMessage.timestamp > 3600000)) {
+                const timestampEl = createSystemTimestampElement(msg.timestamp);
+                messagesContainer.insertBefore(timestampEl, typingIndicator);
+            }
+            // --- 修改结束 ---
+
             const messageEl = await createMessageElement(msg, chat);
-        
-            // 【【【核心修复就在这里！】】】
-            // 在尝试插入DOM之前，先检查 messageEl 是否有效。如果它是 null（因为消息是隐藏的），就直接退出。
-            if (!messageEl) return; 
-        
-            // 因为我们已经确认 messageEl 是有效的，所以下面的代码可以安全执行
+            if (!messageEl) return;
+
             if (!isInitialLoad) {
                 messageEl.classList.add('animate-in');
             }
           
-            const typingIndicator = document.getElementById('typing-indicator');
             messagesContainer.insertBefore(messageEl, typingIndicator);
             
             if (!isInitialLoad) {
@@ -22285,6 +22311,62 @@
         }
         
         // ▲▲▲ 核心JS代码粘贴结束 ▲▲▲
+        /**
+         * 【全新】为聊天中的系统时间提示格式化时间戳
+         * @param {number} timestamp - 消息的时间戳
+         * @returns {string} - 格式化后的时间字符串
+         */
+        function formatSystemTimestamp(timestamp) {
+            if (!timestamp) return '';
+            const now = new Date();
+            const date = new Date(timestamp);
+
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const timeString = `${hours}:${minutes}`;
+
+            // 如果是今天
+            if (now.toDateString() === date.toDateString()) {
+                return timeString; // 只显示 HH:mm
+            }
+
+            // 如果是昨天
+            const yesterday = new Date();
+            yesterday.setDate(now.getDate() - 1);
+            if (yesterday.toDateString() === date.toDateString()) {
+                return `昨天 ${timeString}`;
+            }
+            
+            // 更早的时间
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+
+            if (now.getFullYear() === year) {
+                return `${month}月${day}日 ${timeString}`;
+            } else {
+                return `${year}年${month}月${day}日 ${timeString}`;
+            }
+        }
+
+        /**
+         * 【全新】创建系统时间提示的DOM元素
+         * @param {number} timestamp - 要显示的时间戳
+         * @returns {HTMLElement} - 创建好的DOM元素
+         */
+        function createSystemTimestampElement(timestamp) {
+            const wrapper = document.createElement('div');
+            // 复用“拍一拍”的居中样式，非常方便
+            wrapper.className = 'message-wrapper system-pat'; 
+            
+            const bubble = document.createElement('div');
+            // 复用系统消息的气泡样式
+            bubble.className = 'message-bubble system-bubble'; 
+            bubble.textContent = formatSystemTimestamp(timestamp);
+            
+            wrapper.appendChild(bubble);
+            return wrapper;
+        }
                // ===================================================================
                 // 4. 初始化函数 init()
                 // ===================================================================
@@ -23402,14 +23484,14 @@
                     
                     document.getElementById('selection-cancel-btn').addEventListener('click', exitSelectionMode);
         
-        // ▼▼▼ 【最终加强版】用这块代码替换旧的 selection-delete-btn 事件监听器 ▼▼▼
-        document.getElementById('selection-delete-btn').addEventListener('click', async () => {
+        // ▼▼▼ 【这是最终的完整功能代码，请用它替换掉旧的】 ▼▼▼
+
+        // 1. 为新的“删除(通知AI)”按钮绑定事件 (逻辑与旧版删除完全相同)
+        document.getElementById('selection-soft-delete-btn').addEventListener('click', async () => {
             if (selectedMessages.size === 0) return;
-            const confirmed = await showCustomConfirm('删除消息', `确定要删除选中的 ${selectedMessages.size} 条消息吗？这将改变AI的记忆。`, { confirmButtonClass: 'btn-danger' });
+            const confirmed = await showCustomConfirm('删除消息', `确定要删除选中的 ${selectedMessages.size} 条消息吗？这会通知AI这些消息已被删除。`, { confirmButtonClass: 'btn-danger' });
             if (confirmed) {
                 const chat = state.chats[state.activeChatId];
-                
-                // ★★★ 核心修复1：在删除前，检查被删除的消息中是否包含投票 ★★★
                 let deletedPollsInfo = [];
                 for (const timestamp of selectedMessages) {
                     const msg = chat.history.find(m => m.timestamp === timestamp);
@@ -23417,29 +23499,43 @@
                         deletedPollsInfo.push(`关于“${msg.question}”的投票(时间戳: ${msg.timestamp})`);
                     }
                 }
-                
-                // 2. 更新后端的历史记录
                 chat.history = chat.history.filter(msg => !selectedMessages.has(msg.timestamp));
-                
-                // ★★★ 核心修复2：构建更具体的“遗忘指令” ★★★
                 let forgetReason = "一些之前的消息已被用户删除。";
                 if (deletedPollsInfo.length > 0) {
                     forgetReason += ` 其中包括以下投票：${deletedPollsInfo.join('；')}。`;
                 }
                 forgetReason += " 你应该像它们从未存在过一样继续对话，并相应地调整你的记忆和行为，不要再提及这些被删除的内容。";
-        
                 const forgetInstruction = {
                     role: 'system',
                     content: `[系统提示：${forgetReason}]`,
                     timestamp: Date.now(),
-                    isHidden: true // 这个标记让这条消息对您不可见，但AI能看到
+                    isHidden: true
                 };
                 chat.history.push(forgetInstruction);
+                await db.chats.put(chat);
+                renderChatInterface(state.activeChatId);
+                renderChatList();
+            }
+        });
+
+        // 2. 为新增的“彻底删除”按钮绑定全新的、真正的删除逻辑
+        document.getElementById('selection-erase-btn').addEventListener('click', async () => {
+            if (selectedMessages.size === 0) return;
+            const confirmed = await showCustomConfirm(
+                '彻底删除消息', 
+                `这将从历史记录中【永久抹除】这 ${selectedMessages.size} 条消息，AI将完全遗忘它们的存在。确定吗？`, 
+                { confirmButtonClass: 'btn-danger', confirmText: '确认抹除' }
+            );
+            if (confirmed) {
+                const chat = state.chats[state.activeChatId];
                 
-                // 4. 将包含“遗忘指令”的、更新后的chat对象存回数据库
+                // 核心逻辑：直接过滤掉被选中的消息，不添加任何系统提示
+                chat.history = chat.history.filter(msg => !selectedMessages.has(msg.timestamp));
+                
+                // 直接保存，AI的下一次请求将不会包含这些被删除的消息
                 await db.chats.put(chat);
                 
-                // 5. 最后才更新UI
+                // 刷新UI
                 renderChatInterface(state.activeChatId);
                 renderChatList();
             }
