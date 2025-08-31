@@ -6091,11 +6091,6 @@
     box-shadow: none !important; /* 强制移除阴影 */
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
-/* ▼▼▼ 【核心修复】请将这段CSS粘贴到 <style> 的末尾 ▼▼▼ */
-.message-bubble .avatar-group {
-    flex-shrink: 0; /* 关键：禁止头像容器被压缩 */
-}
-/* ▲▲▲ 修复结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -22589,37 +22584,7 @@ if (state.userStickers.length > 0) {
             // 4. 像平常一样触发AI响应，AI会读取到我们刚刚添加的隐藏指令
             triggerAiResponse();
         }
-/**
- * 显示全局模态框
- * @param {string} title - 弹窗的标题
- * @param {string} contentHtml - 弹窗主体部分要显示的HTML内容
- */
-function showGlobalModal(title, contentHtml) {
-    const modalOverlay = document.getElementById('custom-modal-overlay');
-    const modalTitle = document.getElementById('custom-modal-title');
-    const modalBody = document.getElementById('custom-modal-body');
-    const modalConfirmBtn = document.getElementById('custom-modal-confirm');
-    const modalCancelBtn = document.getElementById('custom-modal-cancel');
-
-    // 1. 填充内容
-    modalTitle.textContent = title;
-    modalBody.innerHTML = contentHtml;
-
-    // 2. 根据需要可以隐藏“确定/取消”按钮，这里我们只显示一个“关闭”按钮
-    modalConfirmBtn.textContent = '关闭';
-    modalCancelBtn.style.display = 'none'; // 隐藏取消按钮
-
-    // 3. 绑定关闭事件
-    modalConfirmBtn.onclick = () => {
-        modalOverlay.classList.remove('visible');
-        // 恢复按钮的默认状态，以防影响其他功能
-        modalCancelBtn.style.display = 'block'; 
-        modalConfirmBtn.textContent = '确定';
-    };
-
-    // 4. 显示弹窗
-    modalOverlay.classList.add('visible');
-}        
+        
 
                // ===================================================================
                 // 4. 初始化函数 init()
