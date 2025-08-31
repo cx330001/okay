@@ -6081,6 +6081,16 @@
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 19 22 12 13 5 13 19"></polygon><polygon points="2 19 11 12 2 5 2 19"></polygon></svg>');
         }
         /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【全新】这是解决HTML代码被气泡样式“压缩”的核心CSS ▼▼▼ */
+
+/* 当一个消息气泡被标记为 is-raw-html 时 */
+.message-bubble.is-raw-html .content {
+    padding: 0 !important; /* 强制移除所有内边距 */
+    background: transparent !important; /* 强制背景透明 */
+    border: none !important; /* 强制移除边框 */
+    box-shadow: none !important; /* 强制移除阴影 */
+}
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
@@ -7869,6 +7879,19 @@
     <input type="file" id="ai-avatar-upload-input" accept="image/*" hidden>
     <input type="file" id="group-avatar-upload-input" accept="image/*" hidden>
     <script>
+// ▼▼▼ 【全新】HTML转义函数 ▼▼▼
+function escapeHtml(unsafe) {
+    if (typeof unsafe !== 'string') return '';
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+// ▲▲▲ 新增函数结束 ▲▲▲
+
+// ... 您的其他JavaScript代码从这里开始 ...
         // ... 其他全局变量
         let activeMessageTimestamp = null;
         let activeTransferTimestamp = null; // <-- 确保这行在这里，并且只有一行
@@ -11393,10 +11416,10 @@
                 alert("原始消息尚未加载，请向上滑动加载更早的记录后再试。");
             }
         }
-        // ▼▼▼ 【最终无损修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
+// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
         async function createMessageElement(msg, chat) {
         
-            // --- 优先处理系统消息和撤回消息 (这部分逻辑不变) ---
+            // --- (系统消息和撤回消息的处理逻辑保持不变) ---
             if (msg.type === 'recalled_message') {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'message-wrapper system-pat';
@@ -11449,7 +11472,7 @@
                 return wrapper;
             }
         
-            // --- 准备基础DOM元素 (这部分逻辑不变) ---
+            // --- (基础DOM元素准备逻辑保持不变) ---
             const isUser = msg.role === 'user';
             const myNickname = chat.settings.myNickname || '我';
             const wrapper = document.createElement('div');
@@ -11515,135 +11538,128 @@
             }
             
             // ==========================================================
-            //                  ★★★ 核心修复逻辑 ★★★
+            //                  ★★★ 核心修改逻辑 ★★★
             // ==========================================================
         
-            // 步骤 1: 优先处理所有通过 `type` 定义的特殊卡片
-            if (msg.type === 'offline_text' || msg.type === 'share_link' || msg.type === 'share_card' || msg.type === 'location_share' || msg.type === 'ai_image' || msg.type === 'user_photo' || msg.type === 'voice_message' || msg.type === 'transfer' || msg.type === 'waimai_request' || msg.type === 'red_packet' || msg.type === 'poll' || msg.type === 'gift') {
-                // 这是所有基于type的卡片渲染逻辑，从您的文件中完整复制过来，保持不变
-                // (为了简洁，这里用注释代替，您的实际代码将包含所有这些卡片的HTML生成逻辑)
-                // ... 此处省略您文件中已有的、所有基于 msg.type 的卡片渲染代码 ...
-                if (msg.type === 'offline_text') {
-                    let dialogueText = msg.dialogue || '';
-                    if (dialogueText && !dialogueText.startsWith('「') && !dialogueText.endsWith('」')) {
-                        dialogueText = `「${parseMarkdown(dialogueText)}」`;
+            let rawContent = String(msg.content || '');
+
+if (isUser && rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
+    // 核心修改：不再调用 escapeHtml 函数，直接使用原始的HTML代码
+    contentHtml = rawContent;
+    // 关键：保留这一行，它会触发特殊的CSS规则来移除气泡的背景和内边距
+    bubble.classList.add('is-raw-html'); 
+} else {
+    // ... 其他渲染逻辑
+                // 步骤 4: 如果不是代码，就走原来的渲染流程
+                if (msg.type === 'offline_text' || msg.type === 'share_link' || msg.type === 'share_card' || msg.type === 'location_share' || msg.type === 'ai_image' || msg.type === 'user_photo' || msg.type === 'voice_message' || msg.type === 'transfer' || msg.type === 'waimai_request' || msg.type === 'red_packet' || msg.type === 'poll' || msg.type === 'gift') {
+                    // (这部分是您已有的所有卡片渲染逻辑，保持不变)
+                    if (msg.type === 'offline_text') {
+                        let dialogueText = msg.dialogue || '';
+                        if (dialogueText && !dialogueText.startsWith('「') && !dialogueText.endsWith('」')) {
+                            dialogueText = `「${parseMarkdown(dialogueText)}」`;
+                        }
+                        const dialogueHtml = dialogueText ? `<span class="offline-dialogue">${dialogueText}</span>` : '';
+                        const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
+                        contentHtml = dialogueHtml + descriptionHtml;
+                    } else if (msg.type === 'share_link') {
+                        bubble.classList.add('is-link-share', 'is-card-like');
+                        contentHtml = `<div class="link-share-card" data-timestamp="${msg.timestamp}"><div class="title">${msg.title || '无标题'}</div><div class="description">${msg.description || '点击查看详情...'}</div><div class="footer"><svg class="footer-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg><span>${msg.source_name || '链接分享'}</span></div></div>`;
+                    } else if (msg.type === 'share_card') {
+                        bubble.classList.add('is-link-share', 'is-card-like');
+                        contentHtml = `<div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}"><div class="title">${msg.payload.title}</div><div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div><div class="footer"><svg class="footer-icon" ...>...</svg><span>聊天记录</span></div></div>`;
+                    } else if (msg.type === 'location_share') {
+                        bubble.classList.add('is-location-share', 'is-card-like');
+                        const imageUrl = msg.imageUrl;
+                        let mapAreaStyle = imageUrl ? `style="background-image: url('${imageUrl}');"` : '';
+                        contentHtml = `<div class="location-share-card"><div class="card-text-area"><div class="card-text-primary">${msg.content}</div><div class="card-text-secondary">位置分享</div></div><div class="card-map-area" ${mapAreaStyle}><div class="card-pin-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg></div></div></div>`;
+                    } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
+                        bubble.classList.add('is-ai-image', 'is-card-like');
+                        const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
+                        contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
+                    } else if (msg.type === 'voice_message') {
+                        bubble.classList.add('is-voice-message', 'is-card-like');
+                        bubble.dataset.voiceText = msg.content;
+                        const duration = Math.max(1, Math.round((msg.content || '').length / 5));
+                        const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
+                        const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
+                        contentHtml = `<div class="voice-message-body"><div class="voice-waveform">${waveformHTML}</div><div class="loading-spinner"></div><span class="voice-duration">${durationFormatted}</span></div><div class="voice-transcript"></div>`;
+                    } else if (msg.type === 'transfer') {
+                        bubble.classList.add('is-transfer', 'is-card-like');
+                         let titleText, noteText;
+                        const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+                        const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
+                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
+                        if (isUser) { 
+                            if (msg.isRefund) { titleText = `退款给 ${receiverDisplayName}`; noteText = '已拒收对方转账'; } 
+                            else { titleText = `转账给 ${receiverDisplayName}`; if (msg.status === 'accepted') noteText = '对方已收款'; else if (msg.status === 'declined') noteText = '对方已拒收'; else noteText = msg.note || '等待对方处理...'; }
+                        } else {
+                            if (msg.isRefund) { titleText = `退款来自 ${senderDisplayName}`; noteText = '转账已被拒收'; } 
+                            else if (msg.receiverName === myNickname) { titleText = `转账给 ${myNickname}`; if (msg.status === 'accepted') noteText = '你已收款'; else if (msg.status === 'declined') noteText = '你已拒收'; else { bubble.style.cursor = 'pointer'; bubble.dataset.status = 'pending'; noteText = msg.note || '点击处理'; } } 
+                            else { titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`; noteText = msg.note || '群聊内转账'; }
+                        }
+                        const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
+                        contentHtml = `<div class="transfer-card"><div class="transfer-title">${heartIcon} ${titleText}</div><div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div><div class="transfer-note">${noteText}</div></div>`;
+                    } else if (msg.type === 'waimai_request') {
+                        bubble.classList.add('is-waimai-request', 'is-card-like');
+                         if (msg.status === 'paid' || msg.status === 'rejected') bubble.classList.add(`status-${msg.status}`);
+                        const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
+                        const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
+                        let actionButtonsHtml = '';
+                        if (msg.status === 'pending' && !isUser) { actionButtonsHtml = `<div class="waimai-user-actions"><button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button><button class="waimai-pay-btn" data-choice="paid">为Ta买单</button></div>`; }
+                        contentHtml = `<div class="waimai-card"><div class="waimai-header"><img src="https://files.catbox.moe/mq179k.png" class="icon" alt="Meituan Icon"><div class="title-group"><span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span></div></div><div class="waimai-catchphrase">Hi，你和我的距离只差一顿外卖～</div><div class="waimai-main"><div class="request-title">${requestTitle}</div><div class="payment-box"><div class="payment-label">需付款</div><div class="amount">¥${Number(msg.amount).toFixed(2)}</div><div class="countdown-label">剩余支付时间<div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div></div></div><button class="waimai-details-btn">查看详情</button></div>${actionButtonsHtml}</div>`;
+                        setTimeout(() => { /* waimai timer logic */ }, 0);
+                    } else if (msg.type === 'red_packet') {
+                         bubble.classList.add('is-red-packet', 'is-card-like');
+                        const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+                        const isFinished = msg.isFullyClaimed; const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
+                        let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
+                        if (isFinished) { cardClass = 'opened'; } if (msg.packetType === 'direct') { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); typeText = `专属红包: 给 ${receiverDisplayName}`; if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened'; }
+                        if (hasClaimed) { const myClaimedAmount = msg.claimedBy[myOriginalName] || 0; claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`; } 
+                        else if (isFinished) { claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`; } 
+                        else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`; }
+                        contentHtml = `<div class="red-packet-card ${cardClass}"><div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div><div class="rp-type">${typeText}</div>${claimedInfoHtml}</div>`;
+                    } else if (msg.type === 'poll') {
+                        bubble.classList.add('is-poll', 'is-card-like');
+                        const pollQuestionText = msg.question || msg.content || '(无标题投票)';
+                        let totalVotes = 0; const voteCounts = {}; for (const option in msg.votes) { const count = msg.votes[option].length; voteCounts[option] = count; totalVotes += count; }
+                        const myOriginalName = state.qzoneSettings.nickname || '{{user}}'; let myVote = null; for (const option in msg.votes) { if (msg.votes[option].includes(myOriginalName)) { myVote = option; break; } }
+                        let optionsHtml = '<div class="poll-options-list">'; msg.options.forEach(optionText => { const count = voteCounts[optionText] || 0; const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0; const isVotedByMe = myVote === optionText; optionsHtml += `<div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}"><div class="poll-option-bar" style="width: ${percentage}%;"></div><div class="poll-option-content"><span class="poll-option-text">${optionText}</span><span class="poll-option-votes">${count} 票</span></div></div>`; }); optionsHtml += '</div>';
+                        let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>` : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
+                        contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
+                    } else if (msg.type === 'gift') {
+                        bubble.classList.add('is-gift', 'is-card-like');
+                         let headerText; const myNicknameForGift = chat.settings.myNickname || '我';
+                        if (chat.isGroup) {
+                            if (msg.recipients && msg.recipients.length > 0) {
+                                const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName));
+                                if (recipientDisplayNames.length === 1) { headerText = `送给 ${recipientDisplayNames[0]} 的礼物`; } else { headerText = `送给 ${recipientDisplayNames.slice(0, 2).join('、')}等人的礼物`; }
+                            } else { headerText = `送给大家的礼物`; }
+                        } else {
+                            if (isUser) { headerText = `送给 ${chat.name} 的礼物`; } 
+                            else { const recipientDisplayName = chat.settings.myNickname || '你'; headerText = `送给 ${recipientDisplayName} 的礼物`; }
+                        }
+                        const previewItems = msg.items.slice(0, 3); let previewHtml = ''; previewItems.forEach(item => { previewHtml += `<div class="gift-preview-item"><img src="${item.imageUrl}" class="gift-preview-img"><span class="gift-preview-name">${item.name}</span><span class="gift-preview-quantity">x${item.quantity}</span></div>`; });
+                        let moreItemsText = ''; if (msg.items.length > 3) { moreItemsText = ` 等${msg.items.length}件商品`; }
+                        contentHtml = `<div class="gift-card"><div class="gift-header"><svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg><span class="gift-header-text">${headerText}</span></div><div class="gift-items-preview">${previewHtml}</div><div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div></div>`;
                     }
-                    const dialogueHtml = dialogueText ? `<span class="offline-dialogue">${dialogueText}</span>` : '';
-                    const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
-                    contentHtml = dialogueHtml + descriptionHtml;
-                } else if (msg.type === 'share_link') {
-                    bubble.classList.add('is-link-share', 'is-card-like');
-                    contentHtml = `<div class="link-share-card" data-timestamp="${msg.timestamp}"><div class="title">${msg.title || '无标题'}</div><div class="description">${msg.description || '点击查看详情...'}</div><div class="footer"><svg class="footer-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg><span>${msg.source_name || '链接分享'}</span></div></div>`;
-                } else if (msg.type === 'share_card') {
-                    bubble.classList.add('is-link-share', 'is-card-like');
-                    contentHtml = `<div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}"><div class="title">${msg.payload.title}</div><div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div><div class="footer"><svg class="footer-icon" ...>...</svg><span>聊天记录</span></div></div>`;
-                } else if (msg.type === 'location_share') {
-                    bubble.classList.add('is-location-share', 'is-card-like');
-                    const imageUrl = msg.imageUrl;
-                    let mapAreaStyle = imageUrl ? `style="background-image: url('${imageUrl}');"` : '';
-                    contentHtml = `<div class="location-share-card"><div class="card-text-area"><div class="card-text-primary">${msg.content}</div><div class="card-text-secondary">位置分享</div></div><div class="card-map-area" ${mapAreaStyle}><div class="card-pin-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg></div></div></div>`;
-                } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
-                    bubble.classList.add('is-ai-image', 'is-card-like');
-                    const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
-                    contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
-                } else if (msg.type === 'voice_message') {
-                    bubble.classList.add('is-voice-message', 'is-card-like');
-                    bubble.dataset.voiceText = msg.content;
-                    const duration = Math.max(1, Math.round((msg.content || '').length / 5));
-                    const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
-                    const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
-                    contentHtml = `<div class="voice-message-body"><div class="voice-waveform">${waveformHTML}</div><div class="loading-spinner"></div><span class="voice-duration">${durationFormatted}</span></div><div class="voice-transcript"></div>`;
-                } else if (msg.type === 'transfer') {
-                    bubble.classList.add('is-transfer', 'is-card-like');
-                     let titleText, noteText;
-                    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
-                    const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
-                    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
-                    if (isUser) { 
-                        if (msg.isRefund) { titleText = `退款给 ${receiverDisplayName}`; noteText = '已拒收对方转账'; } 
-                        else { titleText = `转账给 ${receiverDisplayName}`; if (msg.status === 'accepted') noteText = '对方已收款'; else if (msg.status === 'declined') noteText = '对方已拒收'; else noteText = msg.note || '等待对方处理...'; }
-                    } else {
-                        if (msg.isRefund) { titleText = `退款来自 ${senderDisplayName}`; noteText = '转账已被拒收'; } 
-                        else if (msg.receiverName === myNickname) { titleText = `转账给 ${myNickname}`; if (msg.status === 'accepted') noteText = '你已收款'; else if (msg.status === 'declined') noteText = '你已拒收'; else { bubble.style.cursor = 'pointer'; bubble.dataset.status = 'pending'; noteText = msg.note || '点击处理'; } } 
-                        else { titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`; noteText = msg.note || '群聊内转账'; }
-                    }
-                    const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
-                    contentHtml = `<div class="transfer-card"><div class="transfer-title">${heartIcon} ${titleText}</div><div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div><div class="transfer-note">${noteText}</div></div>`;
-                } else if (msg.type === 'waimai_request') {
-                    bubble.classList.add('is-waimai-request', 'is-card-like');
-                     if (msg.status === 'paid' || msg.status === 'rejected') bubble.classList.add(`status-${msg.status}`);
-                    const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
-                    const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
-                    let actionButtonsHtml = '';
-                    if (msg.status === 'pending' && !isUser) { actionButtonsHtml = `<div class="waimai-user-actions"><button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button><button class="waimai-pay-btn" data-choice="paid">为Ta买单</button></div>`; }
-                    contentHtml = `<div class="waimai-card"><div class="waimai-header"><img src="https://files.catbox.moe/mq179k.png" class="icon" alt="Meituan Icon"><div class="title-group"><span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span></div></div><div class="waimai-catchphrase">Hi，你和我的距离只差一顿外卖～</div><div class="waimai-main"><div class="request-title">${requestTitle}</div><div class="payment-box"><div class="payment-label">需付款</div><div class="amount">¥${Number(msg.amount).toFixed(2)}</div><div class="countdown-label">剩余支付时间<div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div></div></div><button class="waimai-details-btn">查看详情</button></div>${actionButtonsHtml}</div>`;
-                    setTimeout(() => { /* waimai timer logic */ }, 0);
-                } else if (msg.type === 'red_packet') {
-                     bubble.classList.add('is-red-packet', 'is-card-like');
-                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
-                    const isFinished = msg.isFullyClaimed; const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
-                    let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
-                    if (isFinished) { cardClass = 'opened'; } if (msg.packetType === 'direct') { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); typeText = `专属红包: 给 ${receiverDisplayName}`; if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened'; }
-                    if (hasClaimed) { const myClaimedAmount = msg.claimedBy[myOriginalName] || 0; claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`; } 
-                    else if (isFinished) { claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`; } 
-                    else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`; }
-                    contentHtml = `<div class="red-packet-card ${cardClass}"><div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div><div class="rp-type">${typeText}</div>${claimedInfoHtml}</div>`;
-                } else if (msg.type === 'poll') {
-                    bubble.classList.add('is-poll', 'is-card-like');
-                    const pollQuestionText = msg.question || msg.content || '(无标题投票)';
-                    let totalVotes = 0; const voteCounts = {}; for (const option in msg.votes) { const count = msg.votes[option].length; voteCounts[option] = count; totalVotes += count; }
-                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}'; let myVote = null; for (const option in msg.votes) { if (msg.votes[option].includes(myOriginalName)) { myVote = option; break; } }
-                    let optionsHtml = '<div class="poll-options-list">'; msg.options.forEach(optionText => { const count = voteCounts[optionText] || 0; const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0; const isVotedByMe = myVote === optionText; optionsHtml += `<div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}"><div class="poll-option-bar" style="width: ${percentage}%;"></div><div class="poll-option-content"><span class="poll-option-text">${optionText}</span><span class="poll-option-votes">${count} 票</span></div></div>`; }); optionsHtml += '</div>';
-                    let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>` : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
-                    contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
-                } else if (msg.type === 'gift') {
-                    bubble.classList.add('is-gift', 'is-card-like');
-                     let headerText; const myNicknameForGift = chat.settings.myNickname || '我';
-                    if (chat.isGroup) {
-                        if (msg.recipients && msg.recipients.length > 0) {
-                            const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName));
-                            if (recipientDisplayNames.length === 1) { headerText = `送给 ${recipientDisplayNames[0]} 的礼物`; } else { headerText = `送给 ${recipientDisplayNames.slice(0, 2).join('、')}等人的礼物`; }
-                        } else { headerText = `送给大家的礼物`; }
-                    } else {
-                        if (isUser) { headerText = `送给 ${chat.name} 的礼物`; } 
-                        else { const recipientDisplayName = chat.settings.myNickname || '你'; headerText = `送给 ${recipientDisplayName} 的礼物`; }
-                    }
-                    const previewItems = msg.items.slice(0, 3); let previewHtml = ''; previewItems.forEach(item => { previewHtml += `<div class="gift-preview-item"><img src="${item.imageUrl}" class="gift-preview-img"><span class="gift-preview-name">${item.name}</span><span class="gift-preview-quantity">x${item.quantity}</span></div>`; });
-                    let moreItemsText = ''; if (msg.items.length > 3) { moreItemsText = ` 等${msg.items.length}件商品`; }
-                    contentHtml = `<div class="gift-card"><div class="gift-header"><svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg><span class="gift-header-text">${headerText}</span></div><div class="gift-items-preview">${previewHtml}</div><div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div></div>`;
-                }
-            } else {
-                // 步骤 2: 如果消息没有特殊type，则进入这里的逻辑区
-                let initialContent = String(msg.content || '');
-        
-                if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
-                    bubble.classList.add('has-image');
-                    const imageUrl = msg.content[0].image_url.url;
-                    contentHtml = `<img src="${imageUrl}" class="chat-image" alt="User uploaded image">`;
                 } else {
-                    // 2a. 优先尝试应用您的自定义渲染规则
-                    let processedByRule = await applyRenderingRules(initialContent, chat.id);
-        
-                    // 2b. 检查规则是否生效
-                    if (processedByRule !== initialContent) {
-                        // 生效了，直接使用渲染后的HTML
+                    let processedByRule = await applyRenderingRules(rawContent, chat.id);
+                    if (processedByRule !== rawContent) {
                         contentHtml = processedByRule;
                         bubble.classList.add('is-card-like');
                     } else {
-                        // 2c. 没生效，再检查是否是贴纸
-                        if (STICKER_REGEX.test(initialContent)) {
+                        if (STICKER_REGEX.test(processedByRule)) {
                             bubble.classList.add('is-sticker', 'is-card-like');
-                            contentHtml = `<img src="${initialContent}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
+                            contentHtml = `<img src="${processedByRule}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
                         } else {
-                            // 2d. 都不是，就是普通的纯文本
-                            let plainText = processMentions(initialContent, chat);
+                            let plainText = processMentions(processedByRule, chat);
                             contentHtml = parseMarkdown(plainText).replace(/\n/g, '<br>');
                         }
                     }
                 }
             }
         
-            // --- 组装最终的HTML (这部分逻辑不变) ---
+            // --- (组装最终的HTML逻辑保持不变) ---
             bubble.innerHTML = `
                 ${avatarGroupHtml}
                 <div class="content">
@@ -11671,6 +11687,7 @@
             }
             return wrapper;
         }
+// ▲▲▲ 替换结束 ▲▲▲
         
         // ▼▼▼ 【请用这个已修复的版本】完整替换旧的 prependMessage 函数 ▼▼▼
         async function prependMessage(msg, chat) { 
