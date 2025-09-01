@@ -22530,30 +22530,151 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
         // ▲▲▲ 新增函数粘贴结束 ▲▲▲
         // ▼▼▼ 【全新】推进剧情功能核心函数 ▼▼▼
         
-        /**
-         * 【总入口】处理聊天界面的“推进”请求
-         */
-        async function handlePropelAction() {
-            const chat = state.chats[state.activeChatId];
-            if (!chat) return;
-        
-            // 1. 创建一条对用户隐藏，但对AI可见的特殊系统指令
-            const propelInstruction = {
-                role: 'system',
-                content: `[系统指令：用户按下了“推进”按钮，现在轮到你来主导。请根据当前情景、你的性格和你们的关系，主动做一件事或说一句话来推动故事发展。你可以描述一个环境变化、发起一个动作、揭示一个秘密或开启一个新话题。请不要询问用户接下来该做什么。]`,
-                timestamp: Date.now(),
-                isHidden: true // 这个标记确保用户在界面上看不到这条指令
-            };
-        
-            // 2. 将这条指令添加到历史记录中
-            chat.history.push(propelInstruction);
-        
-            // 3. 保存更新
-            await db.chats.put(chat);
-            
-            // 4. 像平常一样触发AI响应，AI会读取到我们刚刚添加的隐藏指令
-            triggerAiResponse();
+/**
+ * 【V3.0 | 最终修复版】处理聊天界面的“推进”请求
+ *  - 修复了多句话被包裹在单一气泡的问题
+ *  - 修复了AI无法感知当前时间的问题
+ */
+async function handlePropelAction() {
+    const chat = state.chats[state.activeChatId];
+    if (!chat) return;
+
+    // 立即显示“正在输入”状态
+    setAvatarActingState(chat.id, true);
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    if (!chat.isGroup) {
+        chatHeaderTitle.style.opacity = 0;
+        setTimeout(() => {
+            chatHeaderTitle.textContent = '对方正在输入...';
+            chatHeaderTitle.classList.add('typing-status');
+            chatHeaderTitle.style.opacity = 1;
+        }, 200);
+    }
+    
+    try {
+        const { proxyUrl, apiKey, model } = state.apiConfig;
+        if (!proxyUrl || !apiKey || !model) {
+            throw new Error('API未配置');
         }
+
+        // --- 【核心修复2】获取当前时间，并准备注入到Prompt中 ---
+        const now = new Date();
+        const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 8));
+        const currentTime = chinaTime.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', dateStyle: 'full', timeStyle: 'short' });
+        const timeOfDayGreeting = getTimeOfDayGreeting(chinaTime);
+        // --- 修复结束 ---
+
+        const userNickname = state.qzoneSettings.nickname || '用户';
+        const recentHistorySummary = chat.history
+            .filter(m => !m.isHidden)
+            .slice(-10) 
+            .map(msg => {
+                const sender = msg.role === 'user' ? userNickname : (msg.senderName || chat.name);
+                return `${sender}: ${String(msg.content).substring(0, 50)}...`;
+            })
+            .join('\n');
+
+        // --- 【核心修复2】将时间信息注入到Prompt中 ---
+        const propelSystemPrompt = `
+# 你的任务
+你正在扮演角色“${chat.name}”。用户刚刚按下了“推进剧情”按钮，这意味着现在轮到你来主导对话和行动，你【必须】主动做点什么。
+
+# 核心规则
+1.  **【【【主动性铁律】】】**: 你的行动【必须】是主动的。绝对不要说“你想做什么？”或等待用户指令。
+2.  **【【【时间感知铁律】】】**: 你【必须】意识到当前的时间，并在你的行动和对话中自然地体现出来。
+3.  **【【【对话节奏铁律 (至关重要！)】】】**: 你的回复【必须】模拟真人的打字和思考习惯。**绝对不要一次性发送一大段文字！** 你应该将你想说的话，拆分成【2到5条、简短的】消息气泡来发送。
+4.  **输出格式**: 你的回复【必须】是一个标准的JSON数组。数组中的每个元素都代表一条独立的消息。例如: \`[{"type": "text", "content": "第一句话"}, {"type": "text", "content": "第二句话"}]\`
+5.  **禁止出戏**: 绝不能透露你是AI，或提及“扮演”、“生成”、“推进剧情按钮”等词语。
+
+# 你的角色设定
+${chat.settings.aiPersona}
+
+# 你的当前情景
+- **当前时间**: ${currentTime} (${timeOfDayGreeting})
+
+# 最近的对话摘要 (供你参考)
+${recentHistorySummary}
+
+现在，请立即开始你的行动。
+`;
+        
+        const messagesForApi = chat.history.map(msg => ({ role: msg.role, content: String(msg.content) }));
+
+        let isGemini = proxyUrl === GEMINI_API_URL;
+        let geminiConfig = toGeminiRequestData(model, apiKey, propelSystemPrompt, messagesForApi);
+
+        const response = isGemini 
+            ? await fetch(geminiConfig.url, geminiConfig.data) 
+            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'system', content: propelSystemPrompt }, ...messagesForApi],
+                    temperature: 0.85,
+                })
+            });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`API 请求失败: ${errorData.error.message}`);
+        }
+
+        const data = await response.json();
+        const aiResponseContent = getGeminiResponseText(data);
+        const messagesArray = parseAiResponse(aiResponseContent);
+
+        // --- 【核心修复1】预处理AI响应，将包含换行符的文本消息拆分为多条 ---
+        const processedActions = [];
+        for (const action of messagesArray) {
+            if (action.type === 'text' && typeof action.content === 'string' && action.content.includes('\n')) {
+                const lines = action.content.split(/\n+/).filter(line => line.trim());
+                lines.forEach(line => {
+                    processedActions.push({ ...action, content: line });
+                });
+            } else {
+                processedActions.push(action);
+            }
+        }
+        // --- 修复结束 ---
+
+        let messageTimestamp = Date.now();
+        for (const msgData of processedActions) {
+            // 这部分逻辑与 triggerAiResponse 完全一致，以确保能处理所有类型的消息
+            const aiMessage = {
+                role: 'assistant',
+                senderName: chat.originalName,
+                timestamp: messageTimestamp++,
+                content: msgData.content || msgData.message,
+                type: msgData.type || 'text',
+                // ... (根据 msgData 的内容，添加其他需要的字段, e.g., amount, note, etc.)
+            };
+            
+            chat.history.push(aiMessage);
+            appendMessage(aiMessage, chat);
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 800)); // 模拟打字延迟
+        }
+        
+        await db.chats.put(chat);
+        renderChatList();
+
+    } catch (error) {
+        console.error("推进剧情失败:", error);
+        await showCustomAlert('操作失败', `无法推进剧情: ${error.message}`);
+    } finally {
+        // 结束“正在输入”状态
+        setAvatarActingState(chat.id, false);
+        if (!chat.isGroup && document.getElementById('chat-header-title')) {
+             const titleEl = document.getElementById('chat-header-title');
+             titleEl.style.opacity = 0;
+             setTimeout(() => {
+                titleEl.textContent = chat.name;
+                titleEl.classList.remove('typing-status');
+                titleEl.style.opacity = 1;
+             }, 200);
+        }
+    }
+}
         
 
                // ===================================================================
@@ -26236,6 +26357,7 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
