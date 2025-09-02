@@ -11403,7 +11403,7 @@
                 alert("原始消息尚未加载，请向上滑动加载更早的记录后再试。");
             }
         }
-// ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
+        // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 createMessageElement 函数 ▼▼▼
         async function createMessageElement(msg, chat) {
         
             // --- (系统消息和撤回消息的处理逻辑保持不变) ---
@@ -11528,120 +11528,123 @@
             //                  ★★★ 核心修改逻辑 ★★★
             // ==========================================================
         
-            let rawContent = String(msg.content || '');
+            let rawContent = msg.content; // 直接使用 msg.content，不再强制转为字符串
 
-if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
-    // 核心修改：不再调用 escapeHtml 函数，直接使用原始的HTML代码
-    contentHtml = rawContent;
-    // 关键：保留这一行，它会触发特殊的CSS规则来移除气泡的背景和内边距
-    bubble.classList.add('is-raw-html'); 
-} else {
-    // ... 其他渲染逻辑
-                // 步骤 4: 如果不是代码，就走原来的渲染流程
-                if (msg.type === 'offline_text' || msg.type === 'share_link' || msg.type === 'share_card' || msg.type === 'location_share' || msg.type === 'ai_image' || msg.type === 'user_photo' || msg.type === 'voice_message' || msg.type === 'transfer' || msg.type === 'waimai_request' || msg.type === 'red_packet' || msg.type === 'poll' || msg.type === 'gift') {
-                    // (这部分是您已有的所有卡片渲染逻辑，保持不变)
-                    if (msg.type === 'offline_text') {
-                        let dialogueText = msg.dialogue || '';
-                        if (dialogueText && !dialogueText.startsWith('「') && !dialogueText.endsWith('」')) {
-                            dialogueText = `「${parseMarkdown(dialogueText)}」`;
-                        }
-                        const dialogueHtml = dialogueText ? `<span class="offline-dialogue">${dialogueText}</span>` : '';
-                        const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
-                        contentHtml = dialogueHtml + descriptionHtml;
-                    } else if (msg.type === 'share_link') {
-                        bubble.classList.add('is-link-share', 'is-card-like');
-                        contentHtml = `<div class="link-share-card" data-timestamp="${msg.timestamp}"><div class="title">${msg.title || '无标题'}</div><div class="description">${msg.description || '点击查看详情...'}</div><div class="footer"><svg class="footer-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg><span>${msg.source_name || '链接分享'}</span></div></div>`;
-                    } else if (msg.type === 'share_card') {
-                        bubble.classList.add('is-link-share', 'is-card-like');
-                        contentHtml = `<div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}"><div class="title">${msg.payload.title}</div><div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div><div class="footer"><svg class="footer-icon" ...>...</svg><span>聊天记录</span></div></div>`;
-                    } else if (msg.type === 'location_share') {
-                        bubble.classList.add('is-location-share', 'is-card-like');
-                        const imageUrl = msg.imageUrl;
-                        let mapAreaStyle = imageUrl ? `style="background-image: url('${imageUrl}');"` : '';
-                        contentHtml = `<div class="location-share-card"><div class="card-text-area"><div class="card-text-primary">${msg.content}</div><div class="card-text-secondary">位置分享</div></div><div class="card-map-area" ${mapAreaStyle}><div class="card-pin-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg></div></div></div>`;
-                    } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
-                        bubble.classList.add('is-ai-image', 'is-card-like');
-                        const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
-                        contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
-                    } else if (msg.type === 'voice_message') {
-                        bubble.classList.add('is-voice-message', 'is-card-like');
-                        bubble.dataset.voiceText = msg.content;
-                        const duration = Math.max(1, Math.round((msg.content || '').length / 5));
-                        const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
-                        const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
-                        contentHtml = `<div class="voice-message-body"><div class="voice-waveform">${waveformHTML}</div><div class="loading-spinner"></div><span class="voice-duration">${durationFormatted}</span></div><div class="voice-transcript"></div>`;
-                    } else if (msg.type === 'transfer') {
-                        bubble.classList.add('is-transfer', 'is-card-like');
-                         let titleText, noteText;
-                        const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
-                        const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
-                        const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
-                        if (isUser) { 
-                            if (msg.isRefund) { titleText = `退款给 ${receiverDisplayName}`; noteText = '已拒收对方转账'; } 
-                            else { titleText = `转账给 ${receiverDisplayName}`; if (msg.status === 'accepted') noteText = '对方已收款'; else if (msg.status === 'declined') noteText = '对方已拒收'; else noteText = msg.note || '等待对方处理...'; }
-                        } else {
-                            if (msg.isRefund) { titleText = `退款来自 ${senderDisplayName}`; noteText = '转账已被拒收'; } 
-                            else if (msg.receiverName === myNickname) { titleText = `转账给 ${myNickname}`; if (msg.status === 'accepted') noteText = '你已收款'; else if (msg.status === 'declined') noteText = '你已拒收'; else { bubble.style.cursor = 'pointer'; bubble.dataset.status = 'pending'; noteText = msg.note || '点击处理'; } } 
-                            else { titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`; noteText = msg.note || '群聊内转账'; }
-                        }
-                        const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
-                        contentHtml = `<div class="transfer-card"><div class="transfer-title">${heartIcon} ${titleText}</div><div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div><div class="transfer-note">${noteText}</div></div>`;
-                    } else if (msg.type === 'waimai_request') {
-                        bubble.classList.add('is-waimai-request', 'is-card-like');
-                         if (msg.status === 'paid' || msg.status === 'rejected') bubble.classList.add(`status-${msg.status}`);
-                        const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
-                        const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
-                        let actionButtonsHtml = '';
-                        if (msg.status === 'pending' && !isUser) { actionButtonsHtml = `<div class="waimai-user-actions"><button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button><button class="waimai-pay-btn" data-choice="paid">为Ta买单</button></div>`; }
-                        contentHtml = `<div class="waimai-card"><div class="waimai-header"><img src="https://files.catbox.moe/mq179k.png" class="icon" alt="Meituan Icon"><div class="title-group"><span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span></div></div><div class="waimai-catchphrase">Hi，你和我的距离只差一顿外卖～</div><div class="waimai-main"><div class="request-title">${requestTitle}</div><div class="payment-box"><div class="payment-label">需付款</div><div class="amount">¥${Number(msg.amount).toFixed(2)}</div><div class="countdown-label">剩余支付时间<div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div></div></div><button class="waimai-details-btn">查看详情</button></div>${actionButtonsHtml}</div>`;
-                        setTimeout(() => { /* waimai timer logic */ }, 0);
-                    } else if (msg.type === 'red_packet') {
-                         bubble.classList.add('is-red-packet', 'is-card-like');
-                        const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
-                        const isFinished = msg.isFullyClaimed; const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
-                        let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
-                        if (isFinished) { cardClass = 'opened'; } if (msg.packetType === 'direct') { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); typeText = `专属红包: 给 ${receiverDisplayName}`; if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened'; }
-                        if (hasClaimed) { const myClaimedAmount = msg.claimedBy[myOriginalName] || 0; claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`; } 
-                        else if (isFinished) { claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`; } 
-                        else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`; }
-                        contentHtml = `<div class="red-packet-card ${cardClass}"><div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div><div class="rp-type">${typeText}</div>${claimedInfoHtml}</div>`;
-                    } else if (msg.type === 'poll') {
-                        bubble.classList.add('is-poll', 'is-card-like');
-                        const pollQuestionText = msg.question || msg.content || '(无标题投票)';
-                        let totalVotes = 0; const voteCounts = {}; for (const option in msg.votes) { const count = msg.votes[option].length; voteCounts[option] = count; totalVotes += count; }
-                        const myOriginalName = state.qzoneSettings.nickname || '{{user}}'; let myVote = null; for (const option in msg.votes) { if (msg.votes[option].includes(myOriginalName)) { myVote = option; break; } }
-                        let optionsHtml = '<div class="poll-options-list">'; msg.options.forEach(optionText => { const count = voteCounts[optionText] || 0; const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0; const isVotedByMe = myVote === optionText; optionsHtml += `<div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}"><div class="poll-option-bar" style="width: ${percentage}%;"></div><div class="poll-option-content"><span class="poll-option-text">${optionText}</span><span class="poll-option-votes">${count} 票</span></div></div>`; }); optionsHtml += '</div>';
-                        let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>` : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
-                        contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
-                    } else if (msg.type === 'gift') {
-                        bubble.classList.add('is-gift', 'is-card-like');
-                         let headerText; const myNicknameForGift = chat.settings.myNickname || '我';
-                        if (chat.isGroup) {
-                            if (msg.recipients && msg.recipients.length > 0) {
-                                const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName));
-                                if (recipientDisplayNames.length === 1) { headerText = `送给 ${recipientDisplayNames[0]} 的礼物`; } else { headerText = `送给 ${recipientDisplayNames.slice(0, 2).join('、')}等人的礼物`; }
-                            } else { headerText = `送给大家的礼物`; }
-                        } else {
-                            if (isUser) { headerText = `送给 ${chat.name} 的礼物`; } 
-                            else { const recipientDisplayName = chat.settings.myNickname || '你'; headerText = `送给 ${recipientDisplayName} 的礼物`; }
-                        }
-                        const previewItems = msg.items.slice(0, 3); let previewHtml = ''; previewItems.forEach(item => { previewHtml += `<div class="gift-preview-item"><img src="${item.imageUrl}" class="gift-preview-img"><span class="gift-preview-name">${item.name}</span><span class="gift-preview-quantity">x${item.quantity}</span></div>`; });
-                        let moreItemsText = ''; if (msg.items.length > 3) { moreItemsText = ` 等${msg.items.length}件商品`; }
-                        contentHtml = `<div class="gift-card"><div class="gift-header"><svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg><span class="gift-header-text">${headerText}</span></div><div class="gift-items-preview">${previewHtml}</div><div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div></div>`;
+            if (typeof rawContent === 'string' && rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
+                contentHtml = rawContent;
+                bubble.classList.add('is-raw-html'); 
+            } else if (msg.type === 'offline_text' || msg.type === 'share_link' || msg.type === 'share_card' || msg.type === 'location_share' || msg.type === 'ai_image' || msg.type === 'user_photo' || msg.type === 'voice_message' || msg.type === 'transfer' || msg.type === 'waimai_request' || msg.type === 'red_packet' || msg.type === 'poll' || msg.type === 'gift') {
+                // (这部分是您已有的所有卡片渲染逻辑，保持不变)
+                if (msg.type === 'offline_text') {
+                    let dialogueText = msg.dialogue || '';
+                    if (dialogueText && !dialogueText.startsWith('「') && !dialogueText.endsWith('」')) {
+                        dialogueText = `「${parseMarkdown(dialogueText)}」`;
                     }
-                } else {
-                    let processedByRule = await applyRenderingRules(rawContent, chat.id);
-                    if (processedByRule !== rawContent) {
-                        contentHtml = processedByRule;
-                        bubble.classList.add('is-card-like');
+                    const dialogueHtml = dialogueText ? `<span class="offline-dialogue">${dialogueText}</span>` : '';
+                    const descriptionHtml = msg.description ? `<span class="offline-description">${parseMarkdown(msg.description).replace(/\n/g, '<br>')}</span>` : '';
+                    contentHtml = dialogueHtml + descriptionHtml;
+                } else if (msg.type === 'share_link') {
+                    bubble.classList.add('is-link-share', 'is-card-like');
+                    contentHtml = `<div class="link-share-card" data-timestamp="${msg.timestamp}"><div class="title">${msg.title || '无标题'}</div><div class="description">${msg.description || '点击查看详情...'}</div><div class="footer"><svg class="footer-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg><span>${msg.source_name || '链接分享'}</span></div></div>`;
+                } else if (msg.type === 'share_card') {
+                    bubble.classList.add('is-link-share', 'is-card-like');
+                    contentHtml = `<div class="link-share-card" style="cursor: pointer;" data-timestamp="${msg.timestamp}"><div class="title">${msg.payload.title}</div><div class="description">共 ${msg.payload.sharedHistory.length} 条消息</div><div class="footer"><svg class="footer-icon" ...>...</svg><span>聊天记录</span></div></div>`;
+                } else if (msg.type === 'location_share') {
+                    bubble.classList.add('is-location-share', 'is-card-like');
+                    const imageUrl = msg.imageUrl;
+                    let mapAreaStyle = imageUrl ? `style="background-image: url('${imageUrl}');"` : '';
+                    contentHtml = `<div class="location-share-card"><div class="card-text-area"><div class="card-text-primary">${msg.content}</div><div class="card-text-secondary">位置分享</div></div><div class="card-map-area" ${mapAreaStyle}><div class="card-pin-icon"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M12 11.5C11.1716 11.5 10.5 10.8284 10.5 10C10.5 9.17157 11.1716 8.5 12 8.5C12.8284 8.5 13.5 9.17157 13.5 10C13.5 10.8284 12.8284 11.5 12 11.5Z"></path><path d="M12 2C7.92134 2 4.5 5.42134 4.5 9.5C4.5 14.5312 11.2188 21.4375 11.5938 21.8125C11.7954 22.014 12.2046 22.014 12.4062 21.8125C12.7812 21.4375 19.5 14.5312 19.5 9.5C19.5 5.42134 16.0787 2 12 2ZM12 12.5C10.6193 12.5 9.5 11.3807 9.5 10C9.5 8.61929 10.6193 7.5 12 7.5C13.3807 7.5 14.5 8.61929 14.5 10C14.5 11.3807 13.3807 12.5 12 12.5Z"></path></svg></div></div></div>`;
+                } else if (msg.type === 'user_photo' || msg.type === 'ai_image') {
+                    bubble.classList.add('is-ai-image', 'is-card-like');
+                    const altText = msg.type === 'user_photo' ? "用户描述的照片" : "AI生成的图片";
+                    contentHtml = `<img src="https://i.postimg.cc/KYr2qRCK/1.jpg" class="ai-generated-image" alt="${altText}" data-description="${msg.content}">`;
+                } else if (msg.type === 'voice_message') {
+                    bubble.classList.add('is-voice-message', 'is-card-like');
+                    bubble.dataset.voiceText = msg.content;
+                    const duration = Math.max(1, Math.round((msg.content || '').length / 5));
+                    const durationFormatted = `0:${String(duration).padStart(2, '0')}''`;
+                    const waveformHTML = '<div></div><div></div><div></div><div></div><div></div>';
+                    contentHtml = `<div class="voice-message-body"><div class="voice-waveform">${waveformHTML}</div><div class="loading-spinner"></div><span class="voice-duration">${durationFormatted}</span></div><div class="voice-transcript"></div>`;
+                } else if (msg.type === 'transfer') {
+                    bubble.classList.add('is-transfer', 'is-card-like');
+                     let titleText, noteText;
+                    const myNickname = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+                    const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
+                    const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName || chat.name);
+                    if (isUser) { 
+                        if (msg.isRefund) { titleText = `退款给 ${receiverDisplayName}`; noteText = '已拒收对方转账'; } 
+                        else { titleText = `转账给 ${receiverDisplayName}`; if (msg.status === 'accepted') noteText = '对方已收款'; else if (msg.status === 'declined') noteText = '对方已拒收'; else noteText = msg.note || '等待对方处理...'; }
                     } else {
-                        if (STICKER_REGEX.test(processedByRule)) {
-                            bubble.classList.add('is-sticker', 'is-card-like');
-                            contentHtml = `<img src="${processedByRule}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
-                        } else {
-                            let plainText = processMentions(processedByRule, chat);
-                            contentHtml = parseMarkdown(plainText).replace(/\n/g, '<br>');
-                        }
+                        if (msg.isRefund) { titleText = `退款来自 ${senderDisplayName}`; noteText = '转账已被拒收'; } 
+                        else if (msg.receiverName === myNickname) { titleText = `转账给 ${myNickname}`; if (msg.status === 'accepted') noteText = '你已收款'; else if (msg.status === 'declined') noteText = '你已拒收'; else { bubble.style.cursor = 'pointer'; bubble.dataset.status = 'pending'; noteText = msg.note || '点击处理'; } } 
+                        else { titleText = `转账: ${senderDisplayName} → ${receiverDisplayName}`; noteText = msg.note || '群聊内转账'; }
+                    }
+                    const heartIcon = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="vertical-align: middle;"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg>`;
+                    contentHtml = `<div class="transfer-card"><div class="transfer-title">${heartIcon} ${titleText}</div><div class="transfer-amount">¥ ${Number(msg.amount).toFixed(2)}</div><div class="transfer-note">${noteText}</div></div>`;
+                } else if (msg.type === 'waimai_request') {
+                    bubble.classList.add('is-waimai-request', 'is-card-like');
+                     if (msg.status === 'paid' || msg.status === 'rejected') bubble.classList.add(`status-${msg.status}`);
+                    const senderDisplayName = getDisplayNameInGroup(chat, msg.senderName);
+                    const requestTitle = `来自 ${senderDisplayName} 的代付请求`;
+                    let actionButtonsHtml = '';
+                    if (msg.status === 'pending' && !isUser) { actionButtonsHtml = `<div class="waimai-user-actions"><button class="waimai-decline-btn" data-choice="rejected">残忍拒绝</button><button class="waimai-pay-btn" data-choice="paid">为Ta买单</button></div>`; }
+                    contentHtml = `<div class="waimai-card"><div class="waimai-header"><img src="https://files.catbox.moe/mq179k.png" class="icon" alt="Meituan Icon"><div class="title-group"><span class="brand">美团外卖</span><span class="separator">|</span><span>外卖美食</span></div></div><div class="waimai-catchphrase">Hi，你和我的距离只差一顿外卖～</div><div class="waimai-main"><div class="request-title">${requestTitle}</div><div class="payment-box"><div class="payment-label">需付款</div><div class="amount">¥${Number(msg.amount).toFixed(2)}</div><div class="countdown-label">剩余支付时间<div class="countdown-timer" id="waimai-timer-${msg.timestamp}"></div></div></div><button class="waimai-details-btn">查看详情</button></div>${actionButtonsHtml}</div>`;
+                    setTimeout(() => { /* waimai timer logic */ }, 0);
+                } else if (msg.type === 'red_packet') {
+                     bubble.classList.add('is-red-packet', 'is-card-like');
+                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}';
+                    const isFinished = msg.isFullyClaimed; const hasClaimed = msg.claimedBy && msg.claimedBy[myOriginalName];
+                    let cardClass = '', claimedInfoHtml = '', typeText = '拼手气红包';
+                    if (isFinished) { cardClass = 'opened'; } if (msg.packetType === 'direct') { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); typeText = `专属红包: 给 ${receiverDisplayName}`; if (Object.keys(msg.claimedBy || {}).length > 0) cardClass = 'opened'; }
+                    if (hasClaimed) { const myClaimedAmount = msg.claimedBy[myOriginalName] || 0; claimedInfoHtml = `<div class="rp-claimed-info">你领取了红包，金额 ${myClaimedAmount.toFixed(2)} 元</div>`; } 
+                    else if (isFinished) { claimedInfoHtml = `<div class="rp-claimed-info">红包已被领完</div>`; } 
+                    else if (msg.packetType === 'direct' && Object.keys(msg.claimedBy || {}).length > 0) { const receiverDisplayName = getDisplayNameInGroup(chat, msg.receiverName); claimedInfoHtml = `<div class="rp-claimed-info">已被 ${receiverDisplayName} 领取</div>`; }
+                    contentHtml = `<div class="red-packet-card ${cardClass}"><div class="rp-header"><img src="https://files.catbox.moe/lo9xhc.png" class="rp-icon"><span class="rp-greeting">${msg.greeting || '恭喜发财，大吉大利！'}</span></div><div class="rp-type">${typeText}</div>${claimedInfoHtml}</div>`;
+                } else if (msg.type === 'poll') {
+                    bubble.classList.add('is-poll', 'is-card-like');
+                    const pollQuestionText = msg.question || msg.content || '(无标题投票)';
+                    let totalVotes = 0; const voteCounts = {}; for (const option in msg.votes) { const count = msg.votes[option].length; voteCounts[option] = count; totalVotes += count; }
+                    const myOriginalName = state.qzoneSettings.nickname || '{{user}}'; let myVote = null; for (const option in msg.votes) { if (msg.votes[option].includes(myOriginalName)) { myVote = option; break; } }
+                    let optionsHtml = '<div class="poll-options-list">'; msg.options.forEach(optionText => { const count = voteCounts[optionText] || 0; const percentage = totalVotes > 0 ? (count / totalVotes) * 100 : 0; const isVotedByMe = myVote === optionText; optionsHtml += `<div class="poll-option-item ${isVotedByMe ? 'voted' : ''}" data-option="${optionText}"><div class="poll-option-bar" style="width: ${percentage}%;"></div><div class="poll-option-content"><span class="poll-option-text">${optionText}</span><span class="poll-option-votes">${count} 票</span></div></div>`; }); optionsHtml += '</div>';
+                    let footerHtml = msg.isClosed ? `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">查看结果</button></div>` : `<div class="poll-footer"><span class="poll-total-votes">共 ${totalVotes} 人投票</span><button class="poll-action-btn">结束投票</button></div>`;
+                    contentHtml = `<div class="poll-card ${msg.isClosed ? 'closed' : ''}" data-poll-timestamp="${msg.timestamp}"><div class="poll-question">${pollQuestionText}</div>${optionsHtml}${footerHtml}</div>`;
+                } else if (msg.type === 'gift') {
+                    bubble.classList.add('is-gift', 'is-card-like');
+                     let headerText; const myNicknameForGift = chat.settings.myNickname || '我';
+                    if (chat.isGroup) {
+                        if (msg.recipients && msg.recipients.length > 0) {
+                            const recipientDisplayNames = msg.recipients.map(originalName => getDisplayNameInGroup(chat, originalName));
+                            if (recipientDisplayNames.length === 1) { headerText = `送给 ${recipientDisplayNames[0]} 的礼物`; } else { headerText = `送给 ${recipientDisplayNames.slice(0, 2).join('、')}等人的礼物`; }
+                        } else { headerText = `送给大家的礼物`; }
+                    } else {
+                        if (isUser) { headerText = `送给 ${chat.name} 的礼物`; } 
+                        else { const recipientDisplayName = chat.settings.myNickname || '你'; headerText = `送给 ${recipientDisplayName} 的礼物`; }
+                    }
+                    const previewItems = msg.items.slice(0, 3); let previewHtml = ''; previewItems.forEach(item => { previewHtml += `<div class="gift-preview-item"><img src="${item.imageUrl}" class="gift-preview-img"><span class="gift-preview-name">${item.name}</span><span class="gift-preview-quantity">x${item.quantity}</span></div>`; });
+                    let moreItemsText = ''; if (msg.items.length > 3) { moreItemsText = ` 等${msg.items.length}件商品`; }
+                    contentHtml = `<div class="gift-card"><div class="gift-header"><svg class="gift-header-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-2.18a4 4 0 0 0-7.64 0H8a4 4 0 0 0-4 4v2h20V10a4 4 0 0 0-4-4zM8 4a2 2 0 1 1-2 2a2 2 0 0 1 2-2zm12 0a2 2 0 1 1-2 2a2 2 0 0 1 2-2zM4 14v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6H4z"></path></svg><span class="gift-header-text">${headerText}</span></div><div class="gift-items-preview">${previewHtml}</div><div class="gift-footer">共${msg.items.length}件商品${moreItemsText}，点击查看</div></div>`;
+                }
+            } else {
+                const processedContent = String(rawContent); // 确保是字符串
+                let processedByRule = await applyRenderingRules(processedContent, chat.id);
+                if (processedByRule !== processedContent) {
+                    contentHtml = processedByRule;
+                    bubble.classList.add('is-card-like');
+                } else {
+                    // ▼▼▼ 【这是您需要添加的核心修复代码】 ▼▼▼
+                    // 1. 检查消息内容是否是用于识图的图片对象数组
+                    if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
+                        // 2. 如果是，就创建一个<img>标签来显示它
+                        const imageUrl = msg.content[0].image_url.url;
+                        contentHtml = `<img src="${imageUrl}" class="chat-image">`;
+                    }
+                    // ▲▲▲ 修复代码结束 ▲▲▲
+                    else if (STICKER_REGEX.test(processedByRule)) { // 使用 else if
+                        bubble.classList.add('is-sticker', 'is-card-like');
+                        contentHtml = `<img src="${processedByRule}" alt="${msg.meaning || 'Sticker'}" class="sticker-image">`;
+                    } else {
+                        let plainText = processMentions(processedByRule, chat);
+                        contentHtml = parseMarkdown(plainText).replace(/\n/g, '<br>');
                     }
                 }
             }
@@ -15814,30 +15817,28 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
         }
         // ▲▲▲ 替换结束 ▲▲▲
         
-        // ▼▼▼ 【全新升级版】请用此函数完整替换旧的 openAdvancedMessageEditor ▼▼▼
+        // ▼▼▼ 【请用这个 V2.0 修复版】完整替换旧的 openAdvancedMessageEditor 函数 ▼▼▼
         /**
          * 打开全新的、可视化的多消息编辑器，并动态绑定其所有按钮事件
          */
         function openAdvancedMessageEditor() {
             if (!activeMessageTimestamp) return;
         
-            // 1. 【核心】在关闭旧菜单前，将需要的时间戳捕获到局部变量中
             const timestampToEdit = activeMessageTimestamp;
-        
             const chat = state.chats[state.activeChatId];
             const message = chat.history.find(m => m.timestamp === timestampToEdit);
             if (!message) return;
         
-            // 2. 现在可以安全地关闭旧菜单了，因为它不会影响我们的局部变量
             hideMessageActions(); 
         
             const editorModal = document.getElementById('message-editor-modal');
             const editorContainer = document.getElementById('message-editor-container');
             editorContainer.innerHTML = ''; 
         
-            // 3. 准备初始内容
             let initialContent;
-            const isSpecialType = message.type && ['voice_message', 'ai_image', 'transfer'].includes(message.type);
+            // 【【【核心修复1：在这里添加 'offline_text' 类型】】】
+            const isSpecialType = message.type && ['voice_message', 'ai_image', 'transfer', 'offline_text'].includes(message.type);
+            
             if (isSpecialType) {
                 let fullMessageObject = { type: message.type };
                 if (message.type === 'voice_message') fullMessageObject.content = message.content;
@@ -15845,6 +15846,11 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
                 else if (message.type === 'transfer') {
                     fullMessageObject.amount = message.amount;
                     fullMessageObject.note = message.note;
+                } 
+                // 【【【核心修复2：专门处理线下模式的消息】】】
+                else if (message.type === 'offline_text') {
+                    fullMessageObject.dialogue = message.dialogue;
+                    fullMessageObject.description = message.description;
                 }
                 initialContent = JSON.stringify(fullMessageObject, null, 2);
             } else if (typeof message.content === 'object') {
@@ -15856,8 +15862,7 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
             const firstBlock = createMessageEditorBlock(initialContent);
             editorContainer.appendChild(firstBlock);
         
-            // 4. 【核心】动态绑定所有控制按钮的事件
-            // 为了防止事件重复绑定，我们使用克隆节点的方法来清除旧监听器
+            // （后续的按钮绑定逻辑保持不变）
             const addBtn = document.getElementById('add-message-editor-block-btn');
             const newAddBtn = addBtn.cloneNode(true);
             addBtn.parentNode.replaceChild(newAddBtn, addBtn);
@@ -15877,13 +15882,42 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
             const saveBtn = document.getElementById('save-advanced-editor-btn');
             const newSaveBtn = saveBtn.cloneNode(true);
             saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-            // 将捕获到的时间戳，直接绑定给这一次的保存点击事件
             newSaveBtn.addEventListener('click', () => {
                 saveEditedMessage(timestampToEdit); 
             });
         
-            // 5. 最后，显示模态框
             editorModal.classList.add('visible');
+        }
+        // ▲▲▲ 替换结束 ▲▲▲
+
+        /**
+         * 复制消息的文本内容到剪贴板
+         */
+        async function copyMessageContent() {
+            if (!activeMessageTimestamp) return;
+            const chat = state.chats[state.activeChatId];
+            const message = chat.history.find(m => m.timestamp === activeMessageTimestamp);
+            if (!message) return;
+        
+            let textToCopy;
+            // 【【【核心修复3：在这里也添加对 offline_text 的判断】】】
+            if (message.type === 'offline_text') {
+                // 如果是线下模式，就将对话和描写组合成一个更易读的文本
+                textToCopy = `「${message.dialogue || ''}」\n${message.description || ''}`;
+            } else if (typeof message.content === 'object') {
+                textToCopy = JSON.stringify(message.content);
+            } else {
+                textToCopy = String(message.content);
+            }
+        
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                await showCustomAlert('复制成功', '消息内容已复制到剪贴板。');
+            } catch (err) {
+                await showCustomAlert('复制失败', '无法访问剪贴板。');
+            }
+            
+            hideMessageActions();
         }
         // ▲▲▲ 替换结束 ▲▲▲
         
@@ -15917,7 +15951,7 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
         }
         
         
-        // ▼▼▼ 请用这个【已彻底修复】的函数，完整替换你现有的 saveEditedMessage 函数 ▼▼▼
+        // ▼▼▼ 【请用这个已彻底修复的版本】完整替换你现有的 saveEditedMessage 函数 ▼▼▼
         
         async function saveEditedMessage(timestamp, simpleContent = null) {
             if (!timestamp) return;
@@ -15928,34 +15962,42 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
         
             let newMessages = [];
         
-            // 判断是来自高级编辑器还是简单编辑器
             if (simpleContent !== null) {
-                // --- 来自简单编辑器 ---
                 const rawContent = simpleContent.trim();
                 if (rawContent) {
                     const parsedResult = parseEditedContent(rawContent);
                     const newMessage = {
                         role: chat.history[messageIndex].role,
                         senderName: chat.history[messageIndex].senderName,
-                        // 注意：这里我们暂时不设置时间戳
                         content: parsedResult.content || '',
                     };
+                    
                     if (parsedResult.type && parsedResult.type !== 'text') newMessage.type = parsedResult.type;
-                    if (parsedResult.meaning) newMessage.meaning = parsedResult.meaning;
-                    if (parsedResult.amount) newMessage.amount = parsedResult.amount;
-                    if (parsedResult.note) newMessage.note = parsedResult.note;
-                    if (parsedResult.title) newMessage.title = parsedResult.title;
-                    if (parsedResult.description) newMessage.description = parsedResult.description;
-                    if (parsedResult.source_name) newMessage.source_name = parsedResult.source_name;
-                    if (parsedResult.description && parsedResult.type === 'ai_image') {
+                    
+                    // --- 【【【核心修复就在这里！】】】 ---
+                    // 当我们解析出这是一个线下模式的消息时，
+                    // 需要把 dialogue 和 description 字段也加到新消息对象上。
+                    if (parsedResult.type === 'offline_text') {
+                        newMessage.dialogue = parsedResult.dialogue;
+                        newMessage.description = parsedResult.description;
+                        delete newMessage.content; // 同时删除多余的 content 字段
+                    }
+                    // --- （其他类型的判断保持不变） ---
+                    else if (parsedResult.meaning) newMessage.meaning = parsedResult.meaning;
+                    else if (parsedResult.amount) newMessage.amount = parsedResult.amount;
+                    else if (parsedResult.note) newMessage.note = parsedResult.note;
+                    else if (parsedResult.title) newMessage.title = parsedResult.title;
+                    else if (parsedResult.description) newMessage.description = parsedResult.description;
+                    else if (parsedResult.source_name) newMessage.source_name = parsedResult.source_name;
+                    else if (parsedResult.description && parsedResult.type === 'ai_image') {
                          newMessage.content = parsedResult.description;
                     }
         
                     newMessages.push(newMessage);
                 }
             } else {
-                // --- 来自高级编辑器 ---
-                const editorContainer = document.getElementById('message-editor-container');
+                // ... (来自高级编辑器的逻辑保持不变) ...
+                 const editorContainer = document.getElementById('message-editor-container');
                 const editorBlocks = editorContainer.querySelectorAll('.message-editor-block');
         
                 for (const block of editorBlocks) {
@@ -15967,18 +16009,24 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
                     const newMessage = {
                         role: chat.history[messageIndex].role,
                         senderName: chat.history[messageIndex].senderName,
-                        // 同样，这里我们先不分配时间戳
                         content: parsedResult.content || '',
                     };
                     
                     if (parsedResult.type && parsedResult.type !== 'text') newMessage.type = parsedResult.type;
-                    if (parsedResult.meaning) newMessage.meaning = parsedResult.meaning;
-                    if (parsedResult.amount) newMessage.amount = parsedResult.amount;
-                    if (parsedResult.note) newMessage.note = parsedResult.note;
-                    if (parsedResult.title) newMessage.title = parsedResult.title;
-                    if (parsedResult.description) newMessage.description = parsedResult.description;
-                    if (parsedResult.source_name) newMessage.source_name = parsedResult.source_name;
-                    if (parsedResult.description && parsedResult.type === 'ai_image') {
+                    
+                    // --- 【【【在这里也加上同样的修复！】】】 ---
+                    if (parsedResult.type === 'offline_text') {
+                        newMessage.dialogue = parsedResult.dialogue;
+                        newMessage.description = parsedResult.description;
+                        delete newMessage.content;
+                    }
+                    else if (parsedResult.meaning) newMessage.meaning = parsedResult.meaning;
+                    else if (parsedResult.amount) newMessage.amount = parsedResult.amount;
+                    else if (parsedResult.note) newMessage.note = parsedResult.note;
+                    else if (parsedResult.title) newMessage.title = parsedResult.title;
+                    else if (parsedResult.description) newMessage.description = parsedResult.description;
+                    else if (parsedResult.source_name) newMessage.source_name = parsedResult.source_name;
+                    else if (parsedResult.description && parsedResult.type === 'ai_image') {
                          newMessage.content = parsedResult.description;
                     }
         
@@ -15988,31 +16036,20 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
             
             if (newMessages.length === 0) {
                 document.getElementById('message-editor-modal').classList.remove('visible');
-                return; // 如果是空消息，直接返回，不执行删除操作
+                return;
             }
         
-            // ★★★★★【核心修复逻辑就在这里】★★★★★
-        
-            // 1. 使用 splice 将旧消息替换为新消息（此时新消息还没有时间戳）
             chat.history.splice(messageIndex, 1, ...newMessages);
         
-            // 2. 确定重新分配时间戳的起点
-            // 我们从被编辑的消息的原始时间戳开始
             let reassignTimestamp = timestamp;
         
-            // 3. 从被修改的位置开始，遍历所有后续的消息
             for (let i = messageIndex; i < chat.history.length; i++) {
-                // 4. 为每一条消息（包括新插入的）分配一个新的、唯一的、连续的时间戳
                 chat.history[i].timestamp = reassignTimestamp;
-        
-                // 5. 将时间戳+1，为下一条消息做准备
                 reassignTimestamp++; 
             }
-            // ★★★★★【修复结束】★★★★★
         
             await db.chats.put(chat);
         
-            // 关闭可能打开的模态框并刷新UI
             document.getElementById('message-editor-modal').classList.remove('visible');
             renderChatInterface(state.activeChatId);
             await showCustomAlert('成功', '消息已更新！');
@@ -19885,6 +19922,7 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
         
             return block;
         }
+        // ▼▼▼ 【V3.0 | 容错终极修复版】请用这个全新的函数，完整替换旧的 saveEditedAiResponse 函数 ▼▼▼
         /**
          * 【核心】保存导演模式下修改过的内容，并重写历史记录
          */
@@ -19892,121 +19930,105 @@ if (rawContent.trim().startsWith('<') && rawContent.trim().endsWith('>')) {
             const chat = state.chats[state.activeChatId];
             if (!chat) return;
         
-            // 1. 从DOM中收集所有编辑后的JSON字符串
+            // 1. 从DOM中收集所有编辑后的JSON字符串，并构建一个新的原始响应字符串
             const editorContainer = document.getElementById('ai-response-editor-container');
-            const editorBlocks = editorContainer.querySelectorAll('.ai-response-editor-block textarea');
-            
+            const editorTextareas = editorContainer.querySelectorAll('textarea');
+            const editedRawBlocks = Array.from(editorTextareas).map(ta => ta.value.trim()).filter(Boolean);
+        
+            // 如果用户删除了所有内容，则视为清空上一轮回复
+            if (editedRawBlocks.length === 0) {
+                chat.history = chat.history.filter(msg => !lastResponseTimestamps.includes(msg.timestamp));
+                await db.chats.put(chat);
+                renderChatInterface(state.activeChatId);
+                renderChatList();
+                document.getElementById('ai-response-editor-modal').classList.remove('visible');
+                lastRawAiResponse = '';
+                lastResponseTimestamps = [];
+                return;
+            }
+        
+            // 2. 解析新的消息数组
             let newMessagesArray = [];
-            for (const textarea of editorBlocks) {
-                const rawContent = textarea.value.trim();
-                if (!rawContent) continue;
-                
+            for (const rawContent of editedRawBlocks) {
                 try {
                     const parsedObject = JSON.parse(rawContent);
                     newMessagesArray.push(parsedObject);
                 } catch (e) {
                     console.warn("跳过一个无法解析为JSON的编辑块:", rawContent);
-                    // 也可以在这里给用户一个提示
                 }
             }
         
-            // 2. 从聊天历史中移除上一轮AI生成的所有消息
+            // 3. 从聊天历史中移除上一轮AI生成的所有消息
             chat.history = chat.history.filter(msg => !lastResponseTimestamps.includes(msg.timestamp));
         
-            // 3. 重新处理和渲染新的消息数组（与triggerAiResponse中的逻辑类似）
+            // 4. 将新编辑的消息添加回历史记录，并记录它们新的时间戳
+            let newTimestamps = [];
             let messageTimestamp = Date.now();
-            let notificationShown = false;
-        
+            
             for (const msgData of newMessagesArray) {
-                // ... (此处省略了与 triggerAiResponse 中完全相同的、用于处理各种消息类型的 switch...case 循环)
-                // ... (The switch...case loop for processing various message types, identical to the one in triggerAiResponse, is omitted here)
-                if (chat.isGroup && msgData.name && msgData.name === chat.name) {
-                        console.error(`AI幻觉已被拦截！试图使用群名 ("${chat.name}") 作为角色名。消息内容:`, msgData);
-                        continue;
-                    }
-                    if (!msgData || typeof msgData !== 'object') {
-                        console.warn("收到了格式不规范的AI指令，已跳过:", msgData);
-                        continue;
-                    }
-                    if (!msgData.type) {
-                        if (chat.isGroup && msgData.name && msgData.message) {
-                            msgData.type = 'text';
-                        } else if (msgData.content) {
-                            msgData.type = 'text';
-                        } else {
-                            console.warn("收到了格式不规范的AI指令（缺少type和content），已跳过:", msgData);
-                            continue;
-                        }
-                    }
-                    if (chat.isGroup && !msgData.name) {
-                        console.error(`AI幻觉已被拦截！试图在群聊中发送一条没有“name”的消息。消息内容:`, msgData);
-                        continue;
-                    }
+                 if (!msgData || typeof msgData !== 'object' || !msgData.type) {
+                    console.warn("在导演模式保存时，发现无效的指令对象，已跳过:", msgData);
+                    continue;
+                }
         
-                    let aiMessage = null;
-                    const baseMessage = { role: 'assistant', senderName: msgData.name || chat.name, timestamp: messageTimestamp++ };
+                let aiMessage = null;
+                const baseMessage = { role: 'assistant', senderName: msgData.name || chat.originalName, timestamp: messageTimestamp++ };
         
-                    switch (msgData.type) {
-                        case 'update_thoughts':
-                            if (!chat.isGroup) {
-                                if (msgData.heartfelt_voice) chat.heartfeltVoice = String(msgData.heartfelt_voice);
-                                if (msgData.random_jottings) chat.randomJottings = String(msgData.random_jottings);
-                                if (!Array.isArray(chat.thoughtsHistory)) chat.thoughtsHistory = [];
-                                chat.thoughtsHistory.push({
-                                    heartfeltVoice: chat.heartfeltVoice,
-                                    randomJottings: chat.randomJottings,
-                                    timestamp: Date.now()
-                                });
-                                if (chat.thoughtsHistory.length > 50) chat.thoughtsHistory.shift();
-                            }
-                            continue;
-                        // ... (省略所有其他 case, 逻辑与 triggerAiResponse 完全相同)
-                        case 'text':
-                            aiMessage = { ...baseMessage, content: String(msgData.content || msgData.message) };
-                            break;
-                        case 'sticker':
-                            aiMessage = { ...baseMessage, type: 'sticker', content: msgData.url, meaning: msgData.meaning || '' };
-                            break;
-                        case 'ai_image':
-                            aiMessage = { ...baseMessage, type: 'ai_image', content: msgData.description };
-                            break;
-                        case 'voice_message':
-                            aiMessage = { ...baseMessage, type: 'voice_message', content: msgData.content };
-                            break;
-                        case 'transfer':
-                            aiMessage = { ...baseMessage, type: 'transfer', amount: msgData.amount, note: msgData.note, receiverName: msgData.receiver || '我' };
-                            break;
-                        case 'waimai_request':
-                            aiMessage = { 
-                                ...baseMessage, 
-                                type: 'waimai_request',
-                                productInfo: msgData.productInfo,
-                                amount: msgData.amount,
-                                status: 'pending',
-                                countdownEndTime: Date.now() + 15 * 60 * 1000,
-                            };
-                            break;
-                        default:
-                             console.warn("在导演模式保存时，遇到了未知的AI指令类型:", msgData.type);
-                             break;
-                    }
+                switch (msgData.type) {
+                    case 'text':
+                        aiMessage = { ...baseMessage, content: String(msgData.content || msgData.message) };
+                        break;
+                    case 'sticker':
+                        aiMessage = { ...baseMessage, type: 'sticker', content: msgData.url, meaning: msgData.meaning || '' };
+                        break;
+                    case 'ai_image':
+                        aiMessage = { ...baseMessage, type: 'ai_image', content: msgData.description };
+                        break;
+                    case 'voice_message':
+                        aiMessage = { ...baseMessage, type: 'voice_message', content: msgData.content };
+                        break;
+                    case 'transfer':
+                        aiMessage = { ...baseMessage, type: 'transfer', amount: msgData.amount, note: msgData.note, receiverName: msgData.receiver || '我' };
+                        break;
+                    case 'waimai_request':
+                        aiMessage = { 
+                            ...baseMessage, type: 'waimai_request',
+                            productInfo: msgData.productInfo, amount: msgData.amount,
+                            status: 'pending', countdownEndTime: Date.now() + 15 * 60 * 1000,
+                        };
+                        break;
+                    case 'offline_text':
+                        aiMessage = {
+                            ...baseMessage, type: 'offline_text',
+                            dialogue: msgData.dialogue, description: msgData.description
+                        };
+                        break;
+                    default:
+                         console.warn("在导演模式保存时，遇到了未知的AI指令类型:", msgData.type);
+                         break;
+                }
         
-                    if (aiMessage) {
-                        chat.history.push(aiMessage);
-                    }
+                if (aiMessage) {
+                    chat.history.push(aiMessage);
+                    newTimestamps.push(aiMessage.timestamp); // 记录新消息的时间戳
+                }
             }
         
-            // 4. 保存到数据库并刷新整个聊天界面
+            // 5. 保存到数据库并刷新整个聊天界面
             await db.chats.put(chat);
             renderChatInterface(state.activeChatId);
-            renderChatList(); // 同样需要刷新列表的最后消息
+            renderChatList();
             document.getElementById('ai-response-editor-modal').classList.remove('visible');
             
-            // 5. 清空记录，为下一次做准备
-            lastRawAiResponse = '';
-            lastResponseTimestamps = [];
+            // 6. 【【【这就是最关键的修复！】】】
+            // 我们不再清空变量，而是用您刚刚编辑好的内容来更新它们！
+            // 这样，您下一次点击“导演剪辑室”，加载的就是您最新修改的版本了。
+            lastRawAiResponse = editedRawBlocks.join('\n\n'); // 将所有编辑框的内容合并，作为新的“原始响应”
+            lastResponseTimestamps = newTimestamps; // 更新时间戳记录
+            
+            // 7. (可选但推荐) 给用户一个更清晰的提示
+            await showCustomAlert("导演模式", "您的修改已保存！\n\n现在，您可以继续编辑这一版，或者点击“等待回复”让AI继续。");
         }
-        // ▲▲▲ 新增功能函数结束 ▲▲▲
         /**
          * 【全新】处理用户点击“撤回”按钮的入口函数
          */
@@ -26357,7 +26379,6 @@ ${recentHistorySummary}
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
