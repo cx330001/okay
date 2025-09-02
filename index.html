@@ -5904,18 +5904,19 @@
             display: grid;
         }
         
-        /* 8. 美化后的世界书卡片样式 */
-        .world-book-card {
-            background-color: var(--secondary-bg);
-            border-radius: 12px;
-            padding: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            cursor: pointer;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 8px; /* 标题和内容的间距 */
-        }
+/* 8. 美化后的世界书卡片样式 */
+.world-book-card {
+    background-color: var(--secondary-bg);
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* 标题和内容的间距 */
+    word-break: break-all; /* <<< 核心修复：添加这一行 */
+}
         
         .world-book-card:hover {
             transform: translateY(-5px);
