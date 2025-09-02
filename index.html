@@ -11821,7 +11821,6 @@
         
         
         
-        // ▼▼▼ 【最终修复版】请用这个全新的函数，完整替换旧的 triggerAiResponse 函数 ▼▼▼
         /**
          * 【V4.0 | 修复挂载记忆时间感知】触发AI响应的核心逻辑
          */
@@ -11983,6 +11982,9 @@
                     }
                 }
         
+                // =========================================================================
+                //                  ★★★ 以下是针对您问题的核心修复代码 ★★★
+                // =========================================================================
                 if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
                     console.log(`为角色 "${chat.name}" 触发带理由的好友申请决策流程...`);
                     const contextSummary = chat.history
@@ -11994,6 +11996,7 @@
                         })
                         .join('\n');
         
+                    // 1. 构建一个清晰、独立的系统指令 (System Prompt)
                     const decisionPrompt = `
         # 你的任务
         你现在是角色“${chat.name}”。用户之前被你拉黑了，现在TA向你发送了好友申请，希望和好。
@@ -12008,24 +12011,34 @@
         或
         {"decision": "reject", "reason": "（在这里写下你拒绝的理由，比如：抱歉，我还没准备好，再给我一点时间吧。）"}
         `;
-                    const messagesForDecision = [{role: 'user', content: decisionPrompt}];
-        
+                    
                     try {
-                        let geminiConfig = toGeminiRequestData(proxyUrl, model,decisionPrompt, messagesForDecision)
-                        let  isGemini = proxyUrl === GEMINI_API_URL;
-                        const response = isGemini ? await fetch(geminiConfig.url, geminiConfig.data) :  await fetch(`${proxyUrl}/v1/chat/completions`, {
-                            method: 'POST',
-                            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-                            body: JSON.stringify({model: model, messages: messagesForDecision, temperature: 0.8})
-                        });
+                        // 2. 构造符合规范的API请求体
+                        const messagesForDecision = [
+                            { role: 'system', content: decisionPrompt },
+                            { role: 'user', content: "请根据以上设定，立即做出你的决定。" }
+                        ];
+                        
+                        let isGemini = proxyUrl === GEMINI_API_URL;
+                        let geminiConfig = toGeminiRequestData(model, apiKey, decisionPrompt, [{ role: 'user', content: "请根据以上设定，立即做出你的决定。" }]);
+                        
+                        const response = isGemini 
+                            ? await fetch(geminiConfig.url, geminiConfig.data) 
+                            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                                body: JSON.stringify({model: model, messages: messagesForDecision, temperature: 0.8})
+                            });
         
                         if (!response.ok) {
                             throw new Error(`API失败: ${(await response.json()).error.message}`);
                         }
                         const data = await response.json();
-                        const rawContent = data.choices.message.content.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+                        // 3. 安全地解析AI的回复
+                        const rawContent = getGeminiResponseText(data).replace(/^```json\s*/, '').replace(/```$/, '').trim();
                         const decisionObj = JSON.parse(rawContent);
         
+                        // 4. 根据AI的决策更新状态和历史记录 (这部分逻辑不变)
                         if (decisionObj.decision === 'accept') {
                             chat.relationship.status = 'friend';
                             const acceptMessage = { role: 'assistant', senderName: chat.name, content: decisionObj.reason, timestamp: Date.now() };
@@ -12041,13 +12054,17 @@
                         renderChatInterface(chatId);
                         renderChatList();
                     } catch (error) {
+                        // 错误处理 (这部分逻辑不变)
                         chat.relationship.status = 'blocked_by_ai';
                         await db.chats.put(chat);
                         await showCustomAlert('申请失败', `AI在处理你的好友申请时出错了，请稍后重试。\n错误信息: ${error.message}`);
                         renderChatInterface(chatId);
                     }
-                    return; 
+                    return; // 处理完后必须退出，防止执行后续的通用聊天逻辑
                 }
+                // =========================================================================
+                //                  ★★★ 核心修复代码到此结束 ★★★
+                // =========================================================================
         
                 const now = new Date();
                 const chinaTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (3600000 * 8));
@@ -12057,34 +12074,30 @@
         
                 const gomokuContext = formatGomokuStateForAI(gomokuState[chatId]);
         
-        // ▼▼▼ 在 triggerAiResponse 函数中，用下面这整块代码替换旧的世界书处理逻辑 ▼▼▼
-        let worldBookContent = '';
-        if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
-            const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
-                const worldBook = state.worldBooks.find(wb => wb.id === bookId);
-                // 【核心修改1】在这里增加一个检查
-                if (!worldBook || !Array.isArray(worldBook.content)) return '';
-        
-                // 【核心修改2】在 map 之前，先用 filter 过滤掉被禁用的条目
-                const formattedEntries = worldBook.content
-                    .filter(entry => entry.enabled !== false) // 只选择启用的条目
-                    .map(entry => {
-                        let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
-                        if (entry.keys.length > 0) {
-                            entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
-                        }
-                        entryString += `**内容:**\n${entry.content}`;
-                        return entryString;
-                    }).join(''); // 【核心修改3】join('')确保条目之间紧密相连
-        
-                return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
-            }).filter(Boolean).join('');
-            
-            if (linkedContents) {
-                worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
-            }
-        }
-        // ▲▲▲ 替换结束 ▲▲▲
+                let worldBookContent = '';
+                if (chat.settings.linkedWorldBookIds && chat.settings.linkedWorldBookIds.length > 0) {
+                    const linkedContents = chat.settings.linkedWorldBookIds.map(bookId => {
+                        const worldBook = state.worldBooks.find(wb => wb.id === bookId);
+                        if (!worldBook || !Array.isArray(worldBook.content)) return '';
+                
+                        const formattedEntries = worldBook.content
+                            .filter(entry => entry.enabled !== false) 
+                            .map(entry => {
+                                let entryString = `\n### 条目: ${entry.comment || '无备注'}\n`;
+                                if (entry.keys.length > 0) {
+                                    entryString += `**关键词:** ${entry.keys.join(', ')}\n`;
+                                }
+                                entryString += `**内容:**\n${entry.content}`;
+                                return entryString;
+                            }).join(''); 
+                
+                        return formattedEntries ? `\n\n## 世界书: ${worldBook.name}\n${formattedEntries}` : '';
+                    }).filter(Boolean).join('');
+                    
+                    if (linkedContents) {
+                        worldBookContent = `\n\n# 核心世界观设定 (必须严格遵守以下所有设定)\n${linkedContents}\n`;
+                    }
+                }
                 let musicContext = '';
                 if (musicState.isActive && musicState.activeChatId === chatId) {
                     const currentTrack = musicState.currentIndex > -1 ? musicState.playlist[musicState.currentIndex] : null;
@@ -12135,18 +12148,13 @@
         `;
                 }
                 
-                // --- ★★★ 从这里开始是本次的核心修复 ★★★ ---
                 let linkedMemoryContext = '';
                 const memoryCount = chat.settings.linkedMemoryCount || 10;
 
-                // 1. 检查是否存在需要挂载的聊天ID
                 if (chat.settings.linkedMemoryChatIds && chat.settings.linkedMemoryChatIds.length > 0) {
                     
-                    // 2. 【【【这就是最关键的修复！】】】
-                    // 在映射之前，先用 filter 过滤掉当前聊天自己的ID！
                     const idsToMount = chat.settings.linkedMemoryChatIds.filter(id => id !== chatId);
 
-                    // 3. 只有当过滤后还剩下ID时，才继续执行挂载逻辑
                     if (idsToMount.length > 0) {
                         const linkedChatsWithTimestamps = idsToMount.map(id => {
                             const linkedChat = state.chats[id];
@@ -12189,7 +12197,6 @@
                         }
                     }
                 }
-                // --- ★★★ 修复到这里结束 ★★★ ---
                 
                 console.log("本次发送给AI的【挂载记忆】内容如下：\n", linkedMemoryContext);
         
@@ -12682,6 +12689,7 @@
         ${gomokuContext}
         
         # 你可以使用的操作指令 (JSON数组中的元素):
+        -   **【【【全新】】】引用回复**: '{"type": "quote_reply", "target_timestamp": (你想引用的消息的时间戳), "reply_content": "你的回复内容"}' (提示：每条历史消息的开头都提供了 '(Timestamp: ...)'，请使用它！)
         -   **【【【全新简化版】】】送出礼物**: '{"type": "gift", "productId": 123, "quantity": 1}' (productId 必须从下方的商店列表中选择，一次只能送一种)
         -   **【【【全新】】】修改你对用户的称呼**: '{"type": "change_user_nickname", "new_name": "你想用的新称呼"}'
         -   **【【【全新】】】修改你的备注名**: '{"type": "change_remark_name", "new_name": "你想让用户看到的新名字"}'
@@ -15207,17 +15215,7 @@
         当前时间是 ${now.toLocaleString('zh-CN', { dateStyle: 'full', timeStyle: 'short' })}。
         ${timeContextText} 你的任务是根据群成员的性格、世界观、参考记忆、最近的动态和当前情景，【选择一个或多个角色】，让他们主动发起一段对话，打破沉默，让群聊重新活跃起来。
         
-        /* ▼▼▼ 请用这个【通用版】指南替换旧的版本 ▼▼▼ */
-        # 【【【全新】文本格式化指南】】】
-        在你的所有回复中，你可以在【任何你生成的文本字段】里（例如日记的 "description"），使用以下特殊语法来添加丰富的文本格式：
-        - \`**粗体文本**\` 会显示为 **粗体文本**。
-        - \`*斜体文本*\` 会显示为 *斜体文本*。
-        - \`~~删除线文本~~\` 会显示为 ~~删除线文本~~。
-        - \`==高亮文本==\` 会显示为 <mark>高亮文本</mark>。
-        - \`||隐藏文本||\` 会显示为被涂黑的剧透块，用户可以悬停或点击查看。
-        
-        【示例 - 写日记】: \`{"type": "create_memory", "description": "我永远也忘不了那个**傍晚**，那是我第一次感到如此*开心*。"}\`
-        /* ▲▲▲ 替换结束 ▲▲▲ */
+
         
         # 核心规则
         你的回复【必须】是一个JSON数组，可以包含一个或多个行动对象。每个对象的 "name" 字段【必须】是角色的【本名】。你【绝对不能】生成 "name" 字段为 "${myNickname}" 的消息。严格遵守每个角色的设定，禁止出戏。
@@ -15228,6 +15226,10 @@
         -   **发送图片**: '{"type": "ai_image", "name": "角色本名", "description": "..."}'
         -   **发起投票**: '{"type": "poll", "name": "角色本名", "question": "...", "options": "..."}'
         -   **发起群视频**: '{"type": "group_call_request", "name": "角色本名"}'
+        -【【【全新】】】如何正确使用“引用回复”功能：
+- 当你想明确地针对群内【任何成员】（包括用户或其他AI角色）之前的某一句具体的话进行回复时，你就应该使用这个功能。
+- 这会让你的回复上方出现一个灰色的小框，里面是被你引用的那句话，这样对话就不会乱了。
+- 指令格式: '{"type": "quote_reply", "target_timestamp": (你想引用的那句话的时间戳), "reply_content": "你的回复内容"}'
         # 长期记忆 (最高优先级，这是群内已经确立的事实，所有角色必须严格遵守)
         ${chat.longTermMemory && chat.longTermMemory.length > 0 ? chat.longTermMemory.map(mem => `- ${mem.content}`).join('\n') : '- (暂无)'}
         # 当前群聊信息
@@ -25756,30 +25758,51 @@ ${recentHistorySummary}
         // 使用事件委托来处理所有“已撤回消息”的点击事件
         document.getElementById('chat-messages').addEventListener('click', (e) => {
             // 检查被点击的元素或其父元素是否是“已撤回”提示
-            const placeholder = e.target.closest('.recalled-message-placeholder');
-            if (!placeholder) return; // 如果不是，就退出
-        
-            // 如果是，就从聊天记录中找到对应的数据并显示
-            const chat = state.chats[state.activeChatId];
-            const wrapper = placeholder.closest('.message-wrapper'); // 找到它的父容器
-            if (chat && wrapper) {
-                // 从父容器上找到时间戳
-                const timestamp = parseInt(wrapper.dataset.timestamp);
-                const recalledMsg = chat.history.find(m => m.timestamp === timestamp);
-                
-                if (recalledMsg && recalledMsg.recalledData) {
-                    let originalContentText = '';
-                    const recalled = recalledMsg.recalledData;
-                    
-                    if (recalled.originalType === 'text') {
-                        originalContentText = `原文: "${recalled.originalContent}"`;
-                    } else {
-                        originalContentText = `撤回了一条[${recalled.originalType}]类型的消息`;
-                    }
-                    showCustomAlert('已撤回的消息', originalContentText);
-                }
+// ▼▼▼ 【这是最终修复版】请用这整块代码，完整替换旧的 .recalled-message-placeholder 点击事件逻辑 ▼▼▼
+const placeholder = e.target.closest('.recalled-message-placeholder');
+if (placeholder) {
+    const chat = state.chats[state.activeChatId];
+    const wrapper = placeholder.closest('.message-wrapper');
+    if (chat && wrapper) {
+        const timestamp = parseInt(wrapper.dataset.timestamp);
+        const recalledMsg = chat.history.find(m => m.timestamp === timestamp);
+
+        if (recalledMsg && recalledMsg.recalledData) {
+            let originalContentText = '';
+            const recalled = recalledMsg.recalledData;
+
+            // --- 核心修复：在这里添加对更多消息类型的判断 ---
+            switch (recalled.originalType) {
+                case 'text':
+                    originalContentText = `原文: "${recalled.originalContent}"`;
+                    break;
+                case 'user_photo':
+                case 'ai_image':
+                case 'text_image':
+                    originalContentText = `[图片/文字图] 描述: "${recalled.originalContent}"`;
+                    break;
+                case 'voice_message':
+                    originalContentText = `[语音] 内容: "${recalled.originalContent}"`;
+                    break;
+                case 'sticker':
+                    // 对于表情，同时显示含义和图片URL
+                    originalContentText = `[表情] 含义: "${recalled.originalMeaning || '(无)'}" \n URL: ${recalled.originalContent}`;
+                    break;
+                case 'transfer':
+                    originalContentText = `一条[转账]消息已被撤回。`;
+                    break;
+                default:
+                    // 对于其他未知类型，显示类型和原始内容
+                    originalContentText = `撤回了一条[${recalled.originalType}]类型的消息。\n内容: ${JSON.stringify(recalled.originalContent)}`;
+                    break;
             }
-        });
+            // --- 修复结束 ---
+
+            showCustomAlert('已撤回的消息', originalContentText);
+        }
+    }
+}
+});
         
         // ▲▲▲ 新代码粘贴结束 ▲▲▲
         
