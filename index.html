@@ -12936,6 +12936,44 @@ messagesPayload = historySlice.map(msg => {
                 lastResponseTimestamps = [];
                 chat.history = chat.history.filter(msg => !msg.isTemporary);
                 const messagesArray = parseAiResponse(aiResponseContent);
+// ▼▼▼ 【全新】智能识图优化功能，请将此代码块粘贴到指定位置 ▼▼▼
+
+// 1. 检查触发条件：最后一条用户消息是【尚未处理过】的图片
+const lastUserMessage = chat.history.filter(m => m.role === 'user' && !m.isHidden).pop();
+if (lastUserMessage && 
+    Array.isArray(lastUserMessage.content) && 
+    lastUserMessage.content[0]?.type === 'image_url' &&
+    !lastUserMessage.imageProcessed) { // <--- 关键检查：确保只处理一次
+    
+    // 2. 从AI的回复中提取第一句文字作为图片描述
+    const firstTextResponse = messagesArray.find(msg => msg.type === 'text');
+    let description;
+    if (firstTextResponse && (firstTextResponse.content || firstTextResponse.message)) {
+        description = String(firstTextResponse.content || firstTextResponse.message).trim();
+    } else {
+        // 如果AI没有立即回复文字（例如，直接发了一张图），提供一个通用描述
+        description = "AI已接收并理解了该图片的内容。";
+    }
+    
+    // 3. 找到历史记录中的原始图片消息
+    const imageMessageIndex = chat.history.findIndex(m => m.timestamp === lastUserMessage.timestamp);
+    
+    if (imageMessageIndex > -1) {
+        console.log(`识图优化：正在将时间戳为 ${lastUserMessage.timestamp} 的图片消息替换为文字描述...`);
+        
+        // 4. 执行替换！用一段简短的文字描述替换掉巨大的Base64数据
+        const replacementText = `[系统提示：用户之前发送了一张图片，AI对图片的首次回应（摘要）是：“${description}”]`;
+        chat.history[imageMessageIndex].content = replacementText;
+        
+        // 5. 【重要】为这条消息打上“已处理”的标记，并将其类型更改为普通文本
+        chat.history[imageMessageIndex].imageProcessed = true;
+        chat.history[imageMessageIndex].type = 'text'; 
+        
+        // 注意：此时我们只修改了内存中的 chat.history。
+        // 后续的代码会把这个修改后的 history 和新消息一起存入数据库，完成持久化。
+    }
+}
+// ▲▲▲ 优化功能代码块结束 ▲▲▲
                 const isViewingThisChat = document.getElementById('chat-interface-screen').classList.contains('active') && state.activeChatId === chatId;
                 let callHasBeenHandled = false;
                 let messageTimestamp = Date.now();
