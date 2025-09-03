@@ -7973,52 +7973,73 @@
         }
         // ▲▲▲ 替换结束 ▲▲▲
         
-        // ▼▼▼ 【最终修复方案】请用这个全新的、兼容性更强的函数替换旧的 toGeminiRequestData ▼▼▼
-        function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
-            const roleType = {
-                user: 'user',
-                assistant: 'model',
-                system: 'user' 
-            };
-        
-            // --- 核心修复：将 systemInstruction 模拟成第一次用户对话 ---
-            // 这大大提高了在各种反代服务上的兼容性
-            const contents = [
-                {
-                    role: 'user',
-                    parts: [{ text: systemInstruction }]
+// ▼▼▼ 【最终识图修复方案】请用这个全新的、兼容性更强的函数，完整替换旧的 toGeminiRequestData ▼▼▼
+function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecision) {
+    const roleType = {
+        user: 'user',
+        assistant: 'model',
+        system: 'user'
+    };
+
+    // --- 1. 将 systemInstruction 模拟成第一次用户对话，极大提高兼容性 ---
+    const contents = [
+        {
+            role: 'user',
+            parts: [{ text: systemInstruction }]
+        },
+        {
+            role: 'model',
+            parts: [{ text: '好的，我明白了。我会严格遵守以上所有规则和设定。' }]
+        },
+        // --- 2. 【核心修复】智能地处理每一条消息，构建正确的 parts 数组 ---
+        ...messagesForDecision.map((item) => {
+            const parts = [];
+            // a. 如果 content 是一个数组，说明可能是复杂消息（文本+图片）
+            if (Array.isArray(item.content)) {
+                item.content.forEach(part => {
+                    if (part.type === 'text') {
+                        parts.push({ text: part.text });
+                    } else if (part.type === 'image_url' && part.image_url && part.image_url.url) {
+                        // b. 正确地从 Base64 URL 中提取图片数据和类型
+                        const currentImageData = part.image_url.url;
+                        const base64Data = currentImageData.split(',')[1];
+                        const mimeTypeMatch = currentImageData.match(/^data:(.*);base64/);
+                        if (mimeTypeMatch && base64Data) {
+                            parts.push({
+                                inline_data: {
+                                    mime_type: mimeTypeMatch[1],
+                                    data: base64Data
+                                }
+                            });
+                        }
+                    }
+                });
+            } else {
+                // c. 如果 content 是普通字符串，直接作为文本处理
+                parts.push({ text: String(item.content) });
+            }
+            return { role: roleType[item.role], parts: parts };
+        })
+    ];
+
+    // --- 3. 返回最终构建好的、完全符合 Gemini API 规范的请求数据 ---
+    return {
+        url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getRandomValue(apiKey)}`,
+        data: {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                contents: contents,
+                generationConfig: {
+                    temperature: 0.8,
                 },
-                {
-                    role: 'model',
-                    parts: [{ text: '好的，我明白了。我会严格遵守以上所有规则和设定。' }] // 模拟AI的确认
-                },
-                ...messagesForDecision.map((item) => ({
-                    role: roleType[item.role],
-                    parts: Array.isArray(item.content) && item.content.length > 0 && item.content[0].type === 'image_url' 
-                           ? isImage(item.content[0]) 
-                           : [{ text: String(item.content) }]
-                }))
-            ];
-        
-            return {
-                url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${getRandomValue(apiKey)}`,
-                data: {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        contents: contents, // 使用我们新构建的、兼容性更强的 contents 数组
-                        generationConfig: {
-                            temperature: 0.8,
-                        },
-                        // 不再使用专门的 systemInstruction 字段，以避免兼容性问题
-                        // "systemInstruction": { ... }
-                    })
-                }
-            };
+            })
         }
-        // ▲▲▲ 替换结束 ▲▲▲
+    };
+}
+// ▲▲▲ 替换结束 ▲▲▲
             document.addEventListener('DOMContentLoaded', () => {
         
                 // ===================================================================
@@ -12771,66 +12792,80 @@
         ${linkedMemoryContext}
         现在，请根据以上规则和下面的对话历史，继续进行对话。`;
             
-                        messagesPayload = historySlice.map(msg => {
-                            if (msg.isHidden) return null;
-                            if (msg.role === 'assistant') {
-                                let assistantMsgObject = { type: msg.type || 'text' };
-                                if (msg.type === 'sticker') {
-                                    assistantMsgObject.url = msg.content;
-                                    assistantMsgObject.meaning = msg.meaning;
-                                } else if (msg.type === 'transfer') {
-                                    assistantMsgObject.amount = msg.amount;
-                                    assistantMsgObject.note = msg.note;
-                                } else if (msg.type === 'waimai_request') {
-                                    assistantMsgObject.productInfo = msg.productInfo;
-                                    assistantMsgObject.amount = msg.amount;
-                                } else {
-                                    if (msg.quote) {
-                                        assistantMsgObject.quote_reply = {
-                                            target_sender: msg.quote.senderName,
-                                            target_content: msg.quote.content,
-                                            reply_content: msg.content
-                                        };
-                                    } else {
-                                         assistantMsgObject.content = msg.content;
-                                    }
-                                }
-                                const assistantContent = JSON.stringify([assistantMsgObject]);
-                                return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
-                            }
-                            let contentStr = '';
-                            contentStr += `(Timestamp: ${msg.timestamp}) `;
-                            if (msg.quote) {
-                                contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
-                            } else {
-                                contentStr += msg.content;
-                            }
-                            if (msg.type === 'user_photo') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [你收到了一张用户描述的照片，内容是：'${msg.content}']` };
-                            if (msg.type === 'voice_message') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发来一条语音消息，内容是：'${msg.content}']` };
-                            if (msg.type === 'transfer') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：你于时间戳 ${msg.timestamp} 收到了来自用户的转账: ${msg.amount}元, 备注: ${msg.note}。请你决策并使用 'accept_transfer' 或 'decline_transfer' 指令回应。]` };
+                        // ▼▼▼ 【这是最终识图修复版】请用这整块代码，完整替换旧的 messagesPayload = historySlice.map(...) 代码块 ▼▼▼
+messagesPayload = historySlice.map(msg => {
+    if (msg.isHidden) return null;
+
+    // --- 1. 【核心修复】将用户消息的处理放在最前面 ---
+    if (msg.role === 'user') {
+        const prefix = `(Timestamp: ${msg.timestamp}) `;
+        let contentStr = '';
+
+        // --- 2. 专门处理图片数组 ---
+        if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
+            // 如果是图片，直接返回包含图片对象和时间戳文本的对象，不再进行字符串转换
+            return {
+                role: 'user',
+                content: [
+                    { type: 'text', text: prefix },
+                    ...msg.content
+                ]
+            };
+        }
+
+        // --- 3. 处理其他所有类型的用户消息（保持原有逻辑） ---
+        if (msg.quote) {
+            contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
+        } else {
+            contentStr += msg.content;
+        }
+
+        if (msg.type === 'user_photo') return { role: 'user', content: `${prefix}[你发送了一张需要AI识别的图片，图片内容是：'${msg.content}']` };
+        if (msg.type === 'voice_message') return { role: 'user', content: `${prefix}[你发送了一条语音消息，内容是：'${msg.content}']` };
+        if (msg.type === 'transfer') return { role: 'user', content: `${prefix}[系统提示：你于时间戳 ${msg.timestamp} 向对方发起了转账: ${msg.amount}元, 备注: ${msg.note}。等待对方处理。]` };
+
+        if (msg.type === 'waimai_request') return { role: 'user', content: `${prefix}[系统提示：你于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。]` };
+        else if (msg.type === 'gift') {
+            const itemsSummary = msg.items.map(item => `${item.name} x${item.quantity}`).join('、 ');
+            let recipientSummary = chat.isGroup ? `送给了 ${msg.recipients.map(name => getDisplayNameInGroup(chat, name)).join('、 ')}` : `送给了 ${chat.name}`;
+            return { role: 'user', content: `${prefix}[系统提示：你 ${recipientSummary}，礼物是：${itemsSummary}]` };
+        }
+        if (msg.meaning) return { role: 'user', content: `${prefix}[你发送了一个表情，意思是：'${msg.meaning}']` };
         
-                            if (msg.type === 'waimai_request') return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [系统提示：用户于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。请你决策并使用 waimai_response 指令回应。]` };
-                            else if (msg.type === 'gift') {
-                                const sender = msg.role === 'user' ? myNickname : (msg.senderName || chat.name);
-                                const itemsSummary = msg.items.map(item => `${item.name} x${item.quantity}`).join('、 ');
-                                
-                                let recipientSummary = '';
-                                if (msg.role === 'user') {
-                                    recipientSummary = `送给了 ${chat.name}`;
-                                } else {
-                                    recipientSummary = `送给了你`;
-                                }
-        
-                                const content = `[系统提示：${sender} ${recipientSummary}，礼物是：${itemsSummary}] (Timestamp: ${msg.timestamp})`;
-                                return { role: 'user', content: content };
-                            }
-                            if (Array.isArray(msg.content) && msg.content?.type === 'image_url') {
-                                const prefix = `(Timestamp: ${msg.timestamp}) `;
-                                return { role: 'user', content: [ { type: 'text', text: prefix }, ...msg.content ] };
-                            }
-                            if (msg.meaning) return { role: 'user', content: `(Timestamp: ${msg.timestamp}) [用户发送了一个表情，意思是：'${msg.meaning}']` };
-                            return { role: msg.role, content: contentStr };
-                        }).filter(Boolean);
+        return { role: msg.role, content: prefix + contentStr };
+
+    } 
+    // --- 4. AI角色的消息处理逻辑（保持不变） ---
+    else if (msg.role === 'assistant') {
+        let assistantMsgObject = { type: msg.type || 'text' };
+        if (msg.type === 'sticker') {
+            assistantMsgObject.url = msg.content;
+            assistantMsgObject.meaning = msg.meaning;
+        } else if (msg.type === 'transfer') {
+            assistantMsgObject.amount = msg.amount;
+            assistantMsgObject.note = msg.note;
+        } else if (msg.type === 'waimai_request') {
+            assistantMsgObject.productInfo = msg.productInfo;
+            assistantMsgObject.amount = msg.amount;
+        } else {
+            if (msg.quote) {
+                assistantMsgObject.quote_reply = {
+                    target_sender: msg.quote.senderName,
+                    target_content: msg.quote.content,
+                    reply_content: msg.content
+                };
+            } else {
+                    assistantMsgObject.content = msg.content;
+            }
+        }
+        const assistantContent = JSON.stringify([assistantMsgObject]);
+        return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
+    }
+    
+    // 返回null以被 .filter(Boolean) 过滤掉
+    return null;
+}).filter(Boolean);
+// ▲▲▲ 替换结束 ▲▲▲
             
                         if (!chat.isGroup && chat.relationship?.status === 'pending_ai_approval') {
                             const contextSummaryForApproval = chat.history
@@ -26403,7 +26438,6 @@ if (placeholder) {
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
-
 
 
 
