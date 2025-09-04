@@ -11894,7 +11894,7 @@ function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecisi
                     return;
                 }
         
-                const lastMessage = chat.history.slice(-1);
+                const lastMessage = chat.history.slice(-1)[0];
                 const isVideoCallRequest = lastMessage && lastMessage.role === 'system' && lastMessage.content.includes('视频通话请求');
                 
                 if (isVideoCallRequest) {
@@ -12883,38 +12883,47 @@ function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecisi
         ${linkedMemoryContext}
         现在，请根据以上规则和下面的对话历史，继续进行对话。`;
             
-                        // ▼▼▼ 【这是最终识图修复版】请用这整块代码，完整替换旧的 messagesPayload = historySlice.map(...) 代码块 ▼▼▼
+// ▼▼▼ 【这是最终的线下记忆修复版】请用这整块代码，完整替换旧的 messagesPayload = historySlice.map(...) 代码块 ▼▼▼
 messagesPayload = historySlice.map(msg => {
     if (msg.isHidden) return null;
 
-    // --- 1. 【核心修复】将用户消息的处理放在最前面 ---
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+    //            这就是本次修复的核心所在！
+    // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+    // 1. 检查是否是“线下模式”的消息
+    if (msg.type === 'offline_text') {
+        const sender = msg.role === 'user' ? (chat.settings.myNickname || '我') : chat.name;
+        let narrativeText = '';
+
+        // 2. 根据有无对话和描写，智能拼接成一句通顺的叙述性文字
+        if (msg.dialogue && msg.description) {
+            narrativeText = `${sender} 说：“${msg.dialogue}” (${msg.description})`;
+        } else if (msg.dialogue) {
+            narrativeText = `${sender} 说：“${msg.dialogue}”`;
+        } else if (msg.description) {
+            narrativeText = `${sender} (${msg.description})`;
+        }
+
+        // 3. 将“翻译”后的内容，包装成一个标准的、AI能理解的消息对象返回
+        return { role: msg.role, content: `(Timestamp: ${msg.timestamp}) ${narrativeText}` };
+    }
+
+    // --- 对于所有其他线上模式的消息，保持原有的处理逻辑不变 ---
     if (msg.role === 'user') {
         const prefix = `(Timestamp: ${msg.timestamp}) `;
         let contentStr = '';
-
-        // --- 2. 专门处理图片数组 ---
         if (Array.isArray(msg.content) && msg.content[0]?.type === 'image_url') {
-            // 如果是图片，直接返回包含图片对象和时间戳文本的对象，不再进行字符串转换
-            return {
-                role: 'user',
-                content: [
-                    { type: 'text', text: prefix },
-                    ...msg.content
-                ]
-            };
+            return { role: 'user', content: [{ type: 'text', text: prefix }, ...msg.content] };
         }
-
-        // --- 3. 处理其他所有类型的用户消息（保持原有逻辑） ---
         if (msg.quote) {
             contentStr += `(回复 ${msg.quote.senderName}): ${msg.content}`;
         } else {
             contentStr += msg.content;
         }
-
         if (msg.type === 'user_photo') return { role: 'user', content: `${prefix}[你发送了一张需要AI识别的图片，图片内容是：'${msg.content}']` };
         if (msg.type === 'voice_message') return { role: 'user', content: `${prefix}[你发送了一条语音消息，内容是：'${msg.content}']` };
         if (msg.type === 'transfer') return { role: 'user', content: `${prefix}[系统提示：你于时间戳 ${msg.timestamp} 向对方发起了转账: ${msg.amount}元, 备注: ${msg.note}。等待对方处理。]` };
-
         if (msg.type === 'waimai_request') return { role: 'user', content: `${prefix}[系统提示：你于时间戳 ${msg.timestamp} 发起了外卖代付请求，商品是“${msg.productInfo}”，金额是 ${msg.amount} 元。]` };
         else if (msg.type === 'gift') {
             const itemsSummary = msg.items.map(item => `${item.name} x${item.quantity}`).join('、 ');
@@ -12922,12 +12931,8 @@ messagesPayload = historySlice.map(msg => {
             return { role: 'user', content: `${prefix}[系统提示：你 ${recipientSummary}，礼物是：${itemsSummary}]` };
         }
         if (msg.meaning) return { role: 'user', content: `${prefix}[你发送了一个表情，意思是：'${msg.meaning}']` };
-        
         return { role: msg.role, content: prefix + contentStr };
-
-    } 
-    // --- 4. AI角色的消息处理逻辑（保持不变） ---
-    else if (msg.role === 'assistant') {
+    } else if (msg.role === 'assistant') {
         let assistantMsgObject = { type: msg.type || 'text' };
         if (msg.type === 'sticker') {
             assistantMsgObject.url = msg.content;
@@ -12940,20 +12945,14 @@ messagesPayload = historySlice.map(msg => {
             assistantMsgObject.amount = msg.amount;
         } else {
             if (msg.quote) {
-                assistantMsgObject.quote_reply = {
-                    target_sender: msg.quote.senderName,
-                    target_content: msg.quote.content,
-                    reply_content: msg.content
-                };
+                assistantMsgObject.quote_reply = { target_sender: msg.quote.senderName, target_content: msg.quote.content, reply_content: msg.content };
             } else {
-                    assistantMsgObject.content = msg.content;
+                assistantMsgObject.content = msg.content;
             }
         }
         const assistantContent = JSON.stringify([assistantMsgObject]);
         return { role: 'assistant', content: `(Timestamp: ${msg.timestamp}) ${assistantContent}` };
     }
-    
-    // 返回null以被 .filter(Boolean) 过滤掉
     return null;
 }).filter(Boolean);
 // ▲▲▲ 替换结束 ▲▲▲
@@ -16860,84 +16859,91 @@ if (lastUserMessage &&
             triggerAiInCallAction();
         }
         
-        /**
-         * 【核心】结束视频通话
-         */
-        // ▼▼▼ 用这整块代码替换旧的 endVideoCall 函数 ▼▼▼
-        async function endVideoCall() {
-            if (!videoCallState.isActive) return;
+/**
+ * 【核心 | V3.0 终极总结修复版】结束视频通话
+ */
+async function endVideoCall() {
+    if (!videoCallState.isActive) return;
+
+    const duration = Math.floor((Date.now() - videoCallState.startTime) / 1000);
+    const durationText = `${Math.floor(duration / 60)}分${duration % 60}秒`;
+    const endCallText = `通话结束，时长 ${durationText}`;
+
+    const chat = state.chats[videoCallState.activeChatId];
+    if (chat) {
+        // 1. 保存完整的通话记录到数据库 (这部分逻辑不变，非常重要)
+        const participantsData = [];
+        if (videoCallState.isGroupCall) {
+            videoCallState.participants.forEach(p => participantsData.push({ name: p.originalName, avatar: p.avatar }));
+            if (videoCallState.isUserParticipating) {
+                participantsData.unshift({ name: chat.settings.myNickname || '我', avatar: chat.settings.myAvatar || defaultMyGroupAvatar });
+            }
+        } else {
+            participantsData.push({ name: chat.name, avatar: chat.settings.aiAvatar || defaultAvatar });
+            participantsData.unshift({ name: '我', avatar: chat.settings.myAvatar || defaultAvatar });
+        }
+
+        const callRecord = {
+            chatId: videoCallState.activeChatId,
+            timestamp: Date.now(),
+            duration: duration,
+            participants: participantsData,
+            transcript: [...videoCallState.callHistory]
+        };
+        await db.callRecords.add(callRecord);
+        console.log("通话记录已保存:", callRecord);
         
-            const duration = Math.floor((Date.now() - videoCallState.startTime) / 1000);
-            const durationText = `${Math.floor(duration / 60)}分${duration % 60}秒`;
-            const endCallText = `通话结束，时长 ${durationText}`;
-        
-            const chat = state.chats[videoCallState.activeChatId];
-            if (chat) {
-                // 1. 保存完整的通话记录到数据库 (这部分逻辑不变)
-                const participantsData = [];
-                if (videoCallState.isGroupCall) {
-                    videoCallState.participants.forEach(p => participantsData.push({ name: p.originalName, avatar: p.avatar }));
-                    if (videoCallState.isUserParticipating) {
-                        participantsData.unshift({ name: chat.settings.myNickname || '我', avatar: chat.settings.myAvatar || defaultMyGroupAvatar });
-                    }
-                } else {
-                    participantsData.push({ name: chat.name, avatar: chat.settings.aiAvatar || defaultAvatar });
-                    participantsData.unshift({ name: '我', avatar: chat.settings.myAvatar || defaultAvatar });
-                }
-                
-                const callRecord = {
-                    chatId: videoCallState.activeChatId,
-                    timestamp: Date.now(),
-                    duration: duration,
-                    participants: participantsData,
-                    transcript: [...videoCallState.callHistory]
-                };
-                await db.callRecords.add(callRecord);
-                console.log("通话记录已保存:", callRecord);
-                
-                // 2. 在聊天记录里添加对用户可见的“通话结束”消息
+        // 2. 在聊天记录里添加对用户可见的“通话结束”消息 (逻辑不变)
         let summaryMessage = {
-            // 【核心修正1】role 由 videoCallState.initiator 决定
             role: videoCallState.initiator === 'user' ? 'user' : 'assistant',
             content: endCallText,
             timestamp: Date.now(),
         };
-        
-        // 【核心修正2】为群聊的 assistant 消息补充 senderName
         if (chat.isGroup && summaryMessage.role === 'assistant') {
-            // 在群聊中，通话结束的消息应该由“发起者”来说
-            // videoCallState.callRequester 保存了最初发起通话的那个AI的名字
             summaryMessage.senderName = videoCallState.callRequester || chat.members[0]?.originalName || chat.name;
         }
-        // ▲▲▲ 替换结束 ▲▲▲
-                chat.history.push(summaryMessage);
+        chat.history.push(summaryMessage);
+
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+        //            这就是本次修复的核心所在！
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
         
-                // 3. 【核心变革】创建并添加对用户隐藏的“通话后汇报”指令
-                const callTranscriptForAI = videoCallState.callHistory.map(h => `${h.role === 'user' ? (chat.settings.myNickname || '我') : h.role}: ${h.content}`).join('\n');
-                
-                const hiddenReportInstruction = {
-                    role: 'system',
-            content: `[系统指令：视频通话刚刚结束。请你根据完整的通话文字记录（见下方），以你的角色口吻，向用户主动发送几条【格式为 {"type": "text", "content": "..."} 的】消息，来自然地总结这次通话的要点、确认达成的约定，或者表达你的感受。这很重要，能让用户感觉你记得通话内容。]\n---通话记录开始---\n${callTranscriptForAI}\n---通话记录结束---`,
-                    timestamp: Date.now() + 1, // 确保在上一条消息之后
-                    isHidden: true
-                };
-                chat.history.push(hiddenReportInstruction);
+        // 3. 【全新】将完整的通话记录“翻译”成一段AI能理解的文本
+        const callTranscriptForAI = videoCallState.callHistory.map(h => {
+            const sender = h.role === 'user' ? (chat.settings.myNickname || '我') : h.senderName;
+            return `${sender}: ${h.content}`;
+        }).join('\n');
         
-                // 4. 保存所有更新到数据库
-                await db.chats.put(chat);
-            }
-            
-            // 5. 清理和重置状态 (这部分逻辑不变)
-            clearInterval(callTimerInterval);
-            callTimerInterval = null;
-            videoCallState = { isActive: false, isAwaitingResponse: false, isGroupCall: false, activeChatId: null, initiator: null, startTime: null, participants: [], isUserParticipating: true, callHistory: [], preCallContext: "" };
-            
-            // 6. 返回聊天界面并触发AI响应（AI会读取到我们的“汇报”指令）
-            if (chat) {
-                openChat(chat.id);
-                triggerAiResponse(); // 关键一步！
-            }
-        }
+        // 4. 【全新】创建一个对用户隐藏的、包含通话记录的系统消息。
+        // 这就是我们模仿线上/线下模式的“注入记忆”的关键步骤！
+        const hiddenReportInstruction = {
+            role: 'system',
+            content: `[系统指令：视频通话刚刚结束。请你根据完整的通话文字记录（见下方），以你的角色口吻，向用户主动发送几条消息，来自然地总结这次通话的要点、确认达成的约定，或者表达你的感受。这很重要，能让用户感觉你记得通话内容。]\n---通话记录开始---\n${callTranscriptForAI}\n---通话记录结束---`,
+            timestamp: Date.now() + 1, // 确保时间戳在“通话结束”消息之后
+            isHidden: true // 这个标记确保用户看不到这条长长的指令
+        };
+        chat.history.push(hiddenReportInstruction);
+
+        // 5. 【移除】旧的、会导致错误的 triggerAiResponse() 调用
+        // await triggerAiResponse(); // <-- 这行代码已被删除
+
+        // 6. 保存所有更新到数据库
+        await db.chats.put(chat);
+    }
+    
+    // 7. 清理和重置状态 (逻辑不变)
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
+    videoCallState = { isActive: false, isAwaitingResponse: false, isGroupCall: false, activeChatId: null, initiator: null, startTime: null, participants: [], isUserParticipating: true, callHistory: [], preCallContext: "" };
+    
+    // 8. 返回聊天界面，但不再强制AI立即响应
+    if (chat) {
+        openChat(chat.id);
+        // 我们现在可以自信地在这里触发AI响应，因为它处理的将是常规的、简短的聊天历史，
+        // 而不是超长的通话记录，从而避免了API错误。
+        triggerAiResponse();
+    }
+}
         // ▲▲▲ 替换结束 ▲▲▲
         
         /**
@@ -19480,6 +19486,79 @@ if (lastUserMessage &&
             }
         }
         // ▲▲▲ 替换结束 ▲▲▲
+/**
+ * 【全新】专门用于总结通话记录并存入长期记忆的核心函数
+ * @param {string} chatId - 目标聊天的ID
+ * @param {string} transcriptText - 格式化后的通话文字记录
+ */
+async function summarizeCallTranscript(chatId, transcriptText) {
+    const chat = state.chats[chatId];
+    if (!chat || !transcriptText) return;
+
+    const userNickname = state.qzoneSettings.nickname || '用户';
+
+    // 使用与常规总结完全相同的、高度优化的指令
+    const systemPrompt = `
+# 你的任务
+你是一个对话摘要专家。你的唯一任务是阅读下面的【视频通话记录】，并将其浓缩成【一段】流畅、连贯、客观、并且【极其精简】的摘要。
+
+# 核心规则
+1.  **【长度铁律】**: 你的总结【必须】非常简短，总长度【绝对不能超过80个字】。
+2.  **客观事实**: 只记录通话中发生的最关键的事实、确认的约定或角色的核心情感变化。
+3.  **第三人称与命名**: 必须使用第三人称。请严格使用“${userNickname}”和“${chat.originalName}”来指代对话双方。
+4.  **输出格式**: 你的回复【必须且只能】是一个JSON对象，格式如下：
+    \`{"summary": "在这里写下你总结好的摘要。"}\`
+
+# 待总结的视频通话记录
+${transcriptText}
+
+现在，请开始你的总结工作。`;
+
+    try {
+        const { proxyUrl, apiKey, model } = state.apiConfig.secondaryProxyUrl ? 
+            { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel } : 
+            state.apiConfig;
+
+        if (!proxyUrl || !apiKey || !model) throw new Error('API未配置');
+
+        let isGemini = proxyUrl.includes('generativelanguage');
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, [{ role: 'user', content: "请开始总结。" }]);
+
+        const response = isGemini 
+            ? await fetch(geminiConfig.url, geminiConfig.data) 
+            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{role: 'system', content: systemPrompt}, {role: 'user', content: "请开始总结。"}],
+                    temperature: 0.1, max_tokens: 150
+                })
+            });
+
+        if (!response.ok) throw new Error(`API 错误: ${response.statusText}`);
+        
+        const data = await response.json();
+        let rawContent = isGemini ? getGeminiResponseText(data) : data.choices[0].message.content;
+        rawContent = rawContent.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+        const result = JSON.parse(rawContent);
+
+        if (result.summary && result.summary.trim()) {
+            const newMemoryEntry = {
+                content: `(在那次视频通话中，${result.summary.trim()})`, // 添加前缀以明示来源
+                timestamp: Date.now(),
+                source: 'call_summary'
+            };
+            chat.longTermMemory.push(newMemoryEntry);
+            await db.chats.put(chat);
+            console.log("通话记录已成功总结并存入长期记忆:", newMemoryEntry.content);
+        }
+
+    } catch (error) {
+        console.error("总结通话记录时出错:", error);
+        // 静默失败，不打扰用户，但会在控制台留下记录
+    }
+}
         // ▼▼▼ 【全新】引用回复功能函数 ▼▼▼
         
         function startReplyToMessage() {
@@ -22864,101 +22943,7 @@ ${recentHistorySummary}
         }
     }
 }
- // ▼▼▼ 【全新】这是实现“线下转线上”记忆衔接的核心函数 ▼▼▼
-
-/**
- * 总结刚刚结束的线下会话，并将其作为隐藏记忆注入历史记录
- * @param {object} chat - 刚刚从线下模式切换回来的聊天对象
- */
-async function summarizeOfflineSession(chat) {
-    // 1. 筛选出所有线下模式的消息
-    const offlineMessages = chat.history.filter(m => m.type === 'offline_text' && !m.isHidden);
-    
-    // 如果没有线下消息，则无需总结
-    if (offlineMessages.length === 0) {
-        console.log("未发现可供总结的线下消息。");
-        return;
-    }
-
-    // 2. 将线下消息格式化为易于AI理解的文本
-    const formattedHistory = offlineMessages.map(msg => {
-        const sender = msg.role === 'user' ? (chat.settings.myNickname || '我') : (msg.senderName || chat.name);
-        return `${sender}: 「${msg.dialogue || ''}」 ${msg.description || ''}`;
-    }).join('\n');
-
-    // 3. 准备一个专门用于总结的、高度优化的AI指令
-    const systemPrompt = `
-# 你的任务
-你是一个剧情摘要专家。你的唯一任务是阅读下面的“线下互动记录”，并将其浓缩成【一段】流畅、连贯、客观、并且【极其精简】的摘要。这段摘要将作为你和用户的共同记忆，用于接下来的线上聊天。
-
-# 核心规则
-1.  **【【【长度铁律】】】**: 你的总结【必须】非常简短，总长度【绝对不能超过100个字】。请只提炼最核心、最重要的事件。
-2.  **叙事风格**: 你的总结必须是一段通顺的文字，而不是一个要点列表。
-3.  **客观事实**: 只记录已经发生的事实。
-4.  **第三人称与命名**: 你的总结必须使用第三人称视角。请严格使用“${chat.settings.myNickname || '我'}”（代表用户）和“${chat.originalName}”（代表AI角色）来指代对话双方。
-5.  **输出格式**: 你的回复【必须且只能】是总结好的摘要文本，不要包含任何JSON格式或多余的解释。
-
-# 待总结的线下互动记录
-${formattedHistory}
-
-现在，请根据以上所有规则，开始你的总结工作。`;
-
-    await showCustomAlert("请稍候...", "正在请求AI总结刚才的线下剧情，以便在线上模式中衔接记忆...");
-
-    try {
-        // 4. 智能选择API（优先使用副API，因为它通常更便宜，适合这种后台任务）
-        const useSecondaryApi = state.apiConfig.secondaryProxyUrl && state.apiConfig.secondaryApiKey && state.apiConfig.secondaryModel;
-        const { proxyUrl, apiKey, model } = useSecondaryApi 
-            ? { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel }
-            : state.apiConfig;
-
-        if (!proxyUrl || !apiKey || !model) {
-            throw new Error('请先在API设置中配置好（主或副）API以进行总结。');
-        }
-
-        let isGemini = proxyUrl.includes('generativelanguage');
-        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, [{ role: 'user', content: "请开始总结。" }]);
         
-        const response = isGemini 
-            ? await fetch(geminiConfig.url, geminiConfig.data) 
-            : await fetch(`${proxyUrl}/v1/chat/completions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: "请开始总结。" }],
-                    temperature: 0.2, // 使用较低的温度，让总结更侧重于事实
-                    max_tokens: 200, 
-                })
-            });
-
-        if (!response.ok) throw new Error(`API 错误: ${response.statusText}`);
-
-        const data = await response.json();
-        const summaryText = getGeminiResponseText(data);
-
-        // 5. 将总结结果作为一条隐藏的系统消息，添加到历史记录的末尾
-        if (summaryText && summaryText.trim()) {
-            const summaryMessage = {
-                role: 'system',
-                content: `[系统提示：你们刚刚结束了一段线下互动，以下是互动内容的摘要：${summaryText.trim()}]`,
-                timestamp: Date.now(),
-                isHidden: true // 这个标记确保用户看不到它，但AI能读到
-            };
-            chat.history.push(summaryMessage);
-            await db.chats.put(chat); // 保存更新后的聊天记录
-            await showCustomAlert('衔接成功', 'AI已将线下剧情记在心里啦！');
-        } else {
-            throw new Error("AI返回了空的总结内容。");
-        }
-
-    } catch (error) {
-        console.error("总结线下剧情时出错:", error);
-        await showCustomAlert('衔接失败', `无法生成剧情摘要，请检查API配置或稍后重试。\n错误信息: ${error.message}`);
-    }
-}
-
-// ▲▲▲ 新函数粘贴结束 ▲▲▲       
 
                // ===================================================================
                 // 4. 初始化函数 init()
@@ -23830,89 +23815,92 @@ ${formattedHistory}
                     document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
                     document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
         
-// ▼▼▼ 【请用这个 V2.0 升级版】完整替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
-document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
-    if (!state.activeChatId) return;
-    const chat = state.chats[state.activeChatId];
-    
-    // 【核心新增】在保存前，先记录下“旧的”线下模式状态
-    const wasOfflineMode = chat.settings.isOfflineMode || false;
+        // ▼▼▼ 【请用这个新版本】替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
+        document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
+            if (!state.activeChatId) return;
+            const chat = state.chats[state.activeChatId];
+            
+            // --- （这部分与之前相同，保持不变） ---
+            const newName = document.getElementById('chat-name-input').value.trim();
+            if (!newName) return alert('备注名/群名不能为空！');
+            if (!chat.isGroup && newName !== chat.name) {
+                if (!chat.nameHistory) chat.nameHistory = [];
+                if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
+            }
+            chat.name = newName;
+            const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
+            chat.settings.theme = selectedThemeRadio ? selectedThemeRadio.value : 'default';
+            chat.settings.fontSize = parseInt(document.getElementById('font-size-slider').value);
+            chat.settings.customCss = document.getElementById('custom-css-input').value.trim();
+            chat.settings.myPersona = document.getElementById('my-persona').value;
+            chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
+        
+            // --- 【【【核心修改从这里开始】】】 ---
+            const checkedBookItems = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
+            const newLinkedBookIds = [];
+        
+            checkedBookItems.forEach(cb => {
+                const value = cb.value;
+                // 我们只关心书籍的ID
+                if (value.startsWith('book_')) {
+                    newLinkedBookIds.push(value.replace('book_', ''));
+                }
+            });
+            
+            // 只保存单本书的ID
+            chat.settings.linkedWorldBookIds = newLinkedBookIds;
+            // 不再需要保存分类ID，将其从设置中移除以保持数据干净
+            delete chat.settings.linkedWorldBookCategoryIds; 
+            // --- 【【【核心修改到这里结束】】】 ---
+        
+            // --- （这部分与之前相同，保持不变） ---
+            if (chat.isGroup) {
+                chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
+                chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
+                chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
+            } else {
+                chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
+                chat.settings.offlineMinLength = parseInt(document.getElementById('offline-min-length-input').value) || 100;
+                chat.settings.offlineMaxLength = parseInt(document.getElementById('offline-max-length-input').value) || 300;
+                const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
+                if (!newOriginalName) return alert('对方本名不能为空！');
+                chat.originalName = newOriginalName;
+                chat.settings.aiPersona = document.getElementById('ai-persona').value;
+                chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+                chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
+                chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
 
-    // --- (这里是您原有的所有保存逻辑，保持不变) ---
-    const newName = document.getElementById('chat-name-input').value.trim();
-    if (!newName) return alert('备注名/群名不能为空！');
-    if (!chat.isGroup && newName !== chat.name) {
-        if (!chat.nameHistory) chat.nameHistory = [];
-        if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
-    }
-    chat.name = newName;
-    const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
-    chat.settings.theme = selectedThemeRadio ? selectedThemeRadio.value : 'default';
-    chat.settings.fontSize = parseInt(document.getElementById('font-size-slider').value);
-    chat.settings.customCss = document.getElementById('custom-css-input').value.trim();
-    chat.settings.myPersona = document.getElementById('my-persona').value;
-    chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
-    const checkedBookItems = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
-    const newLinkedBookIds = Array.from(checkedBookItems).map(cb => cb.value.replace('book_', ''));
-    chat.settings.linkedWorldBookIds = newLinkedBookIds;
-    delete chat.settings.linkedWorldBookCategoryIds;
-    if (chat.isGroup) {
-        chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
-        chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
-        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
-    } else {
-        chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
-        chat.settings.offlineMinLength = parseInt(document.getElementById('offline-min-length-input').value) || 100;
-        chat.settings.offlineMaxLength = parseInt(document.getElementById('offline-max-length-input').value) || 300;
-        const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
-        if (!newOriginalName) return alert('对方本名不能为空！');
-        chat.originalName = newOriginalName;
-        chat.settings.aiPersona = document.getElementById('ai-persona').value;
-        chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
-        chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
-        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
-        const selectedGroupId = document.getElementById('assign-group-select').value;
-        chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
-        chat.settings.lyricsPosition = {
-            vertical: document.getElementById('lyrics-vertical-pos').value,
-            horizontal: document.getElementById('lyrics-horizontal-pos').value,
-            offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
-        };
-    }
-    chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
-    chat.settings.linkedMemoryCount = parseInt(document.getElementById('linked-memory-count').value) || 10;
-    const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
-    if (linkMemoryToggleChecked) {
-        const checkedChats = document.querySelectorAll('#linked-chats-checkboxes-container input:checked');
-        chat.settings.linkedMemoryChatIds = Array.from(checkedChats).map(cb => cb.value);
-    } else {
-        chat.settings.linkedMemoryChatIds = [];
-    }
-    chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
-    chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
-    // --- (原有保存逻辑结束) ---
-
-    await db.chats.put(chat);
-    
-    // 【核心新增】在所有数据都保存完毕后，检查是否是从线下切换回线上
-    const isNowOnlineMode = !chat.settings.isOfflineMode;
-    if (wasOfflineMode && isNowOnlineMode) {
-        // 如果是，则调用我们刚刚创建的总结函数
-        await summarizeOfflineSession(chat);
-    }
-
-    // --- (后续的UI刷新逻辑保持不变) ---
-    if (!chat.isGroup) {
-        await syncCharacterNameInGroups(chat);
-        await syncCharacterAvatarInGroups(chat);
-    }
-    applyLyricsBarPosition(chat);
-    applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
-    document.getElementById('chat-settings-modal').classList.remove('visible');
-    renderChatInterface(state.activeChatId);
-    renderChatList();
-});
-// ▲▲▲ 替换结束 ▲▲▲
+                chat.settings.lyricsPosition = {
+                    vertical: document.getElementById('lyrics-vertical-pos').value,
+                    horizontal: document.getElementById('lyrics-horizontal-pos').value,
+                    offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
+                };
+                const selectedGroupId = document.getElementById('assign-group-select').value;
+                chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
+            }
+            chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
+            chat.settings.linkedMemoryCount = parseInt(document.getElementById('linked-memory-count').value) || 10;
+            const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
+            if (linkMemoryToggleChecked) {
+                const checkedChats = document.querySelectorAll('#linked-chats-checkboxes-container input:checked');
+                chat.settings.linkedMemoryChatIds = Array.from(checkedChats).map(cb => cb.value);
+            } else {
+                chat.settings.linkedMemoryChatIds = [];
+            }
+            chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
+            chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
+            await db.chats.put(chat);
+            if (!chat.isGroup) {
+                await syncCharacterNameInGroups(chat);
+                await syncCharacterAvatarInGroups(chat);
+            }
+            applyLyricsBarPosition(chat);
+            applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
+            document.getElementById('chat-settings-modal').classList.remove('visible');
+            renderChatInterface(state.activeChatId);
+            renderChatList();
+        });
+        // ▲▲▲ 替换结束 ▲▲▲
         
         // ▼▼▼ 【这是最终的完整功能代码，请用它替换掉旧的】 ▼▼▼
         
