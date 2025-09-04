@@ -22864,7 +22864,101 @@ ${recentHistorySummary}
         }
     }
 }
+ // ▼▼▼ 【全新】这是实现“线下转线上”记忆衔接的核心函数 ▼▼▼
+
+/**
+ * 总结刚刚结束的线下会话，并将其作为隐藏记忆注入历史记录
+ * @param {object} chat - 刚刚从线下模式切换回来的聊天对象
+ */
+async function summarizeOfflineSession(chat) {
+    // 1. 筛选出所有线下模式的消息
+    const offlineMessages = chat.history.filter(m => m.type === 'offline_text' && !m.isHidden);
+    
+    // 如果没有线下消息，则无需总结
+    if (offlineMessages.length === 0) {
+        console.log("未发现可供总结的线下消息。");
+        return;
+    }
+
+    // 2. 将线下消息格式化为易于AI理解的文本
+    const formattedHistory = offlineMessages.map(msg => {
+        const sender = msg.role === 'user' ? (chat.settings.myNickname || '我') : (msg.senderName || chat.name);
+        return `${sender}: 「${msg.dialogue || ''}」 ${msg.description || ''}`;
+    }).join('\n');
+
+    // 3. 准备一个专门用于总结的、高度优化的AI指令
+    const systemPrompt = `
+# 你的任务
+你是一个剧情摘要专家。你的唯一任务是阅读下面的“线下互动记录”，并将其浓缩成【一段】流畅、连贯、客观、并且【极其精简】的摘要。这段摘要将作为你和用户的共同记忆，用于接下来的线上聊天。
+
+# 核心规则
+1.  **【【【长度铁律】】】**: 你的总结【必须】非常简短，总长度【绝对不能超过100个字】。请只提炼最核心、最重要的事件。
+2.  **叙事风格**: 你的总结必须是一段通顺的文字，而不是一个要点列表。
+3.  **客观事实**: 只记录已经发生的事实。
+4.  **第三人称与命名**: 你的总结必须使用第三人称视角。请严格使用“${chat.settings.myNickname || '我'}”（代表用户）和“${chat.originalName}”（代表AI角色）来指代对话双方。
+5.  **输出格式**: 你的回复【必须且只能】是总结好的摘要文本，不要包含任何JSON格式或多余的解释。
+
+# 待总结的线下互动记录
+${formattedHistory}
+
+现在，请根据以上所有规则，开始你的总结工作。`;
+
+    await showCustomAlert("请稍候...", "正在请求AI总结刚才的线下剧情，以便在线上模式中衔接记忆...");
+
+    try {
+        // 4. 智能选择API（优先使用副API，因为它通常更便宜，适合这种后台任务）
+        const useSecondaryApi = state.apiConfig.secondaryProxyUrl && state.apiConfig.secondaryApiKey && state.apiConfig.secondaryModel;
+        const { proxyUrl, apiKey, model } = useSecondaryApi 
+            ? { proxyUrl: state.apiConfig.secondaryProxyUrl, apiKey: state.apiConfig.secondaryApiKey, model: state.apiConfig.secondaryModel }
+            : state.apiConfig;
+
+        if (!proxyUrl || !apiKey || !model) {
+            throw new Error('请先在API设置中配置好（主或副）API以进行总结。');
+        }
+
+        let isGemini = proxyUrl.includes('generativelanguage');
+        let geminiConfig = toGeminiRequestData(model, apiKey, systemPrompt, [{ role: 'user', content: "请开始总结。" }]);
         
+        const response = isGemini 
+            ? await fetch(geminiConfig.url, geminiConfig.data) 
+            : await fetch(`${proxyUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({
+                    model: model,
+                    messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: "请开始总结。" }],
+                    temperature: 0.2, // 使用较低的温度，让总结更侧重于事实
+                    max_tokens: 200, 
+                })
+            });
+
+        if (!response.ok) throw new Error(`API 错误: ${response.statusText}`);
+
+        const data = await response.json();
+        const summaryText = getGeminiResponseText(data);
+
+        // 5. 将总结结果作为一条隐藏的系统消息，添加到历史记录的末尾
+        if (summaryText && summaryText.trim()) {
+            const summaryMessage = {
+                role: 'system',
+                content: `[系统提示：你们刚刚结束了一段线下互动，以下是互动内容的摘要：${summaryText.trim()}]`,
+                timestamp: Date.now(),
+                isHidden: true // 这个标记确保用户看不到它，但AI能读到
+            };
+            chat.history.push(summaryMessage);
+            await db.chats.put(chat); // 保存更新后的聊天记录
+            await showCustomAlert('衔接成功', 'AI已将线下剧情记在心里啦！');
+        } else {
+            throw new Error("AI返回了空的总结内容。");
+        }
+
+    } catch (error) {
+        console.error("总结线下剧情时出错:", error);
+        await showCustomAlert('衔接失败', `无法生成剧情摘要，请检查API配置或稍后重试。\n错误信息: ${error.message}`);
+    }
+}
+
+// ▲▲▲ 新函数粘贴结束 ▲▲▲       
 
                // ===================================================================
                 // 4. 初始化函数 init()
@@ -23736,92 +23830,89 @@ ${recentHistorySummary}
                     document.getElementById('reset-theme-btn').addEventListener('click', () => { document.getElementById('theme-default').checked = true; });
                     document.getElementById('cancel-chat-settings-btn').addEventListener('click', () => { chatSettingsModal.classList.remove('visible'); });
         
-        // ▼▼▼ 【请用这个新版本】替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
-        document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
-            if (!state.activeChatId) return;
-            const chat = state.chats[state.activeChatId];
-            
-            // --- （这部分与之前相同，保持不变） ---
-            const newName = document.getElementById('chat-name-input').value.trim();
-            if (!newName) return alert('备注名/群名不能为空！');
-            if (!chat.isGroup && newName !== chat.name) {
-                if (!chat.nameHistory) chat.nameHistory = [];
-                if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
-            }
-            chat.name = newName;
-            const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
-            chat.settings.theme = selectedThemeRadio ? selectedThemeRadio.value : 'default';
-            chat.settings.fontSize = parseInt(document.getElementById('font-size-slider').value);
-            chat.settings.customCss = document.getElementById('custom-css-input').value.trim();
-            chat.settings.myPersona = document.getElementById('my-persona').value;
-            chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
-        
-            // --- 【【【核心修改从这里开始】】】 ---
-            const checkedBookItems = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
-            const newLinkedBookIds = [];
-        
-            checkedBookItems.forEach(cb => {
-                const value = cb.value;
-                // 我们只关心书籍的ID
-                if (value.startsWith('book_')) {
-                    newLinkedBookIds.push(value.replace('book_', ''));
-                }
-            });
-            
-            // 只保存单本书的ID
-            chat.settings.linkedWorldBookIds = newLinkedBookIds;
-            // 不再需要保存分类ID，将其从设置中移除以保持数据干净
-            delete chat.settings.linkedWorldBookCategoryIds; 
-            // --- 【【【核心修改到这里结束】】】 ---
-        
-            // --- （这部分与之前相同，保持不变） ---
-            if (chat.isGroup) {
-                chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
-                chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
-                chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
-            } else {
-                chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
-                chat.settings.offlineMinLength = parseInt(document.getElementById('offline-min-length-input').value) || 100;
-                chat.settings.offlineMaxLength = parseInt(document.getElementById('offline-max-length-input').value) || 300;
-                const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
-                if (!newOriginalName) return alert('对方本名不能为空！');
-                chat.originalName = newOriginalName;
-                chat.settings.aiPersona = document.getElementById('ai-persona').value;
-                chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
-                chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
-                chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
+// ▼▼▼ 【请用这个 V2.0 升级版】完整替换旧的 save-chat-settings-btn 事件监听器 ▼▼▼
+document.getElementById('save-chat-settings-btn').addEventListener('click', async () => {
+    if (!state.activeChatId) return;
+    const chat = state.chats[state.activeChatId];
+    
+    // 【核心新增】在保存前，先记录下“旧的”线下模式状态
+    const wasOfflineMode = chat.settings.isOfflineMode || false;
 
-                chat.settings.lyricsPosition = {
-                    vertical: document.getElementById('lyrics-vertical-pos').value,
-                    horizontal: document.getElementById('lyrics-horizontal-pos').value,
-                    offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
-                };
-                const selectedGroupId = document.getElementById('assign-group-select').value;
-                chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
-            }
-            chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
-            chat.settings.linkedMemoryCount = parseInt(document.getElementById('linked-memory-count').value) || 10;
-            const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
-            if (linkMemoryToggleChecked) {
-                const checkedChats = document.querySelectorAll('#linked-chats-checkboxes-container input:checked');
-                chat.settings.linkedMemoryChatIds = Array.from(checkedChats).map(cb => cb.value);
-            } else {
-                chat.settings.linkedMemoryChatIds = [];
-            }
-            chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
-            chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
-            await db.chats.put(chat);
-            if (!chat.isGroup) {
-                await syncCharacterNameInGroups(chat);
-                await syncCharacterAvatarInGroups(chat);
-            }
-            applyLyricsBarPosition(chat);
-            applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
-            document.getElementById('chat-settings-modal').classList.remove('visible');
-            renderChatInterface(state.activeChatId);
-            renderChatList();
-        });
-        // ▲▲▲ 替换结束 ▲▲▲
+    // --- (这里是您原有的所有保存逻辑，保持不变) ---
+    const newName = document.getElementById('chat-name-input').value.trim();
+    if (!newName) return alert('备注名/群名不能为空！');
+    if (!chat.isGroup && newName !== chat.name) {
+        if (!chat.nameHistory) chat.nameHistory = [];
+        if (!chat.nameHistory.includes(chat.name)) chat.nameHistory.push(chat.name);
+    }
+    chat.name = newName;
+    const selectedThemeRadio = document.querySelector('input[name="theme-select"]:checked');
+    chat.settings.theme = selectedThemeRadio ? selectedThemeRadio.value : 'default';
+    chat.settings.fontSize = parseInt(document.getElementById('font-size-slider').value);
+    chat.settings.customCss = document.getElementById('custom-css-input').value.trim();
+    chat.settings.myPersona = document.getElementById('my-persona').value;
+    chat.settings.myAvatar = document.getElementById('my-avatar-preview').src;
+    const checkedBookItems = document.querySelectorAll('#world-book-checkboxes-container input[type="checkbox"]:checked');
+    const newLinkedBookIds = Array.from(checkedBookItems).map(cb => cb.value.replace('book_', ''));
+    chat.settings.linkedWorldBookIds = newLinkedBookIds;
+    delete chat.settings.linkedWorldBookCategoryIds;
+    if (chat.isGroup) {
+        chat.settings.myNickname = document.getElementById('my-group-nickname-input').value.trim();
+        chat.settings.groupAvatar = document.getElementById('group-avatar-preview').src;
+        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('group-action-cooldown-input').value) || 10;
+    } else {
+        chat.settings.isOfflineMode = document.getElementById('offline-mode-toggle').checked;
+        chat.settings.offlineMinLength = parseInt(document.getElementById('offline-min-length-input').value) || 100;
+        chat.settings.offlineMaxLength = parseInt(document.getElementById('offline-max-length-input').value) || 300;
+        const newOriginalName = document.getElementById('ai-original-name-input').value.trim();
+        if (!newOriginalName) return alert('对方本名不能为空！');
+        chat.originalName = newOriginalName;
+        chat.settings.aiPersona = document.getElementById('ai-persona').value;
+        chat.settings.aiAvatar = document.getElementById('ai-avatar-preview').src;
+        chat.settings.myNickname = document.getElementById('my-nickname-input').value.trim() || '我';
+        chat.settings.actionCooldownMinutes = parseInt(document.getElementById('ai-action-cooldown-input').value) || 10;
+        const selectedGroupId = document.getElementById('assign-group-select').value;
+        chat.groupId = selectedGroupId ? parseInt(selectedGroupId) : null;
+        chat.settings.lyricsPosition = {
+            vertical: document.getElementById('lyrics-vertical-pos').value,
+            horizontal: document.getElementById('lyrics-horizontal-pos').value,
+            offset: parseInt(document.getElementById('lyrics-offset-input').value) || 10
+        };
+    }
+    chat.settings.maxMemory = parseInt(document.getElementById('max-memory').value) || 10;
+    chat.settings.linkedMemoryCount = parseInt(document.getElementById('linked-memory-count').value) || 10;
+    const linkMemoryToggleChecked = document.getElementById('link-memory-toggle').checked;
+    if (linkMemoryToggleChecked) {
+        const checkedChats = document.querySelectorAll('#linked-chats-checkboxes-container input:checked');
+        chat.settings.linkedMemoryChatIds = Array.from(checkedChats).map(cb => cb.value);
+    } else {
+        chat.settings.linkedMemoryChatIds = [];
+    }
+    chat.settings.enableAutoMemory = document.getElementById('auto-memory-toggle').checked;
+    chat.settings.autoMemoryInterval = parseInt(document.getElementById('auto-memory-interval').value) || 20;
+    // --- (原有保存逻辑结束) ---
+
+    await db.chats.put(chat);
+    
+    // 【核心新增】在所有数据都保存完毕后，检查是否是从线下切换回线上
+    const isNowOnlineMode = !chat.settings.isOfflineMode;
+    if (wasOfflineMode && isNowOnlineMode) {
+        // 如果是，则调用我们刚刚创建的总结函数
+        await summarizeOfflineSession(chat);
+    }
+
+    // --- (后续的UI刷新逻辑保持不变) ---
+    if (!chat.isGroup) {
+        await syncCharacterNameInGroups(chat);
+        await syncCharacterAvatarInGroups(chat);
+    }
+    applyLyricsBarPosition(chat);
+    applyScopedCss(chat.settings.customCss, '#chat-messages', 'custom-bubble-style');
+    document.getElementById('chat-settings-modal').classList.remove('visible');
+    renderChatInterface(state.activeChatId);
+    renderChatList();
+});
+// ▲▲▲ 替换结束 ▲▲▲
         
         // ▼▼▼ 【这是最终的完整功能代码，请用它替换掉旧的】 ▼▼▼
         
