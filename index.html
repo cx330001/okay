@@ -12407,12 +12407,13 @@ function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecisi
         - **当前时间**: ${currentTime} (${timeOfDayGreeting})
         - **上次互动**: ${timeContextText}
         ${worldBookContent}
+        ${linkedMemoryContext}
         ${musicContext}
         ${sharedContext} 
         ${groupAvatarLibraryContext} 
         ${shoppingContext} 
         ${announcementContext}
-        ${linkedMemoryContext}
+
         # 群成员列表、人设及社交背景 (至关重要！)
         你【必须】根据每个角色的社交背景来决定他们的互动方式。例如，互为好友的角色之间应该表现得更熟悉和亲密。
         ${membersWithContacts}
@@ -12875,12 +12876,13 @@ function toGeminiRequestData(model, apiKey, systemInstruction, messagesForDecisi
         # 当前情景:
         - **当前时间**: ${currentTime} (${timeOfDayGreeting})
         ${timeContext}
+        ${worldBookContent}
+        ${linkedMemoryContext}
         # 当前音乐情景:
         ${musicContext}
-        ${worldBookContent}
         ${sharedContext} 
         ${shoppingContext}
-        ${linkedMemoryContext}
+
         现在，请根据以上规则和下面的对话历史，继续进行对话。`;
             
 // ▼▼▼ 【这是最终的线下记忆修复版】请用这整块代码，完整替换旧的 messagesPayload = historySlice.map(...) 代码块 ▼▼▼
@@ -26646,6 +26648,7 @@ if (placeholder) {
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
