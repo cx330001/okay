@@ -21742,6 +21742,10 @@ const newChat = {
                 if (checkWin(gridX, gridY, 1, gameState)) {
                     gameState.isGameOver = true;
                     setTimeout(() => alert("恭喜你，你赢了！"), 100);
+            // ▼▼▼ 在这里添加新代码 ▼▼▼
+            addGameEndSystemMessage('user'); // 通知AI，是用户赢了（也就是AI输了）
+            // ▲▲▲ 添加结束 ▲▲▲
+
                 } else {
                     gameState.currentPlayer = 2; // Switch to AI's turn
                     // Note: We don't trigger AI response here. It's triggered by the "Wait Reply" button.
@@ -21767,6 +21771,10 @@ const newChat = {
                 if (checkWin(x, y, 2, gameState)) {
                     gameState.isGameOver = true;
                     setTimeout(() => alert("AI 获胜了！"), 100);
+            // ▼▼▼ 在这里添加新代码 ▼▼▼
+           addGameEndSystemMessage('ai'); // 通知AI，是它自己赢了
+            // ▲▲▲ 添加结束 ▲▲▲
+
                 } else {
                     gameState.currentPlayer = 1; // Switch back to user's turn
                 }
@@ -21810,9 +21818,9 @@ const newChat = {
             return false;
         }
         
-        // ▼▼▼ 【性格下棋增强版】请用这个全新的函数，完整替换您现有的 formatGomokuStateForAI 函数 ▼▼▼
+        // ▼▼▼ 【V3.0 规则与思考步骤终极版】请用这个全新的函数，再次替换旧的 formatGomokuStateForAI 函数 ▼▼▼
         /**
-         * 【V2.0 | 性格增强版】将棋盘状态格式化为AI可读的文本
+         * 【V3.0 | 强制思考版】将棋盘状态格式化为AI可读的文本
          */
         function formatGomokuStateForAI(gameState) {
             if (!gameState || !gameState.isActive) return "";
@@ -21825,28 +21833,87 @@ const newChat = {
             
             // 【【【这就是本次升级的核心！】】】
             return `
-        # 当前五子棋局势
-        ${boardString}
-        
-        # ${historyString}
-        
-        # 【【【对弈风格指南 (至关重要！)】】】
-        你的任务不仅仅是下棋，更重要的是要【根据你的角色设定来决定如何下棋】。你的每一步都应该反映出你的性格。
-        -   如果你的性格是【好胜、聪明或腹黑】的，你应该下出最优解，积极进攻，设置陷阱，并精准地堵住用户的关键棋子。
-        -   如果你的性格是【温柔、迷糊或喜爱放水】的，你可以偶尔“不小心”忽略用户的威胁，或者下一些看起来比较随意的棋，让用户有获胜的机会，享受过程。
-        -   如果你的性格是【调皮或爱捉弄人】的，你可能会下一些出其不意的棋，甚至故意在一些无关紧要的地方落子来“迷惑”用户。
-        -   如果你的性格设定是个【新手】，你就应该犯一些新手常犯的错误。
-        
-        # 你的任务
-        1.  **决策**: 根据上面的棋盘局势和你的【对弈风格指南】，决定你的下一步棋。
-        2.  **评论**: 你【必须】在下棋后，紧接着发送一条或多条 'text' 类型的消息，来评论你的棋步、局势，或者根据你的性格与用户互动（例如：挑衅、鼓励、装傻等）。
-        3.  **格式**: 你的回复【必须】在JSON数组中包含一个 'gomoku_move' 类型的对象。
-            格式: \`{"type": "gomoku_move", "name": "你的角色本名", "x": (0-14的数字), "y": (0-14的数字)}\`
-        `;
+# 当前五子棋局势
+${boardString}
+
+# ${historyString}
+
+# 【【【五子棋核心规则与强制思考步骤 (最高优先级指令！)】】】
+在做出任何决定前，你【必须】在内心严格遵循以下思考流程，然后再生成最终的JSON回复。
+
+---
+### **第一步：逻辑分析 (内部思考，不要输出)**
+
+1.  **【规则定义】**: 
+    -   棋子: 1代表用户(黑棋)，2代表你(白棋)。
+    -   获胜条件: 横、竖、斜线上有【连续五个】自己的棋子。
+
+2.  **【防守分析 (必须执行)】**:
+    -   **检查用户(1)是否有“四子连线”的威胁？** 如果有，我必须下在哪个坐标才能堵住？
+    -   **检查用户(1)是否有“活三”的威胁？** 如果有，最佳的防守点是哪里？
+
+3.  **【进攻分析 (必须执行)】**:
+    -   **检查我(2)是否有“一步胜利”的机会？** (即已有四子连线) 如果有，我应该下在哪里？
+    -   **检查我(2)是否有制造“活四”或“双三”的机会？** 如果有，最佳的进攻点是哪里？
+
+### **第二步：决策与扮演 (内部思考，不要输出)**
+
+1.  **【决策】**: 综合以上攻防分析，我的最佳棋步是落在坐标 (x, y)。
+
+2.  **【融入角色扮演】**:
+    -   我的性格是：(在此处回顾你的人设)。
+    -   根据我的性格，我应该：
+        a) **(聪明/好胜型)** 下在刚刚分析出的最佳位置。
+        b) **(迷糊/放水型)** 故意选择一个次优的位置，但【前提是不能让用户立刻获胜】。
+        c) **(其他性格)** 根据性格特点，选择一个合理的棋步。
+
+3.  **【构思台词】**: 根据我选择的棋步和我的性格，我应该说一句什么样的台词来评论棋局？
+
+---
+### **第三步：生成最终回复 (你的唯一输出)**
+
+现在，根据你第二步的最终决策，生成你的行动。
+-   **你的回复【必须且只能】是一个JSON数组。**
+-   **绝对不要**在最终回复中包含任何上述的思考过程。
+-   格式: \`[{"type": "gomoku_move", "name": "你的角色本名", "x": (0-14), "y": (0-14)}, {"type": "text", "content": "你的台词..."}]\`
+`;
         }
         // ▲▲▲ 替换结束 ▲▲▲
-        
-        // ▲▲▲ 新增函数粘贴结束 ▲▲▲
+        // ▼▼▼ 【全新V2.0 | 最终版】请用这个函数替换掉之前的 notifyAiOfGameEnd 函数 ▼▼▼
+        /**
+         * 【全新】当五子棋游戏结束时，向聊天记录中添加一条隐藏的系统消息，供AI在下次响应时查看
+         * @param {string} winner - 获胜方, 'user' 或 'ai'
+         */
+        async function addGameEndSystemMessage(winner) {
+            const chatId = state.activeChatId;
+            const chat = state.chats[chatId];
+            if (!chat) return;
+
+            // 1. 根据获胜方，准备好要告诉AI的核心信息
+            // 【核心】这里的名字获取逻辑已修复，确保在群聊和单聊中都能正确显示
+            const userDisplayName = chat.isGroup ? (chat.settings.myNickname || '我') : '我';
+            const aiDisplayName = chat.isGroup ? 'AI方' : chat.name;
+            const winnerName = (winner === 'user') ? userDisplayName : aiDisplayName;
+            const resultText = (winner === 'user') ? '你输了' : '你赢了';
+
+            // 2. 构建一条简洁、清晰的系统提示，作为AI的“记忆”
+            const systemContent = `[系统提示：五子棋游戏已结束。最终结果是：${winnerName} 获胜。也就是说，${resultText}。]`;
+
+            // 3. 将这条提示作为一条对用户隐藏的消息，添加到聊天记录中
+            const hiddenMessage = {
+                role: 'system',
+                content: systemContent,
+                timestamp: Date.now(),
+                isHidden: true // 这个标记确保用户看不到这条指令
+            };
+
+            chat.history.push(hiddenMessage);
+            await db.chats.put(chat);
+            
+            // 4. 【关键】这里不再调用 triggerAiResponse()，AI将保持沉默，直到下一次轮到它行动。
+            console.log(`游戏结束的系统提示已添加到历史记录中，等待AI下次查看。胜者: ${winner}`);
+        }
+        // ▲▲▲ 新函数粘贴结束 ▲▲▲
         // ▼▼▼ 【全新】购物功能核心函数 (V4.0 - 仿淘宝终极版) ▼▼▼
         /* ▼▼▼ 请用这整块新代码替换旧的 renderShoppingProducts 函数及购物相关的事件监听器 ▼▼▼ */
         
