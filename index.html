@@ -21334,23 +21334,26 @@ ${transcriptText}
             if (effectiveCardData.mes_example) persona += `# 对话示例\n${effectiveCardData.mes_example}\n\n`;
         
             const newChatId = 'chat_' + Date.now();
-            const newChat = {
-                id: newChatId,
-                name: effectiveCardData.name.trim(),
-                originalName: effectiveCardData.name.trim(),
-                isGroup: false,
-                relationship: { status: 'friend' },
-                status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
-                settings: {
-                    aiPersona: persona.trim(),
-                    myPersona: '我是谁呀。', maxMemory: 10,
-                    aiAvatar: avatarBase64 || defaultAvatar, myAvatar: defaultAvatar,
-                    background: '', theme: 'default', fontSize: 13, customCss: '',
-                    linkedWorldBookIds: worldBookIdToLink ? [worldBookIdToLink] : [],
-                    aiAvatarLibrary: [], alternateGreetings: effectiveCardData.alternate_greetings || []
-                },
-                history: [], musicData: { totalTime: 0 }
-            };
+// ...
+const newChat = {
+    id: newChatId,
+    name: remarkName.trim(),
+    originalName: originalName.trim(),
+    isGroup: false,
+    relationship: { status: 'friend' },
+    status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
+    settings: {
+        aiPersona: '这是一个通过手动创建的角色。', myPersona: '我是谁呀。', maxMemory: 10,
+        aiAvatar: defaultAvatar, myAvatar: defaultAvatar, background: '',
+        theme: 'default', fontSize: 13, customCss: '',
+        linkedWorldBookIds: [], aiAvatarLibrary: []
+    },
+    history: [], 
+    musicData: { totalTime: 0 },
+    longTermMemory: [] // <--- 在这里添加这一行
+
+};
+// ...
             if (avatarBase64) {
                 newChat.settings.aiAvatarLibrary.push({ name: '默认头像', url: avatarBase64 });
             }
@@ -23145,7 +23148,8 @@ ${recentHistorySummary}
                         theme: 'default', fontSize: 13, customCss: '',
                         linkedWorldBookIds: [], aiAvatarLibrary: []
                     },
-                    history: [], musicData: { totalTime: 0 }
+                    history: [], musicData: { totalTime: 0 },
+    longTermMemory: [] // <--- 在这里添加这一行
                 };
                 state.chats[newChatId] = newChat;
                 await db.chats.put(newChat);
@@ -26648,6 +26652,7 @@ if (placeholder) {
     <!-- ▲▲▲ 新HTML粘贴结束 ▲▲▲ -->
 </body>
 </html>
+
 
 
 
