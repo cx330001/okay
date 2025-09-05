@@ -13306,41 +13306,21 @@ if (lastUserMessage &&
                             }
                             continue; 
                         }
-                        case 'gomoku_move':
-                            if (typeof msgData.x === 'number' && typeof msgData.y === 'number') {
-                                handleAiGomokuMove({ x: msgData.x, y: msgData.y });
-                            }
-                            continue; 
-                        case 'qzone_delete_post': {
-                            const postIdToDelete = parseInt(msgData.postId);
-                            const postToDelete = await db.qzonePosts.get(postIdToDelete);
-                            if (postToDelete && postToDelete.authorId === chatId) {
-                                await db.qzonePosts.update(postIdToDelete, { isDeleted: true });
-                                
-                                if (document.getElementById('qzone-screen').classList.contains('active')) {
-                                    renderQzonePosts();
-                                }
-                                const systemMessage = {
-                                    role: 'system',
-                                    type: 'post_deleted_notice',
-                                    content: `[${chat.name} 删除了自己的一条动态]`,
-                                    postId: postIdToDelete,
-                                    timestamp: messageTimestamp++
-                                };
-                                chat.history.push(systemMessage);
-                                
-                                if (isViewingThisChat) {
-                                    appendMessage(systemMessage, chat);
-                                } else {
-                                    chat.unreadCount = (chat.unreadCount || 0) + 1;
-                                    showNotification(chatId, `[${chat.name} 删除了自己的一条动态]`);
-                                    notificationShown = true;
-                                }
-                            } else {
-                                console.warn(`AI "${chat.name}" 尝试删除一个不存在或不属于自己的动态 (ID: ${msgData.postId})`);
-                            }
-                            continue;
-                        }
+// ▼▼▼ 请用这整块代码替换旧的 case 'gomoku_move' ▼▼▼
+case 'gomoku_move': { // 使用花括号创建块级作用域
+    // 核心修复：使用 parseInt 将收到的坐标强制转换为数字
+    const x = parseInt(msgData.x);
+    const y = parseInt(msgData.y);
+
+    // 核心修复：检查转换后的结果是否是一个有效的数字 (Not-a-Number)
+    if (!isNaN(x) && !isNaN(y)) {
+        handleAiGomokuMove({ x: x, y: y });
+    } else {
+        console.warn("AI的五子棋移动指令包含无效坐标，已忽略:", msgData);
+    }
+    continue; // 保持 continue，因为这只是一个动作，不是聊天消息
+}
+// ▲▲▲ 替换结束 ▲▲▲
                         case 'waimai_response':
                             const requestMessageIndex = chat.history.findIndex(m => m.timestamp === msgData.for_timestamp);
                             if (requestMessageIndex > -1) {
