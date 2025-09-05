@@ -20267,6 +20267,51 @@ ${transcriptText}
                             dialogue: msgData.dialogue, description: msgData.description
                         };
                         break;
+                    // ▼▼▼ 在这里粘贴新代码 ▼▼▼
+                    case 'gomoku_move': {
+                        const gameState = gomokuState[chat.id];
+                        if (gameState) {
+                            // 1. 找到AI的上一步棋
+                            const lastAiMoveIndex = gameState.history.findLastIndex(move => move.player === 2);
+                            
+                            if (lastAiMoveIndex > -1) {
+                                const move_to_undo = gameState.history[lastAiMoveIndex];
+                                
+                                // 2. 从棋盘数据中“拿掉”这颗棋子
+                                gameState.board[move_to_undo.y][move_to_undo.x] = 0;
+                                
+                                // 3. 从下棋历史中移除这一步
+                                gameState.history.splice(lastAiMoveIndex, 1);
+                                
+                                console.log(`导演模式悔棋：已撤销AI在 (${move_to_undo.x}, ${move_to_undo.y}) 的棋步。`);
+                            }
+                        }
+
+                        // 4. 执行新的下棋指令
+                        const x = parseInt(msgData.x);
+                        const y = parseInt(msgData.y);
+                        if (!isNaN(x) && !isNaN(y)) {
+                            handleAiGomokuMove({ x: x, y: y }, true);
+                        } else {
+                            console.warn("导演模式保存了一个无效的五子棋移动指令:", msgData);
+                        }
+                        continue;
+                    }
+                    case 'update_thoughts': { 
+                        if (!chat.isGroup) {
+                            if (msgData.heartfelt_voice) chat.heartfeltVoice = String(msgData.heartfelt_voice);
+                            if (msgData.random_jottings) chat.randomJottings = String(msgData.random_jottings);
+                            if (!Array.isArray(chat.thoughtsHistory)) chat.thoughtsHistory = [];
+                            chat.thoughtsHistory.push({
+                                heartfeltVoice: chat.heartfeltVoice,
+                                randomJottings: chat.randomJottings,
+                                timestamp: Date.now()
+                            });
+                            if (chat.thoughtsHistory.length > 50) chat.thoughtsHistory.shift();
+                        }
+                        continue;
+                    }
+                    // ▲▲▲ 新代码粘贴结束 ▲▲▲
                     default:
                          console.warn("在导演模式保存时，遇到了未知的AI指令类型:", msgData.type);
                          break;
@@ -20274,7 +20319,7 @@ ${transcriptText}
         
                 if (aiMessage) {
                     chat.history.push(aiMessage);
-                    newTimestamps.push(aiMessage.timestamp); // 记录新消息的时间戳
+                    newTimestamps.push(aiMessage.timestamp);
                 }
             }
         
@@ -20284,14 +20329,12 @@ ${transcriptText}
             renderChatList();
             document.getElementById('ai-response-editor-modal').classList.remove('visible');
             
-            // 6. 【【【这就是最关键的修复！】】】
-            // 我们不再清空变量，而是用您刚刚编辑好的内容来更新它们！
-            // 这样，您下一次点击“导演剪辑室”，加载的就是您最新修改的版本了。
-            lastRawAiResponse = editedRawBlocks.join('\n\n'); // 将所有编辑框的内容合并，作为新的“原始响应”
-            lastResponseTimestamps = newTimestamps; // 更新时间戳记录
+            // 6. 更新缓存，以便下次编辑
+            lastRawAiResponse = editedRawBlocks.join('\n\n');
+            lastResponseTimestamps = newTimestamps;
             
-            // 7. (可选但推荐) 给用户一个更清晰的提示
-            await showCustomAlert("导演模式", "您的修改已保存！\n\n现在，您可以继续编辑这一版，或者点击“等待回复”让AI继续。");
+            // 7. 给出成功提示
+            await showCustomAlert("导演模式", "您的修改已保存！");
         }
         /**
          * 【全新】处理用户点击“撤回”按钮的入口函数
@@ -21734,33 +21777,35 @@ const newChat = {
         }
         
         /**
-         * AI下棋的处理器
+         * 【V2.0 | 修复导演模式】AI下棋的处理器
+         * @param {object} move - 包含x,y坐标的对象
+         * @param {boolean} isForcedMove - 是否为导演模式下的强制移动
          */
-        function handleAiGomokuMove(move) {
+        function handleAiGomokuMove(move, isForcedMove = false) {
             const chatId = state.activeChatId;
             const gameState = gomokuState[chatId];
-            if (!gameState || gameState.isGameOver || gameState.currentPlayer !== 2) return;
-        
+            
+            // 核心修复1：如果是强制移动，就跳过玩家回合的检查
+            if (!gameState || gameState.isGameOver) return;
+            if (!isForcedMove && gameState.currentPlayer !== 2) return;
+
             const { x, y } = move;
         
             if (x >= 0 && x < gameState.GRID_SIZE && y >= 0 && y < gameState.GRID_SIZE && gameState.board[y][x] === 0) {
-                gameState.board[y][x] = 2;
+                gameState.board[y][x] = 2; // AI是白棋(2)
                 gameState.history.push({ x, y, player: 2 });
-                renderGomokuBoard(chatId);
+                renderGomokuBoard(chatId); // 重新绘制棋盘
         
                 if (checkWin(x, y, 2, gameState)) {
                     gameState.isGameOver = true;
                     setTimeout(() => alert("AI 获胜了！"), 100);
-            // ▼▼▼ 在这里添加新代码 ▼▼▼
-           addGameEndSystemMessage('ai'); // 通知AI，是它自己赢了
-            // ▲▲▲ 添加结束 ▲▲▲
-
+                    addGameEndSystemMessage('ai');
                 } else {
-                    gameState.currentPlayer = 1; // Switch back to user's turn
+                    gameState.currentPlayer = 1; // 轮到用户下棋
                 }
             } else {
-                console.warn("AI's move is invalid:", move);
-                // If AI makes an invalid move, just give the turn back to the user.
+                console.warn("AI 的下棋指令无效或位置已被占据:", move);
+                // 如果AI的移动无效，将回合交还给用户，避免游戏卡死
                 gameState.currentPlayer = 1;
             }
         }
@@ -21798,30 +21843,32 @@ const newChat = {
             return false;
         }
         
-        // ▼▼▼ 【V3.0 规则与思考步骤终极版】请用这个全新的函数，再次替换旧的 formatGomokuStateForAI 函数 ▼▼▼
-        /**
-         * 【V3.0 | 强制思考版】将棋盘状态格式化为AI可读的文本
-         */
-        function formatGomokuStateForAI(gameState) {
-            if (!gameState || !gameState.isActive) return "";
-            
-            let boardString = "棋盘状态 (1是你(黑棋), 2是AI(白棋)):\n";
-            boardString += gameState.board.map(row => row.join(' ')).join('\n');
-            
-            let historyString = "下棋历史 (x,y坐标均从0开始):\n";
-            historyString += gameState.history.map(move => `玩家${move.player}下在(${move.x},${move.y})`).join(' -> ');
-            
-            // 【【【这就是本次升级的核心！】】】
-            return `
+// ▼▼▼ 【V3.0 | 规则与思考步骤终极版】请用这个全新的函数，再次替换旧的 formatGomokuStateForAI 函数 ▼▼▼
+/**
+ * 【V3.0 | 强制思考版】将棋盘状态格式化为AI可读的文本
+ */
+function formatGomokuStateForAI(gameState) {
+    if (!gameState || !gameState.isActive) return "";
+    
+    let boardString = "棋盘状态 (1是你(黑棋), 2是AI(白棋)):\n";
+    boardString += gameState.board.map(row => row.join(' ')).join('\n');
+    
+    let historyString = "下棋历史 (x,y坐标均从0开始):\n";
+    historyString += gameState.history.map(move => `玩家${move.player}下在(${move.x},${move.y})`).join(' -> ');
+    
+    // 【【【这就是本次升级的核心！】】】
+    return `
 # 当前五子棋局势
 ${boardString}
 
 # ${historyString}
 
 # 【【【五子棋核心规则与强制思考步骤 (最高优先级指令！)】】】
-在做出任何决定前，你【必须】在内心严格遵循以下思考流程，然后再生成最终的JSON回复。
 
+### **【【【落子铁律 (绝对禁止！)】】】**
+你【绝对不能】选择一个棋盘上已经是 1 或 2 的坐标。你的落子点【必须】是 0。
 ---
+
 ### **第一步：逻辑分析 (内部思考，不要输出)**
 
 1.  **【规则定义】**: 
@@ -21853,12 +21900,12 @@ ${boardString}
 ### **第三步：生成最终回复 (你的唯一输出)**
 
 现在，根据你第二步的最终决策，生成你的行动。
--   **你的回复【必须且只能】是一个JSON数组。**
+-   你的回复【必须且只能】是一个JSON数组。
 -   **绝对不要**在最终回复中包含任何上述的思考过程。
 -   格式: \`[{"type": "gomoku_move", "name": "你的角色本名", "x": (0-14), "y": (0-14)}, {"type": "text", "content": "你的台词..."}]\`
 `;
-        }
-        // ▲▲▲ 替换结束 ▲▲▲
+}
+// ▲▲▲ 替换结束 ▲▲▲
         // ▼▼▼ 【全新V2.0 | 最终版】请用这个函数替换掉之前的 notifyAiOfGameEnd 函数 ▼▼▼
         /**
          * 【全新】当五子棋游戏结束时，向聊天记录中添加一条隐藏的系统消息，供AI在下次响应时查看
