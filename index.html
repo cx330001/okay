@@ -21366,9 +21366,8 @@ ${transcriptText}
             return null; // 如果所有路径都找不到，返回 null
         }
         
-        // ▼▼▼ 【请用这个 V6.0 版本】完整替换旧的 createChatFromCardData 函数 ▼▼▼
         /**
-         * 【V6.0 | 保存结构化世界书】根据从角色卡解析的数据，创建并保存一个新的聊天对象
+         * 【V6.0 | 已修复导入BUG】根据从角色卡解析的数据，创建并保存一个新的聊天对象
          * @param {object} cardData - 从.json或.png中解析出的角色数据
          * @param {string|null} avatarBase64 - 如果是.png卡，则传入其Base64数据作为头像
          */
@@ -21382,8 +21381,6 @@ ${transcriptText}
             const worldBookEntries = findWorldBookEntries(cardData);
         
             if (worldBookEntries) {
-                // 【【【核心修改：不再合并为字符串！】】】
-                // 我们直接筛选出有效的条目，并清理它们的内容
                 const structuredEntries = worldBookEntries
                     .filter(entry => entry.enabled && entry.content)
                     .map(entry => ({
@@ -21396,7 +21393,6 @@ ${transcriptText}
                     const newWorldBook = {
                         id: 'wb_' + Date.now(),
                         name: `${effectiveCardData.name}的设定集`,
-                        // 【核心】直接将这个条目数组存入 content 字段
                         content: structuredEntries,
                         categoryId: null
                     };
@@ -21406,7 +21402,6 @@ ${transcriptText}
                 }
             }
         
-            // --- 后续的 Persona 构建、聊天创建等逻辑保持不变 ---
             let description = effectiveCardData.description || cardData.description || '无';
             description = description
                 .replace(/```yaml/g, '').replace(/```/g, '')
@@ -21416,31 +21411,43 @@ ${transcriptText}
             if (effectiveCardData.personality) persona += `# 性格补充\n${effectiveCardData.personality}\n\n`;
             if (effectiveCardData.scenario) persona += `# 场景设定\n${effectiveCardData.scenario}\n\n`;
             if (effectiveCardData.mes_example) persona += `# 对话示例\n${effectiveCardData.mes_example}\n\n`;
-        
-            const newChatId = 'chat_' + Date.now();
-// ...
-const newChat = {
-    id: newChatId,
-    name: remarkName.trim(),
-    originalName: originalName.trim(),
-    isGroup: false,
-    relationship: { status: 'friend' },
-    status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
-    settings: {
-        aiPersona: '这是一个通过手动创建的角色。', myPersona: '我是谁呀。', maxMemory: 10,
-        aiAvatar: defaultAvatar, myAvatar: defaultAvatar, background: '',
-        theme: 'default', fontSize: 13, customCss: '',
-        linkedWorldBookIds: [], aiAvatarLibrary: []
-    },
-    history: [], 
-    musicData: { totalTime: 0 },
-    longTermMemory: [] // <--- 在这里添加这一行
 
-};
-// ...
+            // ▼▼▼ 【核心修复】在这里定义 remarkName 和 originalName ▼▼▼
+            const remarkName = effectiveCardData.name;
+            const originalName = effectiveCardData.name;
+            // ▲▲▲ 修复结束 ▲▲▲
+
+            const newChatId = 'chat_' + Date.now();
+            const newChat = {
+                id: newChatId,
+                name: remarkName.trim(),
+                originalName: originalName.trim(),
+                isGroup: false,
+                relationship: { status: 'friend' },
+                status: { text: '在线', lastUpdate: Date.now(), isBusy: false },
+                settings: {
+                    aiPersona: persona,
+                    myPersona: '我是谁呀。',
+                    maxMemory: 10,
+                    aiAvatar: defaultAvatar,
+                    myAvatar: defaultAvatar,
+                    background: '',
+                    theme: 'default',
+                    fontSize: 13,
+                    customCss: '',
+                    linkedWorldBookIds: worldBookIdToLink ? [worldBookIdToLink] : [],
+                    aiAvatarLibrary: []
+                },
+                history: [],
+                musicData: { totalTime: 0 },
+                longTermMemory: []
+            };
+
             if (avatarBase64) {
+                newChat.settings.aiAvatar = avatarBase64;
                 newChat.settings.aiAvatarLibrary.push({ name: '默认头像', url: avatarBase64 });
             }
+
             const greetingHtml = effectiveCardData.first_mes || cardData.first_mes;
             if (greetingHtml && typeof greetingHtml === 'string') {
                 const tempDiv = document.createElement('div');
@@ -21448,8 +21455,10 @@ const newChat = {
                 const cleanGreeting = (tempDiv.textContent || tempDiv.innerText || "").replace(/原作者UR.*?开局/s, '').trim();
                 if (cleanGreeting) {
                     newChat.history.push({
-                        role: 'assistant', senderName: newChat.originalName,
-                        content: cleanGreeting, timestamp: Date.now()
+                        role: 'assistant',
+                        senderName: newChat.originalName,
+                        content: cleanGreeting,
+                        timestamp: Date.now()
                     });
                 }
             }
