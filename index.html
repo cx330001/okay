@@ -15615,7 +15615,8 @@ if (qzoneActionTaken) {
                             aiMessage = {
                                 ...baseMessage,
                                 type: 'ai_image',
-                                content: action.description 
+                                content: action.description, 
+image_prompt: msgData.image_prompt // <-- 【核心修复】在这里补上缺失的关键字段
                             };
                             break;
                         default:
