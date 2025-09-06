@@ -6128,6 +6128,26 @@
     box-shadow: none !important; /* 强制移除阴影 */
 }
 /* ▲▲▲ 新增CSS结束 ▲▲▲ */
+/* ▼▼▼ 【全新】防止长按时触发蓝色文本选中 ▼▼▼ */
+
+#phone-screen {
+    /* 核心属性，适用于大多数现代浏览器 */
+    user-select: none;
+
+    /* 兼容旧版 Safari, iOS Safari, Chrome */
+    -webkit-user-select: none;
+
+    /* 兼容旧版 Firefox */
+    -moz-user-select: none;
+
+    /* 兼容 Internet Explorer/Edge */
+    -ms-user-select: none;
+
+    /* 防止在 iOS 上长按链接、图片时弹出菜单 */
+    -webkit-touch-callout: none;
+}
+
+/* ▲▲▲ 新增CSS结束 ▲▲▲ */
     </style>
 </head>
 <body>
